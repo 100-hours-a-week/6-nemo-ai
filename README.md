@@ -1,1 +1,1 @@
-# 6-eureka-ai
+# 6-ne:mo-ai
