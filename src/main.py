@@ -1,15 +1,15 @@
 from fastapi import FastAPI
 from src.router.v1 import chroma_routes
 from core.vector_db_settings_v1 import client
-import nest_asyncio
 from src.config import *
-from pyngrok import ngrok
-import uvicorn
 app = FastAPI()
 app.include_router(chroma_routes.router)
 
 
 if __name__ == "__main__":
+    import nest_asyncio
+    from pyngrok import ngrok
+    import uvicorn
     # ✅ ngrok 초기화
     ngrok.kill()
     nest_asyncio.apply()
