@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from src.router.v1 import chroma_routes
 from core.vector_db_settings_v1 import client
 import nest_asyncio
-from config import *
+from src.config import *
 from pyngrok import ngrok
 import uvicorn
 app = FastAPI()

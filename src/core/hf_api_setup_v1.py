@@ -1,4 +1,4 @@
-from config import HF_TOKEN
+from src.config import HF_TOKEN
 import requests
 
 API_URL = "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-large-zh-v1.5"
@@ -9,8 +9,8 @@ headers = {
 def query(payload):
     response = requests.post(API_URL, headers=headers, json=payload)
 
-    print(f"📡 HF 응답 상태코드: {response.status_code}")
-    print(f"📡 응답 내용 일부: {response.text[:100]}")
+    # print(f"📡 HF 응답 상태코드: {response.status_code}")
+    # print(f"📡 응답 내용 일부: {response.text[:100]}")
 
     if not response.text.strip():
         raise Exception("❌ Hugging Face API 응답이 비어 있음 (빈 문자열)")
