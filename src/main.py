@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from src.router.v1 import chroma_routes
-from core.vector_db_settings_v1 import client
+from services.vector_db_settings_v1 import client
 from src.config import *
 app = FastAPI()
 app.include_router(chroma_routes.router)

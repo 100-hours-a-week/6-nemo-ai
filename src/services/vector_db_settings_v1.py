@@ -1,7 +1,7 @@
 import chromadb
 # from chromadb.api.types import Documents, Embeddings
 # from chromadb.utils.embedding_functions import EmbeddingFunction
-from src.core.hf_api_setup_v1 import embed
+from src.services.hf_api_setup_v1 import embed
 import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 persist_dir = os.path.join(project_root, "data/chroma")

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.core.vector_db_settings_v1 import add_to_chroma, search_chroma
+from src.services.vector_db_settings_v1 import add_to_chroma, search_chroma
 from pydantic import BaseModel
 router = APIRouter()
 class Document(BaseModel):
