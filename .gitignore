@@ -8,3 +8,4 @@ __pycache__/
 
 # 환경파일
 .env
+.venv

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from models.group import GroupGenerationRequest, GroupGenerationResponse
-from services.group_writer import generate_group_info
+from src.models.group import GroupGenerationRequest, GroupGenerationResponse
+from src.services.group_writer import generate_group_info
 
 router = APIRouter()
 

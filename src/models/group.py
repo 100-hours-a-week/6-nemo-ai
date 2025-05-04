@@ -1,14 +1,16 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
+# 요청 모델: 사용자가 보내는 모임 정보
 class GroupGenerationRequest(BaseModel):
-    group_name: str
-    purpose: str
+    name: str
+    goal: str
     category: str
-    duration: str
-    curriculum_required: bool
+    period: str
+    isPlanCreated: bool
 
+# 응답 모델: AI가 생성한 결과
 class GroupGenerationResponse(BaseModel):
-    one_line_intro: str
-    detailed_intro: str
-    curriculum: Optional[List[str]] = None
+    summary: str
+    description: str
+    plan: Optional[List[str]] = None
