@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from src.config import *
+from router.v1 import tag
 app = FastAPI()
-# app.include_router(X.router)
+app.include_router(tag.router)
 
 
 if __name__ == "__main__":
