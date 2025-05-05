@@ -5,8 +5,11 @@ env_path = find_dotenv()
 load_dotenv(dotenv_path=env_path)
 HF_TOKEN = os.getenv("HF_TOKEN")
 NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN")
+GEMINI_KEY = os.getenv("GEMINI_KEY")
 
 if not HF_TOKEN:
     raise ValueError("No HuggingFace key found. Set it in the .env file.")
 if not NGROK_AUTH_TOKEN:
     raise ValueError("No Ngrok Auth Token found. Set it in the .env file.")
+if not GEMINI_KEY:
+    raise ValueError("No Gemini Key found. Set it in the .env file.")

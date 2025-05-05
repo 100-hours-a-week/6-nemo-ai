@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from src.router.v1 import chroma_routes
 from services.vector_db_settings_v1 import client
+from router.v1 import tag
 from src.config import *
 app = FastAPI()
 app.include_router(chroma_routes.router)
+app.include_router(tag.router)
 
 
 if __name__ == "__main__":
@@ -23,5 +25,3 @@ if __name__ == "__main__":
 
     # ✅ FastAPI 실행
     uvicorn.run(app, host="0.0.0.0", port=port)
-
-    client.get()
