@@ -1,10 +1,8 @@
 from fastapi import APIRouter
 from src.services.vector_db_settings_v1 import add_to_chroma, search_chroma, collection
-from pydantic import BaseModel
+from src.models.chroma_db import Document
 router = APIRouter()
-class Document(BaseModel):
-    id: str
-    text: str
+
 @router.get("/")
 def root():
     return {"message": "Hello World: Currently setting up Chroma!"}
