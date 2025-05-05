@@ -1,11 +1,29 @@
 # Python
 __pycache__/
-*.pyc
+
+*.py[cod]
+*.egg-info/
+*.pyo
+*.pyd
+
+# Environments
+.env
+.venv/
+venv/
 
 # IDE
 .idea/
+.vscode/
 *.iml
 
-# 환경파일
-.env
-.venv
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Chroma
+data/chroma/
+
+# logs
+*.log
