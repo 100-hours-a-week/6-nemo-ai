@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.services.vector_db_settings_v1 import add_to_chroma, search_chroma
+from src.services.vector_db_settings_v1 import add_to_chroma, search_chroma, collection
 from pydantic import BaseModel
 router = APIRouter()
 class Document(BaseModel):
@@ -20,3 +20,15 @@ def add_batch(docs: list[Document]):
 @router.get("/search/")
 def search_document(query: str):
     return search_chroma(query)
+
+@router.post("/debug/show-db")
+def show_all_documents():
+    result = collection.get(include=["documents", "metadatas"])
+
+    docs = []
+    for doc_id, doc_text in zip(result["ids"], result["documents"]):
+        docs.append({
+            "id": doc_id,
+            "text": doc_text
+        })
+    return {"total": len(docs), "documents": docs}
