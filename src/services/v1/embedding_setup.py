@@ -11,7 +11,7 @@ headers = {
 
 fallback_vector = [[0.0] * 384]  # 임베딩 차원 수에 따라 조절
 
-def query(payload, max_retries=3, backoff_factor=2):
+def query(payload, max_retries=8, backoff_factor=2):
     for attempt in range(max_retries):
         try:
             response = requests.post(HF_API_URL, headers=headers, json=payload)
