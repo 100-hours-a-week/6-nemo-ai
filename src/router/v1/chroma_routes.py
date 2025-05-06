@@ -5,7 +5,7 @@ router = APIRouter()
 
 @router.get("/")
 def root():
-    return {"message": "Hello World: Currently setting up Chroma!"}
+    return {"message": "Hello World: Currently setting up"}
 @router.post("/add/")
 def add_document(doc: Document):
     add_to_chroma(doc.id, doc.text)
@@ -22,7 +22,6 @@ def search_document(query: str):
 @router.post("/debug/show-db")
 def show_all_documents():
     result = collection.get(include=["documents", "metadatas"])
-
     docs = []
     for doc_id, doc_text in zip(result["ids"], result["documents"]):
         docs.append({

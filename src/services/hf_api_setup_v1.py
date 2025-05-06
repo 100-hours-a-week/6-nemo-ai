@@ -1,14 +1,14 @@
-from src.config import HF_TOKEN
+from src.config import HF_TOKEN, HF_API_URL
 import requests
-
-API_URL = "https://router.huggingface.co/hf-inference/pipeline/feature-extraction/BAAI/bge-large-zh-v1.5"
+#API URL Changes since it's also a work in progress for Hugging Face as well
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}",
 }
 
 def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
+    response = requests.post(HF_API_URL, headers=headers, json=payload)
 
+    # For Debugging
     # print(f"📡 HF 응답 상태코드: {response.status_code}")
     # print(f"📡 응답 내용 일부: {response.text[:100]}")
 
@@ -21,8 +21,13 @@ def query(payload):
         raise Exception(f"❌ JSON 파싱 실패: {response.text}") from e
 
 
+def embed(texts: list[str] | str) -> list[list[float]]:
+    # 문자열 단일 입력 시 리스트로 변환
+    if isinstance(texts, str):
+        texts = [texts]
+    elif not isinstance(texts, list):
+        raise ValueError("embed 함수는 문자열 또는 문자열 리스트만 지원합니다.")
 
-def embed(texts: list[str]) -> list[list[float]]:
     response = query({"inputs": texts})
 
     if not response:
@@ -30,10 +35,14 @@ def embed(texts: list[str]) -> list[list[float]]:
     if isinstance(response, dict) and "error" in response:
         raise Exception(f"❌ HF API Error: {response['error']}")
 
-    if not isinstance(response, list) or not isinstance(response[0], list):
+    # Hugging Face API는 단일 문장일 경우 1D vector 반환 가능
+    if isinstance(response[0], float):  # 단일 벡터 (1D)일 경우
+        return [response]  # 2D로 감싸서 일관된 형태로 반환
+    elif isinstance(response, list) and isinstance(response[0], list):
+        return response
+    else:
         raise Exception(f"❌ Unexpected embedding format: {response}")
 
-    return response
 
 
 if __name__ == "__main__":

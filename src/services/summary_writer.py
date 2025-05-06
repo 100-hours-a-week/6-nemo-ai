@@ -5,18 +5,18 @@ from typing import Tuple, List
 
 async def generate_summary(data: GroupGenerationRequest) -> Tuple[str, str]:
     prompt = f"""
-당신은 모임을 소개하는 AI 비서입니다.
-다음 모임 정보를 바탕으로 아래 항목을 생성해주세요:
-
-1. 한 줄 소개 (64자 이내)
-2. 상세 설명 (500자 이내)
-
-입력 정보:
-- 모임명: {data.name}
-- 목적: {data.goal}
-- 카테고리: {data.category}
-- 기간: {data.period}
-"""
+    당신은 모임을 소개하는 AI 비서입니다.
+    다음 모임 정보를 바탕으로 아래 항목을 생성해주세요:
+    
+    1. 한 줄 소개 (64자 이내)
+    2. 상세 설명 (500자 이내)
+    
+    입력 정보:
+    - 모임명: {data.name}
+    - 목적: {data.goal}
+    - 카테고리: {data.category}
+    - 기간: {data.period}
+    """
 
     headers = {"Content-Type": "application/json"}
     params = {"key": GEMINI_API_KEY}

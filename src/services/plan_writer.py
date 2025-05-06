@@ -5,30 +5,30 @@ from typing import List, Dict
 
 async def generate_plan(data: GroupGenerationRequest) -> List[Dict[str, str]]:
     prompt = f"""
-당신은 모임을 소개하는 AI 비서입니다.
-다음 모임 정보를 바탕으로 스텝별 커리큘럼을 구성해주세요.
-
-각 스텝은 다음과 같은 형식을 따라야 합니다:
-- Step 번호
-- 제목 (title)
-- 세부 내용 (detail)
-
-출력 예시는 다음과 같습니다:
-
-- Step: 1
-- title: OT 및 목표 설정
-- detail: 참가자 소개 및 모임 목표 공유, 전체 일정 안내
-
-- Step: 2
-- title: 기본 개념 학습
-- detail: 주제에 맞는 핵심 개념 학습
-
-입력 정보:
-- 모임명: {data.name}
-- 목적: {data.goal}
-- 카테고리: {data.category}
-- 기간: {data.period}
-"""
+    당신은 모임을 소개하는 AI 비서입니다.
+    다음 모임 정보를 바탕으로 스텝별 커리큘럼을 구성해주세요.
+    
+    각 스텝은 다음과 같은 형식을 따라야 합니다:
+    - Step 번호
+    - 제목 (title)
+    - 세부 내용 (detail)
+    
+    출력 예시는 다음과 같습니다:
+    
+    - Step: 1
+    - title: OT 및 목표 설정
+    - detail: 참가자 소개 및 모임 목표 공유, 전체 일정 안내
+    
+    - Step: 2
+    - title: 기본 개념 학습
+    - detail: 주제에 맞는 핵심 개념 학습
+    
+    입력 정보:
+    - 모임명: {data.name}
+    - 목적: {data.goal}
+    - 카테고리: {data.category}
+    - 기간: {data.period}
+    """
 
     headers = {"Content-Type": "application/json"}
     params = {"key": GEMINI_API_KEY}

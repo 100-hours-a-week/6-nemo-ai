@@ -1,7 +1,5 @@
 from fastapi import FastAPI
-from src.router.v1 import chroma_routes
-from services.vector_db_settings_v1 import client
-from router.v1 import tag, groups
+from router.v1 import tag, groups, chroma_routes
 from src.config import *
 app = FastAPI()
 app.include_router(chroma_routes.router)
