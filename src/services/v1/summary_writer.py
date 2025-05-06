@@ -17,6 +17,7 @@ async def generate_summary(data: GroupGenerationRequest) -> Tuple[str, str]:
     - 상세 설명:\\n
 
     각 항목의 줄 끝에는 반드시 '\\n'을 포함해주세요. 이 출력은 프론트엔드에 직접 전달되며 줄바꿈 처리를 위해 필요합니다.
+    출력에는 절대 이모지(emoji)를 포함하지 마세요.
 
     입력 정보:
     - 모임명: {data.name}

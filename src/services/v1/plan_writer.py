@@ -9,6 +9,7 @@ async def generate_plan(data: GroupGenerationRequest) -> List[Dict[str, str]]:
     아래 모임 정보를 바탕으로, 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성해주세요.
 
     조건:
+    - 출력에는 절대 이모지(emoji)를 포함하지 마세요.
     - 커리큘럼은 반드시 '모임의 목적'을 기반으로 작성하세요.
     - 전체 기간({data.period}) 동안 실행 가능한 단계 수로 제한해주세요.
     - 일반적으로 1~{data.period} 기간에 따라 1~8단계 이내가 적절합니다. (너무 세부적이지 않게)
