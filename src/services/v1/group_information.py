@@ -20,10 +20,16 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
     tags = pick_best_by_vector_similarity(extracted, base_text=description, embed_fn=embed)
 
     # 3. 계획 생성
-    plan = await generate_plan(group_data) if input.isPlanCreated else "계획은 추후 구성 예정입니다."
-
-    # 4. MeetingData 생성
-    return MeetingData(
+    plan = await generate_plan(group_data) if input.isPlanCreated else None
+    if plan is None:
+        return MeetingData(
+            name=input.name,
+            summary=summary,  # 요약 (요약된 1~2문장)
+            description=description,  # 상세 설명 (풍부한 정보)
+            tags=tags,
+        )
+    else:
+        return MeetingData(
         name=input.name,
         summary=summary,         # 요약 (요약된 1~2문장)
         description=description, # 상세 설명 (풍부한 정보)

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Any
+from typing import List, Any, Optional
 
 # 사용자 요청 스키마
 class MeetingInput(BaseModel):
@@ -15,7 +15,12 @@ class MeetingData(BaseModel):
     summary: str
     description: str
     tags: List[str]
-    plan: Any  # List[str], List[Dict], or str depending on context
+    plan: Optional[str] = None
+
+    model_config = {
+        "exclude_none": True
+    }
+
 
 # 공통 응답 래퍼
 class APIResponse(BaseModel):
