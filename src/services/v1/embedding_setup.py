@@ -1,25 +1,35 @@
 from src.config import HF_TOKEN, HF_API_URL
 import requests
-#API URL Changes since it's also a work in progress for Hugging Face as well
+import time
+import logging
+#NOTE: API URL Changes since it's also a work in progress for Hugging Face as well (503 call happens often)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 headers = {
     "Authorization": f"Bearer {HF_TOKEN}",
 }
 
-def query(payload):
-    response = requests.post(HF_API_URL, headers=headers, json=payload)
+fallback_vector = [[0.0] * 384]  # 임베딩 차원 수에 따라 조절
 
-    # For Debugging
-    # print(f"📡 HF 응답 상태코드: {response.status_code}")
-    # print(f"📡 응답 내용 일부: {response.text[:100]}")
+def query(payload, max_retries=3, backoff_factor=2):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(HF_API_URL, headers=headers, json=payload)
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 503:
+                wait = backoff_factor ** attempt
+                logger.warning(f"⚠️ 503 Service Unavailable - Retrying in {wait} seconds ({attempt + 1}/{max_retries})")
+                time.sleep(wait)
+            else:
+                logger.error(f"❌ 요청 실패: {response.status_code} - {response.text}")
+                break  # 4xx나 다른 오류면 재시도하지 않음
+        except Exception as e:
+            logger.exception("❌ 예외 발생 중 요청 실패")
+            break
 
-    if not response.text.strip():
-        raise Exception("❌ Hugging Face API 응답이 비어 있음 (빈 문자열)")
-
-    try:
-        return response.json()
-    except requests.exceptions.JSONDecodeError as e:
-        raise Exception(f"❌ JSON 파싱 실패: {response.text}") from e
-
+    logger.error("❌ 최대 재시도 횟수 초과 또는 복구 불가능한 오류 - fallback 벡터 사용")
+    return fallback_vector  # or raise Exception if fallback이 아닌 실패 처리 원할 경우
 
 def embed(texts: list[str] | str) -> list[list[float]]:
     # 문자열 단일 입력 시 리스트로 변환

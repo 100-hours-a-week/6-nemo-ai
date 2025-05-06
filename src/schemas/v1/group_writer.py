@@ -13,4 +13,3 @@ class GroupGenerationRequest(BaseModel):
 class GroupGenerationResponse(BaseModel):
     summary: str
     description: str
-    plan: Optional[List[str]] = None

@@ -1,11 +1,8 @@
 from fastapi import APIRouter
-from src.services.vector_db_settings_v1 import add_to_chroma, search_chroma, collection
-from src.models.chroma_db import Document
+from src.services.v1.vector_db import add_to_chroma, search_chroma, collection
+from src.schemas.v1.vector_db import Document
 router = APIRouter()
 
-@router.get("/")
-def root():
-    return {"message": "Hello World: Currently setting up"}
 @router.post("/add/")
 def add_document(doc: Document):
     add_to_chroma(doc.id, doc.text)

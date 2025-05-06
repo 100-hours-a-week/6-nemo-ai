@@ -12,8 +12,8 @@ HF_API_URL = os.getenv("HF_API_URL")
 
 if not HF_TOKEN:
     raise ValueError("No HuggingFace token found. Set it in the .env file.")
-if not NGROK_AUTH_TOKEN:
-    raise ValueError("No Ngrok Auth Token found. Set it in the .env file.")
+# if not NGROK_AUTH_TOKEN:
+#     raise ValueError("No Ngrok Auth Token found. Set it in the .env file.")
 if not GEMINI_API_KEY:
     raise ValueError("No Gemini API Key found. Set it in the .env file.")
 if not GEMINI_API_URL:

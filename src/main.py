@@ -1,10 +1,15 @@
 from fastapi import FastAPI
-from router.v1 import tag, groups, chroma_routes
+from router.v1 import tag_extraction, group_writer, vector_db, group_information
 from src.config import *
 app = FastAPI()
-app.include_router(chroma_routes.router)
-app.include_router(tag.router)
-app.include_router(groups.router)
+@app.get("/")
+def root():
+    return {"message": "Hello World: Version 1 API is running"}
+
+# app.include_router(chroma_routes.router, prefix="/ai/v1")
+# app.include_router(tag_extraction.router, prefix="/ai/v1")
+# app.include_router(group_writer.router, prefix="/ai/v1")
+app.include_router(group_information.router, prefix="/ai/v1")
 
 
 if __name__ == "__main__":

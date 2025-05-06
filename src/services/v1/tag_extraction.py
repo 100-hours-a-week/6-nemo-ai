@@ -4,7 +4,7 @@ from src.config import GEMINI_API_KEY, GEMINI_API_URL
 import asyncio
 import numpy as np
 from typing import Callable
-from src.services.hf_api_setup_v1 import embed
+from src.services.v1.embedding_setup import embed
 
 
 async def extract_tags(text: str) -> list[str]:
@@ -67,18 +67,6 @@ async def extract_tags(text: str) -> list[str]:
         return []
 
 def pick_best_by_vector_similarity(candidates: list[list[str]], base_text: str, embed_fn: Callable[[list[str] | str], list[list[float]]]) -> list[str]:
-    """
-    주어진 태그 후보들 중 base_text와 가장 유사한 태그 리스트를 선택합니다.
-
-    Parameters:
-    - candidates: [["개발자_스터디", ...], [...], ...] 형식의 태그 리스트 후보
-    - base_text: 비교 기준이 되는 문장
-    - embed_fn: 텍스트 리스트를 벡터로 임베딩하는 함수
-
-    Returns:
-    - 가장 유사도가 높은 태그 리스트 (list[str])
-    """
-
     # 후보 태그들을 문자열로 평탄화 (벡터 모델 입력용)
     candidate_texts = [" ".join(tags) for tags in candidates]
 

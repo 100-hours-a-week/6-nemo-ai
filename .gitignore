@@ -8,6 +8,7 @@ __pycache__/
 
 # Environments
 .env
+
 .venv/
 venv/
 
@@ -27,3 +28,4 @@ data/chroma/
 
 # logs
 *.log
+/src/data/chroma/chroma.sqlite3
