@@ -21,5 +21,5 @@ if not GEMINI_API_URL:
     raise ValueError("No Gemini endpoint URL found. Set it in the .env file.")
 if not HF_API_URL:
     raise ValueError("No HuggingFace API URL found. Set it in the .env file.")
-if not PERSPECTIVE_API_KEY:
-    raise ValueError("No Perspective API Key found. Set it in the .env file.")
+#if not PERSPECTIVE_API_KEY:
+#    raise ValueError("No Perspective API Key found. Set it in the .env file.")
