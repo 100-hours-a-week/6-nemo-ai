@@ -6,3 +6,10 @@ class GroupGenerationRequest(BaseModel):
     category: str
     period: str
     isPlanCreated: bool
+
+class GroupDescriptionResponse(BaseModel):
+    summary: str
+    description: str
+
+class GroupPlanResponse(BaseModel):
+    plan: str
