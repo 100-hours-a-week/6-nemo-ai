@@ -1,7 +1,7 @@
 from src.schemas.v1.group_information import MeetingInput, MeetingData
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.services.v1.tag_extraction import extract_tags, pick_best_by_vector_similarity
-from src.services.v1.summary_writer import generate_summary
+from src.services.v1.description_writer import generate_summary
 from src.services.v1.plan_writer import generate_plan
 from src.services.v1.vector_db import embed
 

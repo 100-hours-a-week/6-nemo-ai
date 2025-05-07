@@ -1,8 +1,17 @@
+from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+from src.config import TXTGEN_MODEL_ID
 from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.config import GEMINI_API_KEY, GEMINI_API_URL
-from httpx import AsyncClient, HTTPStatusError
-# from pprint import pprint
-async def generate_plan(data: GroupGenerationRequest) -> str:
+
+
+def generate_plan(data: GroupGenerationRequest) -> str:
+    model = GenerativeModel(TXTGEN_MODEL_ID)
+    config = GenerationConfig(
+        temperature=0.75,
+        top_p=0.95,
+        top_k=40,
+        max_output_tokens=1024,
+    )
+
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
     아래 모임 정보를 바탕으로, 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성해주세요.
@@ -30,47 +39,23 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
     - 기간: {data.period}
     """
 
-    headers = {"Content-Type": "application/json"}
-    params = {"key": GEMINI_API_KEY}
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-
     try:
-        async with AsyncClient() as client:
-            response = await client.post(GEMINI_API_URL, headers=headers, params=params, json=payload)
-            response.raise_for_status()
-            response_data = response.json()
-            generated_text = response_data["candidates"][0]["content"]["parts"][0]["text"]
-
-            # 여기서 그대로 반환 (긴 문자열 그대로)
-            return generated_text.strip()
-
-    except HTTPStatusError as e:
-        print(f"[Gemini 커리큘럼 실패] 상태 코드: {e.response.status_code}")
-        return []
-
+        response = model.generate_content(prompt, generation_config=config)
+        return response.text.strip()
     except Exception as e:
-        print(f"[알 수 없는 예외] {str(e)}")
-        return []
+        print(f"[Vertex Gemini 단계별 계획 생성 실패] {str(e)}")
+        return ""
 
 if __name__ == "__main__":
-    import asyncio
+    import src.core.vertex_client
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
-    async def main():
-        test_request = GroupGenerationRequest(
-            name="딥러닝 실전 스터디",
-            goal="딥러닝 기초 이론부터 실습까지 단계적으로 학습",
-            category="학습/자기계발",
-            period="4주",
-            isPlanCreated=True
-        )
-
-        plan = await generate_plan(test_request)
-
-        # plan은 이제 긴 문자열이므로 그냥 출력
-        print("생성된 커리큘럼:\n")
-        print(plan)
-
-    asyncio.run(main())
+    data = GroupGenerationRequest(
+        name="딥러닝 실전 스터디",
+        goal="딥러닝 기초 이론부터 실습까지 단계적으로 학습",
+        category="학습/자기계발",
+        period="4주",
+        isPlanCreated=False
+    )
+    plan = generate_plan(data)
+    print(repr(plan))
