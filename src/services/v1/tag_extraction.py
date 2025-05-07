@@ -3,7 +3,7 @@ import re
 from vertexai.preview.generative_models import GenerativeModel
 from src.config import TXTGEN_MODEL_ID
 
-def extract_tags_with_vertex(text: str) -> list[str]:
+def extract_tags(text: str) -> list[str]:
     model = GenerativeModel(TXTGEN_MODEL_ID)
 
     prompt = f"""
