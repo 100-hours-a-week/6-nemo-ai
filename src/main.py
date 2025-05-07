@@ -2,8 +2,12 @@ from fastapi import FastAPI
 from router.v1 import tag_extraction, group_writer, vector_db, group_information
 from src.config import *
 import logging
+from src.config import *
+
 logging.getLogger("pyngrok").setLevel(logging.WARNING)
 logging.getLogger("chromadb").setLevel(logging.WARNING)
+
+
 app = FastAPI()
 @app.get("/")
 def root():
