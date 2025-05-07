@@ -1,6 +1,5 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest, GroupGenerationResponse
 from src.services.v1.summary_writer import generate_summary
-from src.services.v1.plan_writer import generate_plan
 
 async def generate_group_info(data: GroupGenerationRequest) -> GroupGenerationResponse:
     summary, description = await generate_summary(data)
@@ -26,7 +25,7 @@ if __name__ == "__main__":
         result = await generate_group_info(test_request)
 
         # 결과 출력
-        print("✅ 요약:", result.summary)
-        print("📝 상세 설명:", result.description)
+        print("요약:", result.summary)
+        print("상세 설명:", result.description)
 
     asyncio.run(main())

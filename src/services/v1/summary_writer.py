@@ -87,9 +87,9 @@ if __name__ == "__main__":
         summary, description = await generate_summary(test_request)
 
         # 결과 출력
-        print("✅ 한 줄 소개:")
+        print("한 줄 소개:")
         print(summary)
-        print("\n📝 상세 설명:")
+        print("\n상세 설명:")
         print(description)
 
     asyncio.run(main())

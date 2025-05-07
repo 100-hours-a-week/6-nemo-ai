@@ -101,4 +101,4 @@ if __name__ == "__main__":
     result = asyncio.run(extract_tags(sample_text))
     print(result)
     best_tags = pick_best_by_vector_similarity(result, sample_text, embed_fn=embed)
-    print("📌 추출된 태그:", best_tags)
+    print("추출된 태그:", best_tags)

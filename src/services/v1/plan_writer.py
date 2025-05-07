@@ -3,7 +3,7 @@ from src.config import GEMINI_API_KEY, GEMINI_API_URL
 from httpx import AsyncClient, HTTPStatusError
 from typing import List, Dict
 
-async def generate_plan(data: GroupGenerationRequest) -> List[Dict[str, str]]:
+async def generate_plan(data: GroupGenerationRequest) -> str:
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
     아래 모임 정보를 바탕으로, 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성해주세요.
@@ -59,7 +59,7 @@ async def generate_plan(data: GroupGenerationRequest) -> List[Dict[str, str]]:
             response_data = response.json()
             generated_text = response_data["candidates"][0]["content"]["parts"][0]["text"]
 
-            # ✅ 여기서 그대로 반환 (긴 문자열 그대로)
+            # 여기서 그대로 반환 (긴 문자열 그대로)
             return generated_text.strip()
 
     except HTTPStatusError as e:
@@ -85,8 +85,8 @@ if __name__ == "__main__":
 
         plan = await generate_plan(test_request)
 
-        # ✅ plan은 이제 긴 문자열이므로 그냥 출력
-        print("✅ 생성된 커리큘럼:\n")
+        # plan은 이제 긴 문자열이므로 그냥 출력
+        print("생성된 커리큘럼:\n")
         print(plan)
 
     asyncio.run(main())
