@@ -19,16 +19,16 @@ def query(payload, max_retries=8, backoff_factor=2):
                 return response.json()
             elif response.status_code == 503:
                 wait = backoff_factor ** attempt
-                logger.warning(f"⚠️ 503 Service Unavailable - Retrying in {wait} seconds ({attempt + 1}/{max_retries})")
+                logger.warning(f"503 Service Unavailable - Retrying in {wait} seconds ({attempt + 1}/{max_retries})")
                 time.sleep(wait)
             else:
-                logger.error(f"❌ 요청 실패: {response.status_code} - {response.text}")
+                logger.error(f"요청 실패: {response.status_code} - {response.text}")
                 break  # 4xx나 다른 오류면 재시도하지 않음
         except Exception as e:
-            logger.exception("❌ 예외 발생 중 요청 실패")
+            logger.exception("예외 발생 중 요청 실패")
             break
 
-    logger.error("❌ 최대 재시도 횟수 초과 또는 복구 불가능한 오류 - fallback 벡터 사용")
+    logger.error("최대 재시도 횟수 초과 또는 복구 불가능한 오류 - fallback 벡터 사용")
     return fallback_vector  # or raise Exception if fallback이 아닌 실패 처리 원할 경우
 
 def embed(texts: list[str] | str) -> list[list[float]]:
@@ -41,9 +41,9 @@ def embed(texts: list[str] | str) -> list[list[float]]:
     response = query({"inputs": texts})
 
     if not response:
-        raise Exception("❌ Empty response from HF API.")
+        raise Exception("Empty response from HF API.")
     if isinstance(response, dict) and "error" in response:
-        raise Exception(f"❌ HF API Error: {response['error']}")
+        raise Exception(f"HF API Error: {response['error']}")
 
     # Hugging Face API는 단일 문장일 경우 1D vector 반환 가능
     if isinstance(response[0], float):  # 단일 벡터 (1D)일 경우
@@ -51,7 +51,7 @@ def embed(texts: list[str] | str) -> list[list[float]]:
     elif isinstance(response, list) and isinstance(response[0], list):
         return response
     else:
-        raise Exception(f"❌ Unexpected embedding format: {response}")
+        raise Exception(f"Unexpected embedding format: {response}")
 
 
 
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     ]
     try:
         vectors = embed(texts)
-        print(f"✅ 임베딩 수: {len(vectors)}")
-        print(f"✅ 벡터 길이: {len(vectors[0])}")
-        print(f"✅ 첫 벡터 앞 5개 값: {vectors[0][:5]}")
+        print(f"임베딩 수: {len(vectors)}")
+        print(f"벡터 길이: {len(vectors[0])}")
+        print(f"첫 벡터 앞 5개 값: {vectors[0][:5]}")
     except Exception as e:
-        print(f"❌ 오류 발생: {e}")
+        print(f"오류 발생: {e}")

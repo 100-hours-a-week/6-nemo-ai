@@ -1,9 +1,10 @@
 from src.schemas.v1.group_information import MeetingInput, MeetingData
+from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.services.v1.tag_extraction import extract_tags, pick_best_by_vector_similarity
 from src.services.v1.summary_writer import generate_summary
 from src.services.v1.plan_writer import generate_plan
-from src.services.v1.plan_writer import GroupGenerationRequest
 from src.services.v1.vector_db import embed
+
 async def build_meeting_data(input: MeetingInput) -> MeetingData:
     # 1. 요약 + 상세 설명 생성
     group_data = GroupGenerationRequest(
