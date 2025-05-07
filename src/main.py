@@ -1,21 +1,22 @@
 from fastapi import FastAPI
-from router.v1 import tag_extraction, group_writer, vector_db, group_information
+from router.v1 import tag_extraction, group_writer, group_information, vector_db
 from src.config import *
 import logging
-from src.config import *
+import src.core.vertex_client
 
+# 로깅 설정
 logging.getLogger("pyngrok").setLevel(logging.WARNING)
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
-
 app = FastAPI()
+
 @app.get("/")
 def root():
     return {"message": "Hello World: Version 1 API is running"}
 
-# app.include_router(chroma_routes.router, prefix="/ai/v1")
-# app.include_router(tag_extraction.router, prefix="/ai/v1")
-# app.include_router(group_writer.router, prefix="/ai/v1")
+# app.include_router(vector_db.router, prefix="/ai/v1")
+app.include_router(tag_extraction.router, prefix="/ai/v1")
+app.include_router(group_writer.router, prefix="/ai/v1")
 app.include_router(group_information.router, prefix="/ai/v1")
 
 

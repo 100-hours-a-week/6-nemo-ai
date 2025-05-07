@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 router = APIRouter()
 
 @router.post("/groups/information")
-async def create_meeting(meeting: MeetingInput):
-    meeting_data = await build_meeting_data(meeting)
+def create_meeting(meeting: MeetingInput):
+    meeting_data = build_meeting_data(meeting)
 
     response = APIResponse(
         code=200,

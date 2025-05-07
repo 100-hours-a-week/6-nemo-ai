@@ -54,5 +54,5 @@ if __name__ == "__main__":
     매주 오프라인에서 아이디어를 공유하고, 코드 리뷰와 디자인 피드백 세션을 통해 서로 성장합니다.
     관심 분야는 웹 개발, 인공지능, UX/UI 디자인입니다.
     """
-    tags = extract_tags_with_vertex(sample_text)
+    tags = extract_tags(sample_text)
     print(tags)
