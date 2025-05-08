@@ -28,19 +28,18 @@ def extract_tags(text: str) -> list[str]:
     <텍스트 끝>
     """
 
+    response = gen_model.generate_content(prompt)
+    raw = response.text.strip()
+
     try:
-        response = gen_model.generate_content(prompt)
-        raw = response.text.strip()
+        tags = json.loads(raw)
+    except json.JSONDecodeError:
+        tags = re.findall(r'"(.*?)"', raw)
 
-        try:
-            tags = json.loads(raw)
-        except json.JSONDecodeError:
-            tags = re.findall(r'"(.*?)"', raw)
+    if not tags:
+        raise ValueError("태그 추출 결과가 비어 있습니다.")
 
-        return tags
-    except Exception as e:
-        print(f"[Vertex Gemini 태그 추출 실패] {str(e)}")
-        return []
+    return tags
 
 
 if __name__ == "__main__":

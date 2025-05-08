@@ -34,12 +34,12 @@ def generate_plan(data: GroupGenerationRequest) -> str:
         - 카테고리: {data.category}
         - 기간: {data.period} (예: "1개월 이하", "1~3개월", "6개월~1년", "1년 이상")
         """
-    try:
-        response = gen_model.generate_content(prompt, generation_config=config_model)
-        return response.text.strip()
-    except Exception as e:
-        print(f"[Vertex Gemini 단계별 계획 생성 실패] {str(e)}")
-        return ""
+    response = gen_model.generate_content(prompt, generation_config=config_model)
+
+    plan_text = response.text.strip()
+    if not plan_text:
+        raise ValueError("생성된 계획이 비어 있습니다.")
+    return plan_text
 
 if __name__ == "__main__":
     import src.core.vertex_client
