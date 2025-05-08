@@ -11,7 +11,9 @@ def generate_group_description(data: GroupGenerationRequest) -> GroupDescription
     try:
         summary, description = generate_description(data)
         return GroupDescriptionResponse(summary=summary, description=description)
-    except Exception as e:
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+    except Exception:
         raise HTTPException(status_code=500, detail="모임 소개 생성 중 오류가 발생했습니다.")
 
 
@@ -20,5 +22,7 @@ def generate_group_plan(data: GroupGenerationRequest) -> GroupPlanResponse:
     try:
         plan = generate_plan(data)
         return GroupPlanResponse(plan=plan)
-    except Exception as e:
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+    except Exception:
         raise HTTPException(status_code=500, detail="단계별 계획 생성 중 오류가 발생했습니다.")

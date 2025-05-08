@@ -34,31 +34,22 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     - 카테고리: {data.category}
     - 기간: {data.period}
     """
+    response = gen_model.generate_content(prompt, generation_config=config_model)
+    full_text = response.text.replace('\n', '')
 
-    try:
-        response = gen_model.generate_content(prompt, generation_config=config_model)
-        full_text = response.text
-        full_text = full_text.replace('\n', '')
+    parts = full_text.split("- 한 줄 소개:")
+    if len(parts) < 2:
+        raise ValueError(f"'한 줄 소개' 구간 파싱 실패:\n{full_text}")
 
-        parts = full_text.split("- 한 줄 소개:")
-        if len(parts) < 2:
-            print(f"[파싱 실패] '한 줄 소개' 구간 없음:\n{full_text}")
-            return "", ""
+    after_intro = parts[1]
+    subparts = after_intro.split("- 상세 설명:")
+    if len(subparts) < 2:
+        raise ValueError(f"'상세 설명' 구간 파싱 실패:\n{full_text}")
 
-        after_intro = parts[1]
-        subparts = after_intro.split("- 상세 설명:")
-        if len(subparts) < 2:
-            print(f"[파싱 실패] '상세 설명' 구간 없음:\n{full_text}")
-            return "", ""
+    summary = subparts[0].strip()
+    description = subparts[1].strip()
 
-        summary = subparts[0].strip()
-        description = subparts[1].strip()
-
-        return summary, description
-
-    except Exception as e:
-        print(f"[Vertex Gemini 소개 생성 실패] {str(e)}")
-        return "", ""
+    return summary, description
 
 if __name__ == "__main__":
     import src.core.vertex_client

@@ -8,11 +8,8 @@ router = APIRouter()
 def extract_keyword(payload: TagRequest) -> TagResponse:
     try:
         tags = extract_tags(payload.text)
-        if not tags:
-            raise HTTPException(status_code=422, detail="태그를 추출할 수 없습니다.")
         return TagResponse(tags=tags)
-
-    except HTTPException:
-        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
     except Exception:
         raise HTTPException(status_code=500, detail="태그 추출 중 오류가 발생했습니다.")

@@ -8,7 +8,6 @@ def embed(texts: list[str] | str) -> list[list[float]]:
 
     embeddings = embed_model.get_embeddings(texts)
 
-    # Vertex SDK는 Embedding 객체 리스트를 반환하므로 `.values` 추출 필요
     return [e.values for e in embeddings]
 
 
