@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from src.schemas.v1.group_information import APIResponse, MeetingInput
 from src.services.v1.group_information import build_meeting_data
 from fastapi.responses import JSONResponse
-from src.core.preprocessing import get_harmfulness_scores_korean, is_request_valid
+from src.core.moderation import get_harmfulness_scores_korean, is_request_valid
 
 router = APIRouter()
 
