@@ -1,11 +1,8 @@
 import json
 import re
-from vertexai.preview.generative_models import GenerativeModel
-from src.config import TXTGEN_MODEL_ID
+from src.core.vertex_client import gen_model
 
 def extract_tags(text: str) -> list[str]:
-    model = GenerativeModel(TXTGEN_MODEL_ID)
-
     prompt = f"""
     당신은 한국어 텍스트에서 핵심 키워드를 추출하는 AI입니다.
 
@@ -32,7 +29,7 @@ def extract_tags(text: str) -> list[str]:
     """
 
     try:
-        response = model.generate_content(prompt)
+        response = gen_model.generate_content(prompt)
         raw = response.text.strip()
 
         try:

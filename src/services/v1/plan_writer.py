@@ -1,45 +1,41 @@
-from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
-from src.config import TXTGEN_MODEL_ID
 from src.schemas.v1.group_writer import GroupGenerationRequest
-
+from src.core.vertex_client import gen_model, config_model
 
 def generate_plan(data: GroupGenerationRequest) -> str:
-    model = GenerativeModel(TXTGEN_MODEL_ID)
-    config = GenerationConfig(
-        temperature=0.75,
-        top_p=0.95,
-        top_k=40,
-        max_output_tokens=1024,
-    )
-
     prompt = f"""
-    당신은 모임을 소개하는 AI 비서입니다.
-    아래 모임 정보를 바탕으로, 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 단계별로 작성해주세요.
+        당신은 모임을 소개하는 AI 비서입니다.
+        다음 모임 정보를 참고하여, 모임의 '목적'을 중심으로 **실현 가능한 활동 커리큘럼**을 스텝별로 작성해주세요.
 
-    주의사항:
-    - 부적절한 표현이나 욕설은 무시하고 건전하고 명확한 텍스트만 생성해주세요.
-    - 출력에는 이모지(emoji)를 절대 포함하지 마세요.
-    - **절대 실제 줄바꿈(엔터)를 사용하지 말고**, 각 줄 끝에는 문자 그대로 두 개의 백슬래시와 소문자 n (`\\n`)을 넣어주세요.
-    - 출력은 반드시 한 줄 문자열 형태로 이어져야 하며, 프론트엔드에서 `\\n`으로 줄바꿈 처리할 예정입니다.
+        주의사항:
+        - 부적절한 표현이나 욕설은 무시하고 건전하고 명확한 텍스트만 생성해주세요.
+        - 출력에는 이모지(emoji)를 절대 포함하지 마세요.
+        - 각 줄 끝에는 문자 그대로 두 개의 백슬래시와 소문자 n (`\\n`)을 넣어주세요. 실제 줄바꿈은 프론트엔드에서 처리됩니다. 
+        - 출력은 반드시 한 줄의 문자열로 반환되어야 합니다.
 
-    출력 형식 및 조건:
-    - 각 단계는 다음 형식을 따르세요:
-      - Step N: [제목]\\n- [설명 문장 1]\\n- [설명 문장 2]...\\n
-    - 설명이 길 경우, 문장을 자연스럽게 나누어 `- `로 시작하는 여러 줄로 구성해주세요.
-    - 전체 기간({data.period})을 고려하여 **1~8단계 이내**로 기간에 적합한 수로 제한하세요. 일반적으로 1~8단계를 넘지 않습니다.
-    - 모임 기간은 '1주', '2주', '1개월', '3개월'과 같은 단위로 주어집니다. 일 단위가 아닙니다.
-    - 각 단계는 의미 있는 단위로 구성하세요. 너무 작게 나누지 말고, 하나의 단계에 충분한 활동량이 담기도록 하세요.
-    - 모든 내용은 반드시 모임의 **'목적' 중심**으로 작성해야 합니다.
+        조건:
+        - 아래 `기간` 항목은 정수형이 아닌 '기간 범위(예: 1~3개월)'로 주어질 수 있습니다.
+        - 이 경우, LLM은 입력된 기간 범위를 참고하여 **적절한 단계 수(1~8단계 이내)**를 추정해야 합니다.
+        - 일반적으로 다음과 같이 해석하세요:
+         - 1개월 이하 → 약 2~3단계
+         - 1~3개월 → 약 3~5단계
+         - 3~6개월 → 약 5~6단계
+         - 6개월~1년 → 약 6~7단계
+         - 1년 이상 → 7~8단계
+        - 단, **무조건 8단계를 채우지 말고**, 모임 목적과 활동 적절성에 따라 1~8단계 내에서 유연하게 결정하세요.
+        - 각 단계는 다음 형식을 따릅니다:
+         - Step N: [제목]\\n- [설명 문장 1]\\n- [설명 문장 2]\\n- [설명 문장 3]\\n
+        - 각 설명은 간결하고 실천 가능한 내용으로 구성하며 최대 3개까지만 작성합니다.
+        - **모든 활동은 반드시 모임의 '목적'과 직접적으로 연결되어야 합니다.**
+        - 너무 작게 나누지 말고, 의미 있는 단위로 단계화하세요.
 
-    입력 정보:
-    - 모임명: {data.name}
-    - 목적: {data.goal}
-    - 카테고리: {data.category}
-    - 기간: {data.period}
-    """
-
+        입력 정보:
+        - 모임명: {data.name}
+        - 목적: {data.goal}
+        - 카테고리: {data.category}
+        - 기간: {data.period} (예: "1개월 이하", "1~3개월", "6개월~1년", "1년 이상")
+        """
     try:
-        response = model.generate_content(prompt, generation_config=config)
+        response = gen_model.generate_content(prompt, generation_config=config_model)
         return response.text.strip()
     except Exception as e:
         print(f"[Vertex Gemini 단계별 계획 생성 실패] {str(e)}")

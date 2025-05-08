@@ -1,5 +1,4 @@
-from vertexai.language_models import TextEmbeddingModel
-from src.config import EMBEDDING_MODEL_ID
+from src.core.vertex_client import embed_model
 
 def embed(texts: list[str] | str) -> list[list[float]]:
     if isinstance(texts, str):
@@ -7,8 +6,7 @@ def embed(texts: list[str] | str) -> list[list[float]]:
     elif not isinstance(texts, list):
         raise ValueError("embed 함수는 문자열 또는 문자열 리스트만 지원합니다.")
 
-    model = TextEmbeddingModel.from_pretrained(EMBEDDING_MODEL_ID)
-    embeddings = model.get_embeddings(texts)
+    embeddings = embed_model.get_embeddings(texts)
 
     # Vertex SDK는 Embedding 객체 리스트를 반환하므로 `.values` 추출 필요
     return [e.values for e in embeddings]

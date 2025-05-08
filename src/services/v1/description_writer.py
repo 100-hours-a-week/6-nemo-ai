@@ -1,17 +1,9 @@
 from typing import Tuple
-from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
-from src.config import TXTGEN_MODEL_ID
 from src.schemas.v1.group_writer import GroupGenerationRequest
+from src.core.vertex_client import gen_model, config_model
+
 
 def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
-    model = GenerativeModel(TXTGEN_MODEL_ID)
-    config = GenerationConfig(
-        temperature=0.75,
-        top_p=0.95,
-        top_k=40,
-        max_output_tokens=1024,
-    )
-
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
 
@@ -44,7 +36,7 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     """
 
     try:
-        response = model.generate_content(prompt, generation_config=config)
+        response = gen_model.generate_content(prompt, generation_config=config_model)
         full_text = response.text
         full_text = full_text.replace('\n', '')
 
