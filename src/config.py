@@ -12,9 +12,7 @@ REGION = os.getenv("REGION")
 TXTGEN_MODEL_ID = os.getenv("TXTGEN_MODEL_ID")
 EMBEDDING_MODEL_ID = os.getenv("EMBED_MODEL_ID")
 JSON_FILENAME = os.getenv("CREDENTIAL_PATH")
-CREDENTIAL_PATH = os.path.join(PROJECT_ROOT, JSON_FILENAME)
-
-
+CREDENTIAL_PATH = os.path.join(PROJECT_ROOT, JSON_FILENAME) #json needs to be on the same directory as the .env file
 
 # if not NGROK_AUTH_TOKEN:
 #     raise ValueError("No Ngrok Auth Token found. Set it in the .env file.")
