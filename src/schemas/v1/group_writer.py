@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-# 요청 모델: 사용자가 보내는 모임 정보
 class GroupGenerationRequest(BaseModel):
     name: str
     goal: str
@@ -8,7 +7,9 @@ class GroupGenerationRequest(BaseModel):
     period: str
     isPlanCreated: bool
 
-# 응답 모델: AI가 생성한 결과
-class GroupGenerationResponse(BaseModel):
+class GroupDescriptionResponse(BaseModel):
     summary: str
     description: str
+
+class GroupPlanResponse(BaseModel):
+    plan: str
