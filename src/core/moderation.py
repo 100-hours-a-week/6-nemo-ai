@@ -1,4 +1,3 @@
-import os
 import json
 import requests
 from datetime import datetime
@@ -66,7 +65,7 @@ if __name__ == "__main__":
         print(f"  {k}: {v:.3f}")
 
     # 로그 저장 (현재는 미사용, 주석 해제 시 사용 가능)
-    # log_harmfulness_scores(scores, korean_te
+    # log_harmfulness_scores(scores, korean_text)
 
     if not is_request_valid(scores):
         print("해당 모임 요청은 유해성 기준을 초과하여 거부됩니다.")
