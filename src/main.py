@@ -5,7 +5,6 @@ import logging
 import src.core.vertex_client
 
 # 로깅 설정
-logging.getLogger("pyngrok").setLevel(logging.WARNING)
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
 app = FastAPI()
@@ -38,3 +37,14 @@ if __name__ == "__main__":
 
     # FastAPI 실행
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+    #예시
+    """
+    {
+    "name": "토익 스터디 모임",
+    "goal": "이 모임은 멍청한 사람들 모아놓고 얼마나 비효율적인지 관찰하려고 만든 겁니다. 괜히 시간 낭비하지 마시고, 본인 해당되면 그냥 나오세요. 수준 낮은 애들끼리 노는 거예요.",
+    "category": "학습/자기계발",
+    "period": "6개월",
+    "isPlanCreated": false
+    }
+    """
