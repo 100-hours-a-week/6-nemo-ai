@@ -1,37 +1,35 @@
+from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
+from src.config import TXTGEN_MODEL_ID
 from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.config import GEMINI_API_KEY, GEMINI_API_URL
-from httpx import AsyncClient, HTTPStatusError
-from typing import List, Dict
 
-async def generate_plan(data: GroupGenerationRequest) -> List[Dict[str, str]]:
+
+def generate_plan(data: GroupGenerationRequest) -> str:
+    model = GenerativeModel(TXTGEN_MODEL_ID)
+    config = GenerationConfig(
+        temperature=0.75,
+        top_p=0.95,
+        top_k=40,
+        max_output_tokens=1024,
+    )
+
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
-    아래 모임 정보를 바탕으로, 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성해주세요.
+    아래 모임 정보를 바탕으로, 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 단계별로 작성해주세요.
 
-    조건:
-    - 출력에는 절대 이모지(emoji)를 포함하지 마세요.
-    - 커리큘럼은 반드시 '모임의 목적'을 기반으로 작성하세요.
-    - 전체 기간({data.period}) 동안 실행 가능한 단계 수로 제한해주세요.
-    - 일반적으로 1~{data.period} 기간에 따라 1~8단계 이내가 적절합니다. (너무 세부적이지 않게)
-    - 각 항목마다 줄 끝에 반드시 '\\n'을 넣어주세요. 이 출력은 프론트엔드에 직접 전달되며 줄바꿈이 필요합니다.
-    - 전체 출력은 아래 예시 포맷을 정확히 따라야 합니다.
-    - 커리큘럼은 반드시 '모임의 목적'을 중심으로 단계별로 구체적이고 실천 가능한 내용으로 구성되어야 합니다.
-    
-    - 각 스텝은 다음과 같은 형식을 따라야 합니다:
-        - Step: 번호
-        - title: 제목 
-        - detail: 세부 내용 
-        
-    출력 예시 (형식을 반드시 지켜주세요):
-    - Step: 1\\n
-    - title: OT 및 목표 설정\\n
-    - detail: 참가자 소개 및 전체 커리큘럼 안내\\n
+    주의사항:
+    - 부적절한 표현이나 욕설은 무시하고 건전하고 명확한 텍스트만 생성해주세요.
+    - 출력에는 이모지(emoji)를 절대 포함하지 마세요.
+    - **절대 실제 줄바꿈(엔터)를 사용하지 말고**, 각 줄 끝에는 문자 그대로 두 개의 백슬래시와 소문자 n (`\\n`)을 넣어주세요.
+    - 출력은 반드시 한 줄 문자열 형태로 이어져야 하며, 프론트엔드에서 `\\n`으로 줄바꿈 처리할 예정입니다.
 
-    - Step: 2\\n
-    - title: 기본 개념 이해\\n
-    - detail: 목표 달성을 위한 핵심 개념 학습\\n
-
-    ...
+    출력 형식 및 조건:
+    - 각 단계는 다음 형식을 따르세요:
+      - Step N: [제목]\\n- [설명 문장 1]\\n- [설명 문장 2]...\\n
+    - 설명이 길 경우, 문장을 자연스럽게 나누어 `- `로 시작하는 여러 줄로 구성해주세요.
+    - 전체 기간({data.period})을 고려하여 **1~8단계 이내**로 기간에 적합한 수로 제한하세요. 일반적으로 1~8단계를 넘지 않습니다.
+    - 모임 기간은 '1주', '2주', '1개월', '3개월'과 같은 단위로 주어집니다. 일 단위가 아닙니다.
+    - 각 단계는 의미 있는 단위로 구성하세요. 너무 작게 나누지 말고, 하나의 단계에 충분한 활동량이 담기도록 하세요.
+    - 모든 내용은 반드시 모임의 **'목적' 중심**으로 작성해야 합니다.
 
     입력 정보:
     - 모임명: {data.name}
@@ -40,47 +38,23 @@ async def generate_plan(data: GroupGenerationRequest) -> List[Dict[str, str]]:
     - 기간: {data.period}
     """
 
-    headers = {"Content-Type": "application/json"}
-    params = {"key": GEMINI_API_KEY}
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-
     try:
-        async with AsyncClient() as client:
-            response = await client.post(GEMINI_API_URL, headers=headers, params=params, json=payload)
-            response.raise_for_status()
-            response_data = response.json()
-            generated_text = response_data["candidates"][0]["content"]["parts"][0]["text"]
-
-            # ✅ 여기서 그대로 반환 (긴 문자열 그대로)
-            return generated_text.strip()
-
-    except HTTPStatusError as e:
-        print(f"[Gemini 커리큘럼 실패] 상태 코드: {e.response.status_code}")
-        return []
-
+        response = model.generate_content(prompt, generation_config=config)
+        return response.text.strip()
     except Exception as e:
-        print(f"[알 수 없는 예외] {str(e)}")
-        return []
+        print(f"[Vertex Gemini 단계별 계획 생성 실패] {str(e)}")
+        return ""
 
 if __name__ == "__main__":
-    import asyncio
+    import src.core.vertex_client
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
-    async def main():
-        test_request = GroupGenerationRequest(
-            name="딥러닝 실전 스터디",
-            goal="딥러닝 기초 이론부터 실습까지 단계적으로 학습",
-            category="학습/자기계발",
-            period="4주",
-            isPlanCreated=True
-        )
-
-        plan = await generate_plan(test_request)
-
-        # ✅ plan은 이제 긴 문자열이므로 그냥 출력
-        print("✅ 생성된 커리큘럼:\n")
-        print(plan)
-
-    asyncio.run(main())
+    data = GroupGenerationRequest(
+        name="딥러닝 실전 스터디",
+        goal="딥러닝 기초 이론부터 실습까지 단계적으로 학습",
+        category="학습/자기계발",
+        period="2주",
+        isPlanCreated=False
+    )
+    plan = generate_plan(data)
+    print(repr(plan))

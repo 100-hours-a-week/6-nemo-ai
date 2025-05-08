@@ -1,38 +1,41 @@
 from src.schemas.v1.group_information import MeetingInput, MeetingData
-from src.services.v1.tag_extraction import extract_tags, pick_best_by_vector_similarity
-from src.services.v1.summary_writer import generate_summary
+from src.schemas.v1.group_writer import GroupGenerationRequest
+from src.services.v1.tag_extraction import extract_tags
+from src.services.v1.description_writer import generate_description
 from src.services.v1.plan_writer import generate_plan
-from src.services.v1.plan_writer import GroupGenerationRequest
-from src.services.v1.vector_db import embed
-async def build_meeting_data(input: MeetingInput) -> MeetingData:
-    # 1. 요약 + 상세 설명 생성
+
+def build_meeting_data(input: MeetingInput) -> MeetingData:
     group_data = GroupGenerationRequest(
         name=input.name,
         goal=input.goal,
         category=input.category,
         period=input.period,
-        isPlanCreated=input.isPlanCreated
+        isPlanCreated=input.isPlanCreated,
     )
-    summary, description = await generate_summary(group_data)
 
-    # 2. 태그 추출
-    extracted = await extract_tags(description)
-    tags = pick_best_by_vector_similarity(extracted, base_text=description, embed_fn=embed)
-
-    # 3. 계획 생성
-    plan = await generate_plan(group_data) if input.isPlanCreated else None
-    if plan is None:
-        return MeetingData(
-            name=input.name,
-            summary=summary,  # 요약 (요약된 1~2문장)
-            description=description,  # 상세 설명 (풍부한 정보)
-            tags=tags,
-        )
-    else:
-        return MeetingData(
+    summary, description = generate_description(group_data)
+    tags = extract_tags(description)
+    plan = generate_plan(group_data) if input.isPlanCreated else None
+    return MeetingData(
         name=input.name,
-        summary=summary,         # 요약 (요약된 1~2문장)
-        description=description, # 상세 설명 (풍부한 정보)
+        summary=summary,
+        description=description,
         tags=tags,
-        plan=plan
+        plan=plan,
     )
+
+if __name__ == "__main__":
+    import src.core.vertex_client
+    from src.schemas.v1.group_information import MeetingInput
+
+    test_input = MeetingInput(
+        name="딥러닝 실전 스터디",
+        goal="딥러닝 실전 프로젝트 완수와 포트폴리오 제작",
+        category="인공지능",
+        period="4주",
+        isPlanCreated=True,
+    )
+
+    result = build_meeting_data(test_input)
+    print(result)
+
