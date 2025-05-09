@@ -1,6 +1,7 @@
 from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.vertex_client import gen_model, config_model
+from src.core.logging_config import logger
 
 
 def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
@@ -14,7 +15,7 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
 
     다음 모임 정보를 바탕으로 아래 두 항목을 생성해주세요:
 
-    1. 한 줄 소개 (64자 이내): 모임의 성격과 매력을 간결하게 요약한 문장으로 작성하되, 반드시 **명사**로 자연스럽게 마무리해주세요.  
+    1. 한 줄 소개 (64자 이내): 모임의 상세소개를 간단명료하게 요약하여 모임의 성격이 드러나도록 하나의 문장으로 작성하되, 반드시 **명사**로 자연스럽게 마무리해주세요.  
        예시: 실무 중심으로 안드로이드 앱을 개발하는 스터디 모임
 
     2. 상세 설명 (500자 이내): 어떤 활동을 하는 모임인지, 누가 참여하면 좋은지, 기간 동안 어떤 방식으로 운영되는지 등을 친절하고 명확하게 작성해주세요.
@@ -36,39 +37,39 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     """
 
     try:
+        logger.info("[요약 생성 시작]", extra={"meeting_name": data.name})
         response = gen_model.generate_content(prompt, generation_config=config_model)
-        full_text = response.text
-        full_text = full_text.replace('\n', '')
+        full_text = response.text.replace('\n', '')
 
         parts = full_text.split("- 한 줄 소개:")
         if len(parts) < 2:
-            print(f"[파싱 실패] '한 줄 소개' 구간 없음:\n{full_text}")
+            logger.warning("[파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": full_text[:80]})
             return "", ""
 
         after_intro = parts[1]
         subparts = after_intro.split("- 상세 설명:")
         if len(subparts) < 2:
-            print(f"[파싱 실패] '상세 설명' 구간 없음:\n{full_text}")
+            logger.warning("[파싱 실패] '상세 설명' 구간 없음", extra={"preview": full_text[:80]})
             return "", ""
 
         summary = subparts[0].strip()
         description = subparts[1].strip()
 
+        logger.info("[모임 소개 생성 완료]", extra={"summary_length": len(summary), "description_length": len(description)})
         return summary, description
 
     except Exception as e:
-        print(f"[Vertex Gemini 소개 생성 실패] {str(e)}")
+        logger.exception("[Vertex Gemini 소개 생성 실패]")
         return "", ""
 
 if __name__ == "__main__":
-    import src.core.vertex_client
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
-        name="딥러닝 실전 스터디",
-        goal="딥러닝 기초 이론부터 실습까지 단계적으로 학습",
+        name=".",
+        goal=".",
         category="학습/자기계발",
-        period="4주",
+        period="2주",
         isPlanCreated=False
     )
 

@@ -17,8 +17,6 @@ venv/
 .vscode/
 *.iml
 
-# Logs
-*.log
 
 # OS
 .DS_Store

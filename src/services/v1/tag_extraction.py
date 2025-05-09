@@ -1,6 +1,7 @@
 import json
 import re
 from src.core.vertex_client import gen_model
+from src.core.logging_config import logger
 
 def extract_tags(text: str) -> list[str]:
     prompt = f"""
@@ -29,22 +30,25 @@ def extract_tags(text: str) -> list[str]:
     """
 
     try:
+        logger.info("[태그 추출 시작]", extra={"text_length": len(text)})
         response = gen_model.generate_content(prompt)
         raw = response.text.strip()
 
         try:
             tags = json.loads(raw)
         except json.JSONDecodeError:
+            logger.warning("[JSON 파싱 실패] 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
             tags = re.findall(r'"(.*?)"', raw)
 
+        logger.info("[태그 추출 완료]", extra={"tag_count": len(tags)})
         return tags
+
     except Exception as e:
-        print(f"[Vertex Gemini 태그 추출 실패] {str(e)}")
+        logger.exception("[Vertex Gemini 태그 추출 실패]")
         return []
 
 
 if __name__ == "__main__":
-    import src.core.vertex_client
 
     sample_text = """
     네모는 개발자와 디자이너가 함께 모여 사이드 프로젝트를 진행하는 커뮤니티입니다.
