@@ -38,6 +38,7 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     try:
         response = gen_model.generate_content(prompt, generation_config=config_model)
         full_text = response.text
+        
         parts = full_text.split("- 한 줄 소개:")
         if len(parts) < 2:
             print(f"[파싱 실패] '한 줄 소개' 구간 없음:\n{full_text}")
