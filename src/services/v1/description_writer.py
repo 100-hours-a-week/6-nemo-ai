@@ -18,15 +18,15 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
        예시: 실무 중심으로 안드로이드 앱을 개발하는 스터디 모임
 
     2. 상세 설명 (500자 이내): 어떤 활동을 하는 모임인지, 누가 참여하면 좋은지, 기간 동안 어떤 방식으로 운영되는지 등을 친절하고 명확하게 작성해주세요.
-     - 각 문장을 끝낼 때마다 반드시 `\\n`을 넣어 주세요. 문장 단위로 줄을 나눈 것처럼 작성해야 합니다.
+     - 각 문장을 끝낼 때마다 반드시 `\n`을 넣어 주세요. 문장 단위로 줄을 나눈 것처럼 작성해야 합니다.
 
     출력 조건:
     - 실제 줄바꿈(엔터)은 절대 사용하지 마세요.
-    - 각 항목의 줄 끝에는 반드시 문자 그대로 **백슬래시 두 개와 소문자 n (`\\n`)**을 넣어주세요.
+    - 각 항목의 줄 끝에는 반드시 문자 그대로 **백슬래시 1 개와 소문자 n (`\n`)**을 넣어주세요.
     - 출력은 다음 형식처럼 **한 줄 문자열**로 이어져야 합니다:
 
     예시 출력:
-    - 한 줄 소개:\\n- 상세 설명:\\n
+    - 한 줄 소개:\n- 상세 설명:\n
 
     입력 정보:
     - 모임명: {data.name}
@@ -38,8 +38,6 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     try:
         response = gen_model.generate_content(prompt, generation_config=config_model)
         full_text = response.text
-        full_text = full_text.replace('\n', '')
-
         parts = full_text.split("- 한 줄 소개:")
         if len(parts) < 2:
             print(f"[파싱 실패] '한 줄 소개' 구간 없음:\n{full_text}")
