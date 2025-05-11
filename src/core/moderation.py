@@ -6,7 +6,9 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-PERSPECTIVE_API_URL = f"https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key={PERSPECTIVE_API_KEY}"
+PERSPECTIVE_API_URL = (
+    f"https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key={PERSPECTIVE_API_KEY}"
+)
 
 REQUESTED_ATTRIBUTES = {
     "TOXICITY": {},
@@ -40,7 +42,10 @@ def get_harmfulness_scores_korean(text: str) -> dict:
         }
 
         latency_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
-        ai_logger.info("[AI] [Moderation 성공] 유해성 점수 파싱 완료", extra={"latency_ms": latency_ms, "scores": result})
+        ai_logger.info("[AI] [Moderation 성공] 유해성 점수 파싱 완료", extra={
+            "latency_ms": latency_ms,
+            "scores": result
+        })
         return result
 
     except KeyError:
@@ -49,15 +54,29 @@ def get_harmfulness_scores_korean(text: str) -> dict:
 
 def is_request_valid(scores: dict, threshold: float = THRESHOLD) -> bool:
     max_attr, max_score = max(scores.items(), key=lambda x: x[1])
-    ai_logger.info("[AI] [Moderation 평가] 최대 유해 점수", extra={"attribute": max_attr, "score": max_score})
+    if max_score >= threshold:
+        ai_logger.warning("[AI] [Moderation 평가] 유해성 기준 초과", extra={
+            "attribute": max_attr,
+            "score": round(max_score, 3),
+            "threshold": threshold
+        })
+
     return max_score < threshold
 
-def log_harmfulness_scores(scores: dict, text: str, log_path: str = "harmfulness_log.jsonl"):
-    log_data = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "text": text.strip(),
-        "scores": scores
-    }
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_data, ensure_ascii=False) + "\n")
-    ai_logger.info("[AI] [Moderation 저장] JSONL 로그 기록됨", extra={"log_path": log_path})
+if __name__ == "__main__":
+    test_text = "이 모임은 멍청한 사람들 모아놓고 얼마나 비효율적인지 관찰하려고 만든 겁니다."
+
+    print(f"입력 텍스트:\n{test_text}\n")
+
+    try:
+        scores = get_harmfulness_scores_korean(test_text)
+        is_valid = is_request_valid(scores)
+
+        print("유해성 점수:")
+        for attr, value in scores.items():
+            print(f"- {attr}: {value:.3f}")
+
+        print(f"\n유해한 콘텐츠인가요? {'아니오 (허용)' if is_valid else '예 (차단)'}")
+
+    except Exception as e:
+        print(f"에러 발생: {e}")
