@@ -2,6 +2,9 @@ import json
 import re
 from src.core.vertex_client import gen_model
 from src.core.cloud_logging import logger
+from src.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 def extract_tags(text: str) -> list[str]:
     prompt = f"""
@@ -33,21 +36,21 @@ def extract_tags(text: str) -> list[str]:
     raw = response.text.strip()
 
     try:
-        logger.info("[태그 추출 시작]", extra={"text_length": len(text)})
+        ai_logger.info("[AI] [태그 추출 시작]", extra={"text_length": len(text)})
         response = gen_model.generate_content(prompt)
         raw = response.text.strip()
 
         try:
             tags = json.loads(raw)
         except json.JSONDecodeError:
-            logger.warning("[JSON 파싱 실패] 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
+            ai_logger.warning("[AI] [JSON 파싱 실패] 테그 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
             tags = re.findall(r'"(.*?)"', raw)
 
-        logger.info("[태그 추출 완료]", extra={"tag_count": len(tags)})
+        ai_logger.info("[AI] [태그 추출 완료]", extra={"tag_count": len(tags)})
         return tags
 
     except Exception as e:
-        logger.exception("[Vertex Gemini 태그 추출 실패]")
+        ai_logger.exception("[AI] [Vertex Gemini 태그 추출 실패]")
         return []
 
 

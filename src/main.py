@@ -38,9 +38,8 @@ if __name__ == "__main__":
     host = "0.0.0.0"
     port = 8000
     logger.info("[FastAPI 실행] 서버 시작 전 초기화")
-
     try:
-        uvicorn.run(app, host=host, port=port)
+        uvicorn.run(app, host=host, port=port, reload=True)
         logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
     except Exception as e:
         logger.error("[FastAPI 실행 오류] 서버 실행 중 예외 발생", exc_info=True)

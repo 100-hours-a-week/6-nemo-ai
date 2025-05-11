@@ -2,7 +2,9 @@ from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.vertex_client import gen_model, config_model
 from src.core.cloud_logging import logger
+from src.core.ai_logger import get_ai_logger
 
+ai_logger = get_ai_logger()
 
 def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     prompt = f"""
@@ -35,36 +37,31 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     - 카테고리: {data.category}
     - 기간: {data.period}
     """
-    response = gen_model.generate_content(prompt, generation_config=config_model)
-    full_text = response.text.replace('\n', '')
-    parts = full_text.split("- 한 줄 소개:")
-    if len(parts) < 2:
-        raise ValueError(f"'한 줄 소개' 구간 파싱 실패:\n{full_text}")
-
     try:
-        logger.info("[요약 생성 시작]", extra={"meeting_name": data.name})
+        ai_logger.info("[AI] [요약 생성 시작]", extra={"meeting_name": data.name})
         response = gen_model.generate_content(prompt, generation_config=config_model)
         full_text = response.text.replace('\n', '')
 
         parts = full_text.split("- 한 줄 소개:")
         if len(parts) < 2:
-            logger.warning("[파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": full_text[:80]})
+            ai_logger.warning("[AI] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": full_text[:80]})
             return "", ""
 
         after_intro = parts[1]
         subparts = after_intro.split("- 상세 설명:")
         if len(subparts) < 2:
-            logger.warning("[파싱 실패] '상세 설명' 구간 없음", extra={"preview": full_text[:80]})
+            ai_logger.warning("[AI] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": full_text[:80]})
             return "", ""
 
         summary = subparts[0].strip()
         description = subparts[1].strip()
 
-        logger.info("[모임 소개 생성 완료]", extra={"summary_length": len(summary), "description_length": len(description)})
+        ai_logger.info("[AI] [모임 소개 생성 완료]",
+                       extra={"summary_length": len(summary), "description_length": len(description)})
         return summary, description
 
     except Exception as e:
-        logger.exception("[Vertex Gemini 소개 생성 실패]")
+        ai_logger.exception("[AI] [Vertex Gemini 소개 생성 실패]")
         return "", ""
 
 if __name__ == "__main__":
