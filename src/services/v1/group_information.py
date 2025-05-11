@@ -3,10 +3,12 @@ from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.services.v1.tag_extraction import extract_tags
 from src.services.v1.description_writer import generate_description
 from src.services.v1.plan_writer import generate_plan
-from src.core.cloud_logging import logger
+from src.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 def build_meeting_data(input: MeetingInput) -> MeetingData:
-    logger.info("[모임 정보 생성 시작]", extra={
+    ai_logger.info("[AI] [모임 정보 생성 시작]", extra={
         "meeting_name": input.name,
         "has_plan": input.isPlanCreated
     })
@@ -24,7 +26,7 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
         tags = extract_tags(description)
         plan = generate_plan(group_data) if input.isPlanCreated else None
 
-        logger.info("[모임 정보 생성 완료]")
+        ai_logger.info("[AI] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 
         return MeetingData(
             name=input.name,
@@ -34,7 +36,7 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
             plan=plan,
         )
     except Exception:
-        logger.exception("[모임 정보 생성 실패]")
+        ai_logger.exception("[AI] [모임 정보 생성 실패]")
         return MeetingData(
             name=input.name,
             summary="",
@@ -43,10 +45,7 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
             plan=None,
         )
 
-
 if __name__ == "__main__":
-    from src.schemas.v1.group_information import MeetingInput
-
     test_input = MeetingInput(
         name="딥러닝 실전 스터디",
         goal="딥러닝 실전 프로젝트 완수와 포트폴리오 제작",
@@ -57,4 +56,3 @@ if __name__ == "__main__":
 
     result = build_meeting_data(test_input)
     print(result)
-

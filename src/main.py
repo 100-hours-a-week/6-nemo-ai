@@ -1,8 +1,7 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from src.router.v1 import group_information
-from src.core.cloud_logging import logger  # 기존 시스템 전역 로거
-from src.core.ai_logger import get_ai_logger  # [AI] 전용 로거
+from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
 from src.middleware.ai_logger import AILoggingMiddleware
 import logging
@@ -10,7 +9,7 @@ import src.core.vertex_client
 
 # 로거 초기화
 ai_logger = get_ai_logger()
-logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
+ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
 
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
@@ -24,7 +23,7 @@ app.add_middleware(AILoggingMiddleware)
 
 @app.get("/")
 def root():
-    logger.info("[루트 엔드포인트] / 호출됨")
+    ai_logger.info("[루트 엔드포인트] / 호출됨")
     return {"message": "Hello World: Version 1 API is running"}
 
 # [AI] 라우터 등록
@@ -37,9 +36,9 @@ if __name__ == "__main__":
     import uvicorn
     host = "0.0.0.0"
     port = 8000
-    logger.info("[FastAPI 실행] 서버 시작 전 초기화")
+    ai_logger.info("[FastAPI 실행] 서버 시작 전 초기화")
     try:
-        uvicorn.run(app, host=host, port=port, reload=True)
-        logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
+        uvicorn.run(app, host=host, port=port)
+        ai_logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
     except Exception as e:
-        logger.error("[FastAPI 실행 오류] 서버 실행 중 예외 발생", exc_info=True)
+        ai_logger.error("[FastAPI 실행 오류] 서버 실행 중 예외 발생", exc_info=True)

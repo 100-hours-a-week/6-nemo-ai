@@ -1,7 +1,7 @@
 import json
 import re
 from src.core.vertex_client import gen_model
-from src.core.cloud_logging import logger
+# from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()

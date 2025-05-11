@@ -1,7 +1,7 @@
 from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.vertex_client import gen_model, config_model
-from src.core.cloud_logging import logger
+# from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
