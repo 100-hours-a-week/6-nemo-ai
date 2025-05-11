@@ -1,45 +1,46 @@
 from dotenv import load_dotenv
-load_dotenv()
-
 from fastapi import FastAPI
 from src.router.v1 import group_information
-from src.core.logging_config import logger
-import logging
+from src.core.cloud_logging import logger  # 기존 시스템 전역 로거
+from src.core.ai_logger import get_ai_logger  # [AI] 전용 로거
 from src.core.exception_handler import setup_exception_handlers
-
+from src.middleware.ai_logger import AILoggingMiddleware
+import logging
 import src.core.vertex_client
 
+# 로거 초기화
+ai_logger = get_ai_logger()
 logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
 
-# 로깅 설정
+# 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
+# 앱 초기화
 app = FastAPI()
 setup_exception_handlers(app)
 
+# [AI] 성능 로깅 미들웨어 등록
+app.add_middleware(AILoggingMiddleware)
+
 @app.get("/")
 def root():
-    logger.info("[루트 엔드포인트] / 호출됨")  # milestone: 사용자 요청 진입
+    logger.info("[루트 엔드포인트] / 호출됨")
     return {"message": "Hello World: Version 1 API is running"}
 
-#정상 작동
-# app.include_router(vector_db.router, prefix="/ai/v1")
-# app.include_router(tag_extraction.router, prefix="/ai/v1")
-# app.include_router(group_writer.router, prefix="/ai/v1")
-
-#  milestone: 라우터 등록 전후 로깅
-logger.info("[라우터 등록 시작] group_information 라우터 준비 중")
+# [AI] 라우터 등록
+ai_logger.info("[AI] [라우터 등록 시작] group_information 라우터 준비 중")
 app.include_router(group_information.router, prefix="/ai/v1")
-logger.info("[라우터 등록 완료] group_information 라우터 활성화")
+ai_logger.info("[AI] [라우터 등록 완료] group_information 라우터 활성화")
 
-
+# 서버 실행
 if __name__ == "__main__":
     import uvicorn
+    host = "0.0.0.0"
+    port = 8000
+    logger.info("[FastAPI 실행] 서버 시작 전 초기화")
 
-    logger.info("[FastAPI 실행] 서버 시작 전 초기화")  # milestone: 서버 진입 지점
     try:
-        port = 8000
-        uvicorn.run(app, host="0.0.0.0", port=port)
+        uvicorn.run(app, host=host, port=port)
         logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
     except Exception as e:
         logger.error("[FastAPI 실행 오류] 서버 실행 중 예외 발생", exc_info=True)

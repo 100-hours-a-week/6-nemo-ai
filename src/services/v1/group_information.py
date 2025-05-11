@@ -3,7 +3,7 @@ from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.services.v1.tag_extraction import extract_tags
 from src.services.v1.description_writer import generate_description
 from src.services.v1.plan_writer import generate_plan
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 def build_meeting_data(input: MeetingInput) -> MeetingData:
     logger.info("[모임 정보 생성 시작]", extra={

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from src.schemas.v1.group_information import APIResponse, MeetingInput
 from src.services.v1.group_information import build_meeting_data
 from src.core.moderation import get_harmfulness_scores_korean, is_request_valid
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 REJECTION_REASONS = {
     "TOXICITY": "전체적으로 공격적인 표현이 감지되었습니다.",

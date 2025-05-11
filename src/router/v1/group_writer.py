@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from src.schemas.v1.group_writer import GroupGenerationRequest, GroupDescriptionResponse, GroupPlanResponse
 from src.services.v1.description_writer import generate_description
 from src.services.v1.plan_writer import generate_plan
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 router = APIRouter()
 

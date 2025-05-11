@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from src.services.v1.tag_extraction import extract_tags
 from src.schemas.v1.tag_extraction import TagRequest, TagResponse
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 router = APIRouter()
 

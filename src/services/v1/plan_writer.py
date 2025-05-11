@@ -1,6 +1,6 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.vertex_client import gen_model, config_model
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 def generate_plan(data: GroupGenerationRequest) -> str:
     prompt = f"""

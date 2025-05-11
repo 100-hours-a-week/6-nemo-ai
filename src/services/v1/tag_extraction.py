@@ -1,7 +1,7 @@
 import json
 import re
 from src.core.vertex_client import gen_model
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 def extract_tags(text: str) -> list[str]:
     prompt = f"""

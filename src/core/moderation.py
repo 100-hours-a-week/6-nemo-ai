@@ -2,7 +2,7 @@ import json
 import requests
 from datetime import datetime, UTC
 from src.config import PERSPECTIVE_API_KEY
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 PERSPECTIVE_API_URL = f"https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key={PERSPECTIVE_API_KEY}"
 

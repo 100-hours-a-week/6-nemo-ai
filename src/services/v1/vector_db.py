@@ -5,7 +5,7 @@ from src.services.v1.embed import embed
 import numpy as np
 from typing import Callable
 import os
-from src.core.logging_config import logger
+from src.core.cloud_logging import logger
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 persist_dir = os.path.join(project_root, "data/chroma")
