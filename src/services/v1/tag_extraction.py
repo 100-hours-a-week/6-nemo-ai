@@ -43,7 +43,7 @@ def extract_tags(text: str) -> list[str]:
         try:
             tags = json.loads(raw)
         except json.JSONDecodeError:
-            ai_logger.warning("[AI] [JSON 파싱 실패] 테그 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
+            ai_logger.info("[AI] [JSON 파싱 실패] 테그 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
             tags = re.findall(r'"(.*?)"', raw)
 
         ai_logger.info("[AI] [태그 추출 완료]", extra={"tag_count": len(tags)})

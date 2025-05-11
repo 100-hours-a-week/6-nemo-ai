@@ -16,16 +16,16 @@ def setup_exception_handlers(app: FastAPI):
             503: "일시적으로 서비스를 사용할 수 없습니다.",
         }
 
+        # 422는 이미 유해성 차단 등으로 로깅되었으므로 여기선 생략
         if exc.status_code == 422:
             message = str(exc.detail)
         else:
             message = default_messages.get(exc.status_code, str(exc.detail))
-
-        ai_logger.warning("[AI] [예외 처리] HTTP 예외 발생", extra={
-            "status_code": exc.status_code,
-            "detail": str(exc.detail),
-            "path": request.url.path
-        })
+            ai_logger.warning("[AI] [예외 처리] HTTP 예외 발생", extra={
+                "status_code": exc.status_code,
+                "detail": str(exc.detail),
+                "path": request.url.path
+            })
 
         return JSONResponse(
             status_code=exc.status_code,
