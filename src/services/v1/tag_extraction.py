@@ -29,6 +29,9 @@ def extract_tags(text: str) -> list[str]:
     <텍스트 끝>
     """
 
+    response = gen_model.generate_content(prompt)
+    raw = response.text.strip()
+
     try:
         logger.info("[태그 추출 시작]", extra={"text_length": len(text)})
         response = gen_model.generate_content(prompt)

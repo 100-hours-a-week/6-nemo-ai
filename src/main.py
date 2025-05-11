@@ -5,6 +5,9 @@ from fastapi import FastAPI
 from src.router.v1 import group_information
 from src.core.logging_config import logger
 import logging
+from src.core.exception_handler import setup_exception_handlers
+
+import src.core.vertex_client
 
 logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
 
@@ -12,6 +15,7 @@ logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활�
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
 app = FastAPI()
+setup_exception_handlers(app)
 
 @app.get("/")
 def root():
@@ -39,4 +43,3 @@ if __name__ == "__main__":
         logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
     except Exception as e:
         logger.error("[FastAPI 실행 오류] 서버 실행 중 예외 발생", exc_info=True)
-

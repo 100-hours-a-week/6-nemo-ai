@@ -7,6 +7,7 @@ router = APIRouter()
 
 @router.post("/tag/extract", response_model=TagResponse)
 def extract_keyword(payload: TagRequest) -> TagResponse:
+  
     logger.info("[POST /tag/extract] 키워드 추출 요청 수신", extra={"text_preview": payload.text[:30]})
 
     try:

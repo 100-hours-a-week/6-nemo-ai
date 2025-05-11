@@ -1,7 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from src.schemas.v1.group_information import APIResponse, MeetingInput
 from src.services.v1.group_information import build_meeting_data
-from fastapi.responses import JSONResponse
 from src.core.moderation import get_harmfulness_scores_korean, is_request_valid
 from src.core.logging_config import logger
 
@@ -13,7 +12,7 @@ REJECTION_REASONS = {
 }
 router = APIRouter()
 
-@router.post("/groups/information")
+@router.post("/groups/information", response_model=APIResponse)
 def create_meeting(meeting: MeetingInput):
     logger.info("[POST /groups/information] 모임 정보 생성 요청 수신", extra={"meeting_name": meeting.name})
     input_text = f"{meeting.name}\n{meeting.goal}"
@@ -34,17 +33,10 @@ def create_meeting(meeting: MeetingInput):
 
 
     if not is_request_valid(scores):
-        max_attr, max_score = max(scores.items(), key=lambda x: x[1])
+        max_attr, _ = max(scores.items(), key=lambda x: x[1])
         reason_msg = REJECTION_REASONS.get(max_attr, "부적절한 표현이 포함되어 있습니다.")
 
-        return JSONResponse(
-            status_code=422,
-            content={
-                "code": 422,
-                "message": "모임 생성이 거부되었습니다.",
-                "data": reason_msg
-            }
-        )
+        raise HTTPException(status_code=422, detail=reason_msg)
 
     try:
         meeting_data = build_meeting_data(meeting)
@@ -60,13 +52,8 @@ def create_meeting(meeting: MeetingInput):
             }
         )
 
-    response = APIResponse(
+    return APIResponse(
         code=200,
         message="모임 정보 생성 완료",
         data=meeting_data
-    )
-
-    return JSONResponse(
-        status_code=200,
-        content=response.model_dump(exclude_none=True)
     )
