@@ -1,5 +1,6 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.vertex_client import gen_model, config_model
+from src.core.logging_config import logger
 
 def generate_plan(data: GroupGenerationRequest) -> str:
     prompt = f"""
@@ -34,20 +35,25 @@ def generate_plan(data: GroupGenerationRequest) -> str:
         - 카테고리: {data.category}
         - 기간: {data.period} (예: "1개월 이하", "1~3개월", "6개월~1년", "1년 이상")
         """
-    response = gen_model.generate_content(prompt, generation_config=config_model)
+    try:
+        logger.info("[커리큘럼 생성 시작]", extra={"meeting_name": data.name})
+        response = gen_model.generate_content(prompt, generation_config=config_model)
+        result = response.text.strip()
 
-    plan_text = response.text.strip()
-    if not plan_text:
-        raise ValueError("생성된 계획이 비어 있습니다.")
-    return plan_text
+        step_count = result.count("Step ")
+        logger.info("[커리큘럼 생성 완료]", extra={"steps": step_count, "text_length": len(result)})
+        return result
+
+    except Exception as e:
+        logger.exception("[Vertex Gemini 단계별 계획 생성 실패]")
+        return ""
 
 if __name__ == "__main__":
-    import src.core.vertex_client
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
-        name="딥러닝 실전 스터디",
-        goal="딥러닝 기초 이론부터 실습까지 단계적으로 학습",
+        name=".",
+        goal=".",
         category="학습/자기계발",
         period="2주",
         isPlanCreated=False

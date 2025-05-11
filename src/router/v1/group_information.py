@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from src.schemas.v1.group_information import APIResponse, MeetingInput
 from src.services.v1.group_information import build_meeting_data
 from src.core.moderation import get_harmfulness_scores_korean, is_request_valid
+from src.core.logging_config import logger
 
 REJECTION_REASONS = {
     "TOXICITY": "전체적으로 공격적인 표현이 감지되었습니다.",
@@ -13,9 +14,23 @@ router = APIRouter()
 
 @router.post("/groups/information", response_model=APIResponse)
 def create_meeting(meeting: MeetingInput):
+    logger.info("[POST /groups/information] 모임 정보 생성 요청 수신", extra={"meeting_name": meeting.name})
     input_text = f"{meeting.name}\n{meeting.goal}"
 
-    scores = get_harmfulness_scores_korean(input_text)
+    try:
+        scores = get_harmfulness_scores_korean(input_text)
+        logger.info("[유해성 분석] 분석 결과 수신", extra={"scores": scores})
+    except Exception:
+        logger.exception("[유해성 분석] 분석 중 예외 발생")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": 500,
+                "message": "유해성 분석 중 오류가 발생했습니다.",
+                "data": None
+            }
+        )
+
 
     if not is_request_valid(scores):
         max_attr, _ = max(scores.items(), key=lambda x: x[1])
@@ -23,7 +38,19 @@ def create_meeting(meeting: MeetingInput):
 
         raise HTTPException(status_code=422, detail=reason_msg)
 
-    meeting_data = build_meeting_data(meeting)
+    try:
+        meeting_data = build_meeting_data(meeting)
+        logger.info("[모임 생성] 모임 정보 생성 성공")
+    except Exception:
+        logger.exception("[모임 생성] 모임 정보 생성 중 예외 발생")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": 500,
+                "message": "모임 정보 생성 중 오류가 발생했습니다.",
+                "data": None
+            }
+        )
 
     return APIResponse(
         code=200,
