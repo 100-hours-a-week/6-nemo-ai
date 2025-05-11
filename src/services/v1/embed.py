@@ -1,4 +1,8 @@
 from src.core.vertex_client import embed_model
+# from src.core.cloud_logging import logger
+from src.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 def embed(texts: list[str] | str) -> list[list[float]]:
     if isinstance(texts, str):
@@ -6,14 +10,22 @@ def embed(texts: list[str] | str) -> list[list[float]]:
     elif not isinstance(texts, list):
         raise ValueError("embed 함수는 문자열 또는 문자열 리스트만 지원합니다.")
 
-    embeddings = embed_model.get_embeddings(texts)
+    try:
+        ai_logger.info("[AI] [임베딩 요청]", extra={"input_count": len(texts)})
+        embeddings = embed_model.get_embeddings(texts)
+        vectors = [e.values for e in embeddings]
 
-    return [e.values for e in embeddings]
+        if len(vectors) != len(texts):
+            ai_logger.warning("[AI] [임베딩 수 불일치]", extra={"input_count": len(texts), "output_count": len(vectors)})
 
+        ai_logger.info("[AI] [임베딩 완료]", extra={"vector_dim": len(vectors[0]) if vectors else 0})
+        return vectors
+
+    except Exception:
+        ai_logger.exception("[AI] [임베딩 실패]")
+        return []
 
 if __name__ == "__main__":
-    import src.core.vertex_client
-
     texts = [
         "나는 오늘 강남에서 커피를 마셨다.",
         "서울 강남역 근처에는 카페가 정말 많다.",

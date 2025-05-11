@@ -1,6 +1,10 @@
 import json
 import re
 from src.core.vertex_client import gen_model
+# from src.core.cloud_logging import logger
+from src.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 def extract_tags(text: str) -> list[str]:
     prompt = f"""
@@ -32,18 +36,25 @@ def extract_tags(text: str) -> list[str]:
     raw = response.text.strip()
 
     try:
-        tags = json.loads(raw)
-    except json.JSONDecodeError:
-        tags = re.findall(r'"(.*?)"', raw)
+        ai_logger.info("[AI] [태그 추출 시작]", extra={"text_length": len(text)})
+        response = gen_model.generate_content(prompt)
+        raw = response.text.strip()
 
-    if not tags:
-        raise ValueError("태그 추출 결과가 비어 있습니다.")
+        try:
+            tags = json.loads(raw)
+        except json.JSONDecodeError:
+            ai_logger.info("[AI] [JSON 파싱 실패] 테그 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
+            tags = re.findall(r'"(.*?)"', raw)
 
-    return tags
+        ai_logger.info("[AI] [태그 추출 완료]", extra={"tag_count": len(tags)})
+        return tags
+
+    except Exception as e:
+        ai_logger.exception("[AI] [Vertex Gemini 태그 추출 실패]")
+        return []
 
 
 if __name__ == "__main__":
-    import src.core.vertex_client
 
     sample_text = """
     네모는 개발자와 디자이너가 함께 모여 사이드 프로젝트를 진행하는 커뮤니티입니다.
