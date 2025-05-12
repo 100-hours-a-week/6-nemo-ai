@@ -20,5 +20,5 @@ config_model = GenerationConfig(
         temperature=0.75,
         top_p=0.95,
         top_k=40,
-        max_output_tokens=1024,
+        max_output_tokens=900,
     )
