@@ -4,6 +4,7 @@ from src.services.v1.tag_extraction import extract_tags
 from src.services.v1.description_writer import generate_description
 from src.services.v1.plan_writer import generate_plan
 from src.core.ai_logger import get_ai_logger
+from concurrent.futures import ThreadPoolExecutor
 
 ai_logger = get_ai_logger()
 
@@ -27,9 +28,15 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
     )
 
     try:
-        summary, description = generate_description(group_data)
-        tags = extract_tags(description)
-        plan = generate_plan(group_data) if input.isPlanCreated else None
+        with ThreadPoolExecutor() as executor:
+            future_desc = executor.submit(generate_description, group_data)
+            summary, description = future_desc.result()
+
+            future_tags = executor.submit(extract_tags, description)
+            future_plan = executor.submit(generate_plan, group_data) if input.isPlanCreated else None
+
+            tags = future_tags.result()
+            plan = future_plan.result() if future_plan else None
 
         # summary = convert_linebreaks(summary)
         # description = convert_linebreaks(description)
