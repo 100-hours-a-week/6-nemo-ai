@@ -26,23 +26,23 @@ def get_ai_logger() -> logging.Logger:
     logger = logging.getLogger("ai")
 
     if not logger.handlers:
-        # ✅ 콘솔 핸들러 (INFO 이상)
+        # 콘솔 핸들러 (INFO 이상)
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.INFO)
         stream_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
         logger.addHandler(stream_handler)
 
-        # ✅ Discord 핸들러 (WARNING 이상)
+        # Discord 핸들러 (WARNING 이상)
         discord_handler = DiscordHandler()
         discord_handler.setLevel(logging.WARNING)
         discord_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
         logger.addHandler(discord_handler)
 
-        # ✅ 로거 레벨은 DEBUG로 설정 (모든 로그 수용 가능하게)
+        # 로거 레벨은 DEBUG로 설정 (모든 로그 수용 가능하게)
         logger.setLevel(logging.DEBUG)
         logger.propagate = False
 
-        # ✅ Cloud Logging (보존됨)
+        # Cloud Logging (보존됨)
         # try:
         #     credentials = service_account.Credentials.from_service_account_file(CREDENTIAL_PATH)
         #     client = gcp_logging.Client(credentials=credentials)

@@ -38,7 +38,7 @@ def create_meeting(meeting: MeetingInput, request: Request):
         max_attr, max_score = max(scores.items(), key=lambda x: x[1])
         reason_msg = REJECTION_REASONS.get(max_attr, "부적절한 표현이 포함되어 있습니다.")
 
-        # ✅ 하나의 로그로 요약
+        # 하나의 로그로 요약
         ai_logger.warning("[AI] [유해성 차단] 요청 거부됨", extra={
             "reason": reason_msg,
             "attribute": max_attr,
