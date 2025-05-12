@@ -31,10 +31,10 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
         tags = extract_tags(description)
         plan = generate_plan(group_data) if input.isPlanCreated else None
 
-        summary = convert_linebreaks(summary)
-        description = convert_linebreaks(description)
-        if plan:
-            plan = convert_linebreaks(plan)
+        # summary = convert_linebreaks(summary)
+        # description = convert_linebreaks(description)
+        # if plan:
+        #     plan = convert_linebreaks(plan)
 
         ai_logger.info("[AI] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 

@@ -14,22 +14,30 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     - 사용자의 입력에 욕설, 비하, 공격적 표현이 포함된 경우 이를 무시하고 **건전한 텍스트**만 생성해주세요.
     - 욕설, 비하 표현, 공격적 단어는 절대 그대로 사용하지 마세요.
     - 출력에는 절대 이모지(emoji)를 포함하지 마세요.
+    - 출력에 줄바꿈 기호(`\\n`)나 실제 줄바꿈(Enter)을 포함하지 마세요.
 
     다음 모임 정보를 바탕으로 아래 두 항목을 생성해주세요:
 
-    1. 한 줄 소개 (64자 이내): 모임의 상세소개를 간단명료하게 요약하여 모임의 성격이 드러나도록 하나의 문장으로 작성하되, 반드시 **명사**로 자연스럽게 마무리해주세요.  
-       예시: 실무 중심으로 안드로이드 앱을 개발하는 스터디 모임
+    1. 한 줄 소개 (64자 이내): 모임의 핵심 목적을 간결하고 명확하게 요약한 한 문장입니다. 반드시 **명사형**으로 끝나야 하며, 한 문장으로 작성해주세요.
 
-    2. 상세 설명 (500자 이내): 어떤 활동을 하는 모임인지, 누가 참여하면 좋은지, 기간 동안 어떤 방식으로 운영되는지 등을 친절하고 명확하게 작성해주세요.
-     - 각 문장을 끝낼 때마다 반드시 `\n`을 넣어 주세요. 문장 단위로 줄을 나눈 것처럼 작성해야 합니다.
-
-    출력 조건:
-    - 실제 줄바꿈(엔터)은 절대 사용하지 마세요.
-    - 각 항목의 줄 끝에는 반드시 문자 그대로 **백슬래시 1 개와 소문자 n (`\n`)**을 넣어주세요.
-    - 출력은 다음 형식처럼 **한 줄 문자열**로 이어져야 합니다:
-
-    예시 출력:
-    - 한 줄 소개:\n- 상세 설명:\n
+    2. 상세 설명 (500자 이내): 다음 형식을 따릅니다.
+    - 처음 1~2문장은 자연스러운 소개 문단 형식으로 작성해주세요.
+    - 이후 필요하다고 판단되면 **불릿 포인트** 형식으로 주요 활동, 운영 방식 등을 나열해주세요.
+    - 불릿이 불필요하다고 판단되면 생략해도 괜찮습니다. 
+    - 불릿이 포함된다면 각 줄은 `-`로 시작하며, 간결하게 한 문장으로 작성해주세요. 들여쓰기도 해주세요.
+    
+    출력 예시:
+    한 줄 소개:
+    LangChain 실습 중심의 생성형 AI 초보자 스터디
+    
+    출력 예시:
+    상세 설명:
+    LangChain 스터디는 생성형 AI를 배우고 싶은 초보자를 위한 실습 중심 스터디입니다.
+    LangChain 공식 문서가 어렵거나 포트폴리오가 필요한 분들께 추천해요.
+        - 매주 1회 오프라인/온라인 스터디 (2시간)
+        - 사전 학습 자료 및 실습 과제 제공
+        - 실습 위주의 코드 중심 스터디
+        - 주차기말과제로 LangChain 미니 프로젝트 진행
 
     입력 정보:
     - 모임명: {data.name}
@@ -42,13 +50,13 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
         response = gen_model.generate_content(prompt, generation_config=config_model)
         full_text = response.text
 
-        parts = full_text.split("- 한 줄 소개:")
+        parts = full_text.split("한 줄 소개:")
         if len(parts) < 2:
             ai_logger.warning("[AI] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": full_text[:80]})
             return "", ""
 
         after_intro = parts[1]
-        subparts = after_intro.split("- 상세 설명:")
+        subparts = after_intro.split("상세 설명:")
         if len(subparts) < 2:
             ai_logger.warning("[AI] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": full_text[:80]})
             return "", ""
@@ -68,13 +76,13 @@ if __name__ == "__main__":
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
-        name=".",
-        goal=".",
-        category="학습/자기계발",
-        period="2주",
+        name= "주말 러닝 크루",
+        goal= "매주 함께 뛰며 체력과 건강을 관리하기",
+        category= "운동/건강",
+        period= "3개월",
         isPlanCreated=False
     )
 
     summary, description = generate_description(data)
-    print(repr(summary))
-    print(repr(description))
+    print((summary))
+    print((description))
