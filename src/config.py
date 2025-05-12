@@ -22,5 +22,5 @@ if not PROJECT_ID or not REGION:
     raise ValueError("GCP 설정이 누락되었습니다.")
 if not TXTGEN_MODEL_ID or not EMBEDDING_MODEL_ID:
     raise ValueError("모델 ID가 누락되었습니다.")
-if not os.path.exists(CREDENTIAL_PATH):
-    raise FileNotFoundError(f"인증 JSON 파일이 존재하지 않습니다: {CREDENTIAL_PATH}")
+# if not os.path.exists(CREDENTIAL_PATH):
+#     raise FileNotFoundError(f"인증 JSON 파일이 존재하지 않습니다: {CREDENTIAL_PATH}")
