@@ -7,6 +7,11 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
+
+def convert_linebreaks(text: str) -> str:
+    return text.replace("\n", "<br />") if text else ""
+
+
 def build_meeting_data(input: MeetingInput) -> MeetingData:
     ai_logger.info("[AI] [모임 정보 생성 시작]", extra={
         "meeting_name": input.name,
@@ -25,6 +30,11 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
         summary, description = generate_description(group_data)
         tags = extract_tags(description)
         plan = generate_plan(group_data) if input.isPlanCreated else None
+
+        summary = convert_linebreaks(summary)
+        description = convert_linebreaks(description)
+        if plan:
+            plan = convert_linebreaks(plan)
 
         ai_logger.info("[AI] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 
@@ -45,6 +55,7 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
             plan=None,
         )
 
+
 if __name__ == "__main__":
     test_input = MeetingInput(
         name="딥러닝 실전 스터디",
@@ -55,4 +66,4 @@ if __name__ == "__main__":
     )
 
     result = build_meeting_data(test_input)
-    print(result)
+    print(repr(result))

@@ -40,7 +40,7 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     try:
         ai_logger.info("[AI] [요약 생성 시작]", extra={"meeting_name": data.name})
         response = gen_model.generate_content(prompt, generation_config=config_model)
-        full_text = response.text.replace('\n', '')
+        full_text = response.text
 
         parts = full_text.split("- 한 줄 소개:")
         if len(parts) < 2:
