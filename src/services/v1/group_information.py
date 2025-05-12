@@ -8,6 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 ai_logger = get_ai_logger()
 
+
+def convert_linebreaks(text: str) -> str:
+    return text.replace("\n", "<br />") if text else ""
+
+
 def build_meeting_data(input: MeetingInput) -> MeetingData:
     ai_logger.info("[AI] [모임 정보 생성 시작]", extra={
         "meeting_name": input.name,
@@ -33,6 +38,11 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
             tags = future_tags.result()
             plan = future_plan.result() if future_plan else None
 
+        # summary = convert_linebreaks(summary)
+        # description = convert_linebreaks(description)
+        # if plan:
+        #     plan = convert_linebreaks(plan)
+
         ai_logger.info("[AI] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 
         return MeetingData(
@@ -51,6 +61,7 @@ def build_meeting_data(input: MeetingInput) -> MeetingData:
             tags=[],
             plan=None,
         )
+
 
 if __name__ == "__main__":
     test_input = MeetingInput(
