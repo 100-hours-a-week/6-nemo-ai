@@ -1,8 +1,8 @@
 from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.core.vertex_client import gen_model, config_model
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
+from src.core.vertex_client import generate_content
 
 ai_logger = get_ai_logger()
 
@@ -47,18 +47,17 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     """
     try:
         ai_logger.info("[AI] [요약 생성 시작]", extra={"meeting_name": data.name})
-        response = gen_model.generate_content(prompt, generation_config=config_model)
-        full_text = response.text
+        response = generate_content(prompt)
 
-        parts = full_text.split("한 줄 소개:")
+        parts = response.split("한 줄 소개:")
         if len(parts) < 2:
-            ai_logger.warning("[AI] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": full_text[:80]})
+            ai_logger.warning("[AI] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": response[:80]})
             return "", ""
 
         after_intro = parts[1]
         subparts = after_intro.split("상세 설명:")
         if len(subparts) < 2:
-            ai_logger.warning("[AI] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": full_text[:80]})
+            ai_logger.warning("[AI] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": response[:80]})
             return "", ""
 
         summary = subparts[0].strip()
