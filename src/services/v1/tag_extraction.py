@@ -1,6 +1,6 @@
 import json
 import re
-from src.core.vertex_client import generate_with_cache
+from src.core.vertex_client import gen_model
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
 
@@ -32,10 +32,13 @@ def extract_tags(text: str) -> list[str]:
     <텍스트 끝>
     """
 
+    response = gen_model.generate_content(prompt)
+    raw = response.text.strip()
+
     try:
         ai_logger.info("[AI] [태그 추출 시작]", extra={"text_length": len(text)})
-        response = generate_with_cache(prompt)["text"]
-        raw = response.strip()
+        response = gen_model.generate_content(prompt)
+        raw = response.text.strip()
 
         try:
             tags = json.loads(raw)
