@@ -1,8 +1,9 @@
-import json
+import asyncio
 import requests
 from datetime import datetime, UTC
 from src.config import PERSPECTIVE_API_KEY
 from src.core.ai_logger import get_ai_logger
+from src.core.cache_local import make_cache_key, get_cached, set_cached
 
 ai_logger = get_ai_logger()
 
@@ -62,6 +63,29 @@ def is_request_valid(scores: dict, threshold: float = THRESHOLD) -> bool:
         })
 
     return max_score < threshold
+
+# 캐싱 + 큐잉 버전 함수 추가
+perspective_lock = asyncio.Semaphore(1)
+
+async def analyze_with_cache(text: str) -> dict:
+    key = make_cache_key("perspective", text)
+
+    cached = get_cached(key)
+    if cached:
+        return cached
+
+    async with perspective_lock:
+        try:
+            result = get_harmfulness_scores_korean(text)
+        except Exception:
+            result = {
+                "TOXICITY": 0.0,
+                "INSULT": 0.0,
+                "THREAT": 0.0,
+                "IDENTITY_ATTACK": 0.0
+            }
+        set_cached(key, result)
+        return result
 
 if __name__ == "__main__":
     test_text = "이 모임은 멍청한 사람들 모아놓고 얼마나 비효율적인지 관찰하려고 만든 겁니다."

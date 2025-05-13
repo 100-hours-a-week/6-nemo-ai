@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from src.schemas.v1.group_information import APIResponse, MeetingInput
 from src.services.v1.group_information import build_meeting_data
-from src.core.moderation import get_harmfulness_scores_korean, is_request_valid
+from src.core.moderation import analyze_with_cache, is_request_valid
 from src.core.ai_logger import get_ai_logger
+import asyncio
 
 ai_logger = get_ai_logger()
 router = APIRouter()
@@ -16,12 +17,12 @@ REJECTION_REASONS = {
 }
 
 @router.post("/groups/information", response_model=APIResponse, response_model_exclude_none=True)
-def create_meeting(meeting: MeetingInput, request: Request):
+async def create_meeting(meeting: MeetingInput, request: Request):
     ai_logger.info("[AI] [POST /groups/information] 모임 정보 생성 요청 수신", extra={"meeting_name": meeting.name})
     input_text = f"{meeting.name}\n{meeting.goal}"
 
     try:
-        scores = get_harmfulness_scores_korean(input_text)
+        scores = await analyze_with_cache(input_text)
         ai_logger.info("[AI] [유해성 분석] 분석 결과 수신", extra={"scores": scores})
     except Exception:
         ai_logger.exception("[AI] [유해성 분석] 분석 중 예외 발생")

@@ -1,5 +1,5 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.core.vertex_client import gen_model, config_model
+from src.core.vertex_client import generate_with_cache
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
 
@@ -48,8 +48,8 @@ def generate_plan(data: GroupGenerationRequest) -> str:
     """
     try:
         ai_logger.info("[AI] [커리큘럼 생성 시작]", extra={"meeting_name": data.name})
-        response = gen_model.generate_content(prompt, generation_config=config_model)
-        result = response.text.strip()
+        response = generate_with_cache(prompt)["text"]
+        result = response.strip()
 
         step_count = result.count("Step ")
         ai_logger.info("[AI] [커리큘럼 생성 완료]", extra={"steps": step_count, "text_length": len(result)})
