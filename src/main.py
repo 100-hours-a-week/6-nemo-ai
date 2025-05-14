@@ -5,6 +5,7 @@ from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
 from src.middleware.ai_logger import AILoggingMiddleware
 import logging
+from src.core.sentry_client import init_sentry
 import src.core.vertex_client
 
 # 로거 초기화
@@ -13,6 +14,7 @@ ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging �
 
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
+init_sentry()
 
 # 앱 초기화
 app = FastAPI()
