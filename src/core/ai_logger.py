@@ -20,31 +20,38 @@ def send_to_discord(message: str):
 class DiscordHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            print("emit called")
+            # print("emit called")
             record_path = Path(record.pathname).resolve()
             src_root = Path(__file__).resolve().parent.parent  # → /.../src
 
-            print("record path:", record_path)
-            print("src root:", src_root)
+            # print("record path:", record_path)
+            # print("src root:", src_root)
 
             # src 내부에서 발생한 로그만 Discord로 전송
             if src_root not in record_path.parents:
-                print("필터됨 (src 외 경로)")
+                # print("필터됨 (src 외 경로)")
                 return
 
             msg = self.format(record)
-            print("메시지:", msg)
+            # print("메시지:", msg)
 
             # 필터링할 내용
-            if "[예외 처리]" in msg or "favicon.ico" in msg or "/docs" in msg:
-                print("필터됨 (내용 조건)")
+            blocked_keywords = [
+                "[예외 처리]",
+                "favicon.ico",
+                "/docs",
+                "[Moderation 평가]",
+                "[유해성 차단]",
+                "[Client Error]"
+            ]
+            if any(block in msg for block in blocked_keywords):
+                # print("필터됨 (내용 조건)")
                 return
 
-            print("Discord 전송 시도 중...")
+            # print("Discord 전송 시도 중...")
             send_to_discord(f"[AI LOG] {msg}")
         except Exception as e:
             print(f"[emit 에러]: {e}")
-
 
 def get_ai_logger() -> logging.Logger:
     logger = logging.getLogger("ai")

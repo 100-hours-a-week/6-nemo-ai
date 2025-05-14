@@ -4,7 +4,6 @@ from src.schemas.v1.group_information import APIResponse, MeetingInput
 from src.services.v1.group_information import build_meeting_data
 from src.core.moderation import analyze_queued, is_request_valid
 from src.core.ai_logger import get_ai_logger
-import asyncio
 
 ai_logger = get_ai_logger()
 router = APIRouter()
@@ -39,7 +38,6 @@ async def create_meeting(meeting: MeetingInput, request: Request):
         max_attr, max_score = max(scores.items(), key=lambda x: x[1])
         reason_msg = REJECTION_REASONS.get(max_attr, "부적절한 표현이 포함되어 있습니다.")
 
-        # 하나의 로그로 요약
         ai_logger.warning("[AI] [유해성 차단] 요청 거부됨", extra={
             "reason": reason_msg,
             "attribute": max_attr,
@@ -50,7 +48,7 @@ async def create_meeting(meeting: MeetingInput, request: Request):
         raise HTTPException(status_code=422, detail=reason_msg)
 
     try:
-        meeting_data = build_meeting_data(meeting)
+        meeting_data = await build_meeting_data(meeting)
         ai_logger.info("[AI] [모임 생성] 모임 정보 생성 성공")
     except Exception:
         ai_logger.exception("[AI] [모임 생성] 모임 정보 생성 중 예외 발생")

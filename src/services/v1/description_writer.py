@@ -2,11 +2,12 @@ from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
-from src.core.vertex_client import generate_content
+from src.core.vertex_client import smart_generate
+import asyncio
 
 ai_logger = get_ai_logger()
 
-def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
+async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
 
@@ -47,7 +48,7 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     """
     try:
         ai_logger.info("[AI] [요약 생성 시작]", extra={"meeting_name": data.name})
-        response = generate_content(prompt)
+        response = await smart_generate(prompt)
 
         parts = response.split("한 줄 소개:")
         if len(parts) < 2:
@@ -72,16 +73,20 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
         return "", ""
 
 if __name__ == "__main__":
+    import asyncio
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
-        name= "주말 러닝 크루",
-        goal= "매주 함께 뛰며 체력과 건강을 관리하기",
-        category= "운동/건강",
-        period= "3개월",
+        name="주말 러닝 크루",
+        goal="매주 함께 뛰며 체력과 건강을 관리하기",
+        category="운동/건강",
+        period="3개월",
         isPlanCreated=False
     )
 
-    summary, description = generate_description(data)
-    print((summary))
-    print((description))
+    async def run_test():
+        summary, description = await generate_description(data)
+        print("\n한 줄 소개:\n", summary)
+        print("\n상세 설명:\n", description)
+
+    asyncio.run(run_test())
