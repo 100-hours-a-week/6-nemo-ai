@@ -1,11 +1,12 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.core.vertex_client import gen_model, config_model
-# from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
+from src.core.vertex_client import smart_generate
+import asyncio
 
 ai_logger = get_ai_logger()
 
-def generate_plan(data: GroupGenerationRequest) -> str:
+
+async def generate_plan(data: GroupGenerationRequest) -> str:
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
     다음 모임 정보를 참고하여, 모임의 '목적'을 중심으로 **실현 가능한 활동 커리큘럼**을 스텝별로 작성해주세요.
@@ -28,12 +29,12 @@ def generate_plan(data: GroupGenerationRequest) -> str:
       - 1년 이상 → 7~8단계
     - 단, **무조건 8단계를 채우지 말고**, 모임 목적과 활동 적절성에 따라 1~8단계 내에서 유연하게 결정하세요.
     - 각 단계는 다음 형식을 따릅니다:
-    
+
     - Step N: [제목]
         - [설명 문장 1]
         - [설명 문장 2]
         - [설명 문장 3]
-        
+
     + 아래 출력 형식을 반드시 정확히 따르세요. 줄 간 공백 없이 출력하세요.
     - 각 설명은 간결하고 실천 가능한 내용으로 구성하며, 최대 3개까지만 작성하세요.
     - **모든 활동은 반드시 모임의 '목적'과 직접적으로 연결되어야 합니다.**
@@ -44,24 +45,23 @@ def generate_plan(data: GroupGenerationRequest) -> str:
     - 모임명: {data.name}
     - 목적: {data.goal}
     - 카테고리: {data.category}
-    - 기간: {data.period} (예: "1개월 이하", "1~3개월", "6개월~1년", "1년 이상")
+    - 기간: {data.period}
     """
     try:
         ai_logger.info("[AI] [커리큘럼 생성 시작]", extra={"meeting_name": data.name})
-        response = gen_model.generate_content(prompt, generation_config=config_model)
-        result = response.text.strip()
+        response = await smart_generate(prompt)
+        result = response.strip()
 
         step_count = result.count("Step ")
         ai_logger.info("[AI] [커리큘럼 생성 완료]", extra={"steps": step_count, "text_length": len(result)})
         return result
 
-    except Exception as e:
+    except Exception:
         ai_logger.exception("[AI] [Vertex Gemini 단계별 계획 생성 실패]")
         return ""
 
-if __name__ == "__main__":
-    from src.schemas.v1.group_writer import GroupGenerationRequest
 
+if __name__ == "__main__":
     data = GroupGenerationRequest(
         name="토익 스터디 모임",
         goal="함께 공부해서 다음 달 토익 시험 목표 점수 달성하기",
@@ -69,5 +69,10 @@ if __name__ == "__main__":
         period="2주",
         isPlanCreated=False
     )
-    plan = generate_plan(data)
-    print((plan))
+
+    async def run_test():
+        plan = await generate_plan(data)
+        print("\n생성된 커리큘럼:\n")
+        print(plan)
+
+    asyncio.run(run_test())
