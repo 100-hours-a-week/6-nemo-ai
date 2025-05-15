@@ -1,12 +1,13 @@
 from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.core.vertex_client import gen_model, config_model
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
+from src.core.vertex_client import smart_generate
+import asyncio
 
 ai_logger = get_ai_logger()
 
-def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
+async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
 
@@ -47,18 +48,17 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     """
     try:
         ai_logger.info("[AI] [요약 생성 시작]", extra={"meeting_name": data.name})
-        response = gen_model.generate_content(prompt, generation_config=config_model)
-        full_text = response.text
+        response = await smart_generate(prompt)
 
-        parts = full_text.split("한 줄 소개:")
+        parts = response.split("한 줄 소개:")
         if len(parts) < 2:
-            ai_logger.warning("[AI] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": full_text[:80]})
+            ai_logger.warning("[AI] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": response[:80]})
             return "", ""
 
         after_intro = parts[1]
         subparts = after_intro.split("상세 설명:")
         if len(subparts) < 2:
-            ai_logger.warning("[AI] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": full_text[:80]})
+            ai_logger.warning("[AI] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": response[:80]})
             return "", ""
 
         summary = subparts[0].strip()
@@ -73,16 +73,20 @@ def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
         return "", ""
 
 if __name__ == "__main__":
+    import asyncio
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
-        name= "주말 러닝 크루",
-        goal= "매주 함께 뛰며 체력과 건강을 관리하기",
-        category= "운동/건강",
-        period= "3개월",
+        name="주말 러닝 크루",
+        goal="매주 함께 뛰며 체력과 건강을 관리하기",
+        category="운동/건강",
+        period="3개월",
         isPlanCreated=False
     )
 
-    summary, description = generate_description(data)
-    print((summary))
-    print((description))
+    async def run_test():
+        summary, description = await generate_description(data)
+        print("\n한 줄 소개:\n", summary)
+        print("\n상세 설명:\n", description)
+
+    asyncio.run(run_test())
