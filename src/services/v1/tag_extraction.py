@@ -1,13 +1,12 @@
 import json
 import re
+from src.core.vertex_client import gen_model
 # from src.core.cloud_logging import logger
-from src.core.vertex_client import smart_generate
 from src.core.ai_logger import get_ai_logger
-import asyncio
 
 ai_logger = get_ai_logger()
 
-async def extract_tags(text: str) -> list[str]:
+def extract_tags(text: str) -> list[str]:
     prompt = f"""
     당신은 한국어 텍스트에서 핵심 키워드를 추출하는 AI입니다.
 
@@ -33,10 +32,13 @@ async def extract_tags(text: str) -> list[str]:
     <텍스트 끝>
     """
 
+    response = gen_model.generate_content(prompt)
+    raw = response.text.strip()
+
     try:
         ai_logger.info("[AI] [태그 추출 시작]", extra={"text_length": len(text)})
-        response = await smart_generate(prompt)
-        raw = response.strip()
+        response = gen_model.generate_content(prompt)
+        raw = response.text.strip()
 
         try:
             tags = json.loads(raw)
@@ -59,8 +61,5 @@ if __name__ == "__main__":
     매주 오프라인에서 아이디어를 공유하고, 코드 리뷰와 디자인 피드백 세션을 통해 서로 성장합니다.
     관심 분야는 웹 개발, 인공지능, UX/UI 디자인입니다.
     """
-    import asyncio
-    async def run_test():
-        tags = await extract_tags(sample_text)
-        print(tags)
-    asyncio.run(run_test())
+    tags = extract_tags(sample_text)
+    print(tags)

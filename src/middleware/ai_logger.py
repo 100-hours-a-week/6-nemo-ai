@@ -16,18 +16,12 @@ class AILoggingMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         status_code = response.status_code
 
-        # 성공 응답
+        # 성공 로그
         if status_code < 400:
             ai_logger.info(f"[AI] {method} {path} - {status_code} - {process_time}s")
-
-        # 클라이언트 에러 (422 제외)
+        # 클라이언트 에러이지만 422는 제외 (중복 방지)
         elif 400 <= status_code < 500 and status_code != 422:
-            # 429는 별도 태그로 강조
-            if status_code == 429:
-                ai_logger.warning(f"[Quota Error] {method} {path} - 429 Too Many Requests")
-            else:
-                ai_logger.warning(f"[Client Error] {method} {path} - {status_code}")
-
+            ai_logger.warning(f"[Client Error] {method} {path} - {status_code}")
         # 서버 에러
         elif status_code >= 500:
             ai_logger.error(f"[Server Error] {method} {path} - {status_code}")
