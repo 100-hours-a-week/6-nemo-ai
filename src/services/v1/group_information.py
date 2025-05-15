@@ -4,11 +4,16 @@ from src.services.v1.tag_extraction import extract_tags
 from src.services.v1.description_writer import generate_description
 from src.services.v1.plan_writer import generate_plan
 from src.core.ai_logger import get_ai_logger
-import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 ai_logger = get_ai_logger()
 
-async def build_meeting_data(input: MeetingInput) -> MeetingData:
+
+def convert_linebreaks(text: str) -> str:
+    return text.replace("\n", "<br />") if text else ""
+
+
+def build_meeting_data(input: MeetingInput) -> MeetingData:
     ai_logger.info("[AI] [모임 정보 생성 시작]", extra={
         "meeting_name": input.name,
         "has_plan": input.isPlanCreated
@@ -23,9 +28,20 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
     )
 
     try:
-        summary, description = await generate_description(group_data)
-        tags = await extract_tags(description)
-        plan = await generate_plan(group_data) if input.isPlanCreated else None
+        with ThreadPoolExecutor() as executor:
+            future_desc = executor.submit(generate_description, group_data)
+            summary, description = future_desc.result()
+
+            future_tags = executor.submit(extract_tags, description)
+            future_plan = executor.submit(generate_plan, group_data) if input.isPlanCreated else None
+
+            tags = future_tags.result()
+            plan = future_plan.result() if future_plan else None
+
+        # summary = convert_linebreaks(summary)
+        # description = convert_linebreaks(description)
+        # if plan:
+        #     plan = convert_linebreaks(plan)
 
         ai_logger.info("[AI] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 
@@ -36,7 +52,6 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
             tags=tags,
             plan=plan,
         )
-
     except Exception:
         ai_logger.exception("[AI] [모임 정보 생성 실패]")
         return MeetingData(
@@ -47,6 +62,7 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
             plan=None,
         )
 
+
 if __name__ == "__main__":
     test_input = MeetingInput(
         name="딥러닝 실전 스터디",
@@ -56,8 +72,5 @@ if __name__ == "__main__":
         isPlanCreated=True,
     )
 
-    async def run_test():
-        result = await build_meeting_data(test_input)
-        print((result))
-
-    asyncio.run(run_test())
+    result = build_meeting_data(test_input)
+    print(repr(result))

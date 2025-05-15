@@ -3,7 +3,6 @@ import requests
 from datetime import datetime, UTC
 from src.config import PERSPECTIVE_API_KEY
 from src.core.ai_logger import get_ai_logger
-import asyncio
 
 ai_logger = get_ai_logger()
 
@@ -63,21 +62,6 @@ def is_request_valid(scores: dict, threshold: float = THRESHOLD) -> bool:
         })
 
     return max_score < threshold
-
-perspective_lock = asyncio.Semaphore(1)
-
-async def analyze_queued(text: str) -> dict:
-    async with perspective_lock:
-        try:
-            return get_harmfulness_scores_korean(text)
-        except Exception as e:
-            ai_logger.warning("[AI] [Moderation fallback] 기본 점수 반환", extra={"error": str(e)})
-            return {
-                "TOXICITY": 0.0,
-                "INSULT": 0.0,
-                "THREAT": 0.0,
-                "IDENTITY_ATTACK": 0.0
-            }
 
 if __name__ == "__main__":
     test_text = "이 모임은 멍청한 사람들 모아놓고 얼마나 비효율적인지 관찰하려고 만든 겁니다."
