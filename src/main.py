@@ -1,6 +1,5 @@
-from dotenv import load_dotenv
 from fastapi import FastAPI
-from src.router.v1 import group_information
+from src.router.v1 import group_information, health
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
 from src.middleware.ai_logger import AILoggingMiddleware
@@ -25,8 +24,9 @@ app.add_middleware(AILoggingMiddleware)
 
 @app.get("/")
 def root():
-    ai_logger.info("[루트 엔드포인트] / 호출됨")
-    return {"message": "Hello World: Version 1 API is running"}
+    return {"message": "Hello World"}
+
+app.include_router(health.router)
 
 # [AI] 라우터 등록
 ai_logger.info("[AI] [라우터 등록 시작] group_information 라우터 준비 중")
