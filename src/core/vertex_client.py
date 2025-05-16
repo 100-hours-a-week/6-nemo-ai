@@ -7,7 +7,6 @@ from google.api_core.exceptions import InvalidArgument, ResourceExhausted
 from src.config import PROJECT_ID, REGION, CREDENTIAL_PATH, TXTGEN_MODEL_ID, EMBEDDING_MODEL_ID
 from src.core.ai_logger import get_ai_logger
 from src.core.rate_limiter import RateLimitedExecutor, QueuedExecutor
-import time
 
 # --- 로깅 설정
 ai_logger = get_ai_logger()
@@ -38,48 +37,27 @@ vertex_executor = RateLimitedExecutor(max_workers=3, qps=1)
 queued_executor = QueuedExecutor(max_workers=3, qps=1)
 
 # --- 동기 호출 함수 (기본)
-def generate_content(prompt: str, max_retries: int = 3) -> str:
-    for attempt in range(1, max_retries + 1):
-        try:
-            response = gen_model.generate_content(prompt, generation_config=config_model)
-            text = response.text.strip() if response and hasattr(response, "text") else ""
+def generate_content(prompt: str) -> str:
+    try:
+        response = gen_model.generate_content(prompt, generation_config=config_model)
 
-            if text:
-                return text
-            else:
-                ai_logger.warning(
-                    "[AI] [VertexAI Empty Response]",
-                    extra={"attempt": attempt, "prompt": prompt[:100]}
-                )
+        if not response.text or not response.text.strip():
+            ai_logger.warning("[AI] [VertexAI Empty Response]", extra={"prompt": prompt[:100]})
+            return "[EMPTY]"
 
-        except InvalidArgument as e:
-            ai_logger.warning(
-                "[AI] [VertexAI InvalidArgument]",
-                extra={"error": str(e), "attempt": attempt, "prompt": prompt[:100]}
-            )
-            return "[INVALID_ARGUMENT]"
+        return response.text
 
-        except ResourceExhausted as e:
-            ai_logger.warning(
-                "[AI] [VertexAI QuotaExceeded]",
-                extra={"error": str(e), "attempt": attempt, "prompt": prompt[:100]}
-            )
-            return "[QUOTA_EXCEEDED]"
+    except InvalidArgument as e:
+        ai_logger.warning("[AI] [VertexAI InvalidArgument]", extra={"error": str(e), "prompt": prompt[:100]})
+        return "[INVALID_ARGUMENT]"
 
-        except Exception as e:
-            ai_logger.warning(
-                "[AI] [VertexAI Error]",
-                extra={"error": str(e), "attempt": attempt, "prompt": prompt[:100]}
-            )
+    except ResourceExhausted as e:
+        ai_logger.warning("[AI] [VertexAI QuotaExceeded]", extra={"error": str(e), "prompt": prompt[:100]})
+        return "[QUOTA_EXCEEDED]"
 
-        # 재시도 간 짧은 대기
-        time.sleep(0.5)
-
-    ai_logger.error(
-        "[AI] [VertexAI MaxRetryExceeded]",
-        extra={"prompt": prompt[:100]}
-    )
-    return "[ERROR]"
+    except Exception as e:
+        ai_logger.warning("[AI] [VertexAI Error]", extra={"error": str(e), "prompt": prompt[:100]})
+        return "[ERROR]"
 
 # --- 제한된 동기 실행 (CLI/동기 환경에서 사용)
 def limited_generate(prompt: str) -> str:
