@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+
+*.py[cod]
+*.egg-info/
+*.pyo
+*.pyd
+
+# Environments
+.env
+
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+
+# OS
+.DS_Store
+
+# Chroma
+data/chroma/
+
+# logs
+*.log
+/src/data/chroma/chroma.sqlite3
+/naemo-project-admin-key.json
