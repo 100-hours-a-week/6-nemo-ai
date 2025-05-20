@@ -2,7 +2,7 @@ name: AI CI/CD for dev-v1
 
 on:
   push:
-    branches: [develop, infra/ci-cd]
+    branches: [ develop ]
 
 jobs:
   deploy:
