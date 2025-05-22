@@ -3,6 +3,7 @@ from src.router.v1 import group_information, health
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
 from src.middleware.ai_logger import AILoggingMiddleware
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 import logging
 import src.core.vertex_client
 
@@ -16,6 +17,7 @@ logging.getLogger("chromadb").setLevel(logging.WARNING)
 # 앱 초기화
 app = FastAPI()
 setup_exception_handlers(app)
+FastAPIInstrumentor().instrument_app(app)
 
 # [AI] 성능 로깅 미들웨어 등록
 app.add_middleware(AILoggingMiddleware)
