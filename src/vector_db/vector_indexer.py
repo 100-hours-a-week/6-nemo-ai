@@ -20,6 +20,8 @@ def add_documents_to_vector_db(docs: List[dict], collection: Literal["group-info
 
     vectors = embed(texts)
 
+    col.delete(ids=ids)
+
     col.add(
         ids=ids,
         documents=texts,
