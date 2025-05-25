@@ -1,0 +1,30 @@
+# 가상환경
+.venv/
+env/
+venv/
+
+# PyCache
+__pycache__/
+*.py[cod]
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 모델/중간산출물
+*.pt
+*.mar
+*.onnx
+*.ckpt
+*.h5
+*.bin
+
+# 빌드 관련
+*.egg-info/
+build/
+dist/
+pip-wheel-metadata/
