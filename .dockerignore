@@ -1,0 +1,37 @@
+# 가상환경
+.venv/
+env/
+venv/
+
+# 파이썬 캐시
+__pycache__/
+*.py[cod]
+
+# IDE 설정
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# OS 시스템 파일
+.DS_Store
+Thumbs.db
+
+# 환경 파일
+.env
+.env.*
+
+# 빌드 출력물
+*.egg-info/
+build/
+dist/
+pip-wheel-metadata/
+
+# 모델 및 기타 대용량 파일
+*.pt
+*.mar
+*.onnx
+*.ckpt
+*.h5

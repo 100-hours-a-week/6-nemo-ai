@@ -1,13 +1,9 @@
 # Python
 __pycache__/
-
 *.py[cod]
 *.egg-info/
 *.pyo
 *.pyd
-
-# Environments
-.env
 
 .venv/
 venv/
@@ -26,5 +22,28 @@ data/chroma/
 
 # logs
 *.log
-/src/data/chroma/chroma.sqlite3
-/naemo-project-admin-key.json
+
+# Docker 관련
+*.env
+.env.*
+docker-compose.override.yml
+
+# 모델 파일 및 캐시
+*.pt
+*.mar
+*.onnx
+*.bin
+*.ckpt
+*.h5
+
+# 빌드 및 설치 패키지 관련
+build/
+dist/
+pip-wheel-metadata/
+
+# 테스트/커버리지
+.coverage
+htmlcov/
+.cache/
+pytest_cache/
+.tox/
