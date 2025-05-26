@@ -1,8 +1,7 @@
-# src/vector_db/document_builder.py
-
 from typing import Dict, Any
 
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
+    data = group_response.get("data", group_response)
     group = group_response.get("data", {})
     group_id = group.get("groupId")
 
@@ -14,7 +13,6 @@ def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
 
     tags_text = " ".join(tags)
 
-    # 벡터화 대상 텍스트 구성
     text_parts = [
         f"[모임 이름] {name}",
         f"[한줄 소개] {summary}",
@@ -24,13 +22,12 @@ def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
     ]
     text = "\n".join(text_parts)
 
-    # metadata는 검색 조건용 정보만 저장
     metadata = {
         "groupId": group.get("groupId"),
         "category": group.get("category"),
         "location": group.get("location"),
         "maxUserCount": group.get("maxUserCount"),
-        "tags": tags,
+        "tags": ", ".join(data["tags"]) if isinstance(data.get("tags"), list) else data.get("tags")
     }
 
     return {

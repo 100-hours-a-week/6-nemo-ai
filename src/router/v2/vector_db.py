@@ -10,52 +10,72 @@ router = APIRouter(prefix="/vector", tags=["Vector DB"])
 
 @router.post("/group")
 def add_group_document(payload: dict = Body(...)):
-    doc = build_group_document(payload)
-    add_documents_to_vector_db([doc], collection="group-info")
-    return {"status": "ok", "id": doc["id"]}
+    try:
+        doc = build_group_document(payload)
+        add_documents_to_vector_db([doc], collection="group-info")
+        return {"status": "UP", "id": doc["id"]}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/user")
 def add_user_document(payload: dict = Body(...)):
     doc = build_user_document(payload)
     add_documents_to_vector_db([doc], collection="user-activity")
-    return {"status": "ok", "id": doc["id"]}
+    return {"status": "UP", "id": doc["id"]}
 
 @router.get("/collection")
 def list_collection_items(
-    collection: Literal["group-info", "user-activity"],
+    collection: Literal["group-info", "user-activity"] = Query(...),
     limit: int = 10,
     offset: int = 0
 ):
-    client = get_chroma_client()
-    col = client.get_or_create_collection(name=collection)
-    results = col.get(include=["documents", "metadatas", "ids"])
-    total = len(results["ids"])
-    return {
-        "total": total,
-        "items": [
-            {
-                "id": results["ids"][i],
-                "text": results["documents"][i],
-                "metadata": results["metadatas"][i],
-            }
-            for i in range(offset, min(offset + limit, total))
-        ]
-    }
+    try:
+        client = get_chroma_client()
+        col = client.get_or_create_collection(name=collection)
+        results = col.get(include=["documents", "metadatas"])
+
+        total = len(results.get("documents", []))
+
+        items = []
+        for i in range(offset, min(offset + limit, total)):
+            try:
+                items.append({
+                    "id": f"{collection}-{i}",
+                    "text": results["documents"][i],
+                    "metadata": results["metadatas"][i]
+                })
+            except (IndexError, KeyError, TypeError):
+                continue  # 이상한 항목은 무시
+
+        return {
+            "total": total,
+            "items": items
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()  # 콘솔에 전체 오류 출력
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/document")
 def get_single_document(
-    collection: Literal["group-info", "user-activity"],
-    id: str = Query(...)
+    collection: Literal["group-info", "user-activity"] = Query(..., description="조회할 컬렉션 이름"),
+    id: str = Query(..., description="조회할 문서 ID")
 ):
     client = get_chroma_client()
     col = client.get_or_create_collection(name=collection)
 
     try:
-        result = col.get(ids=[id], include=["documents", "metadatas", "ids"])
+        result = col.get(ids=[id], include=["documents", "metadatas"])
+        if not result["documents"]:
+            raise HTTPException(status_code=404, detail="Document not found")
         return {
-            "id": result["ids"][0],
+            "id": id,
             "text": result["documents"][0],
             "metadata": result["metadatas"][0]
         }
-    except IndexError:
-        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
