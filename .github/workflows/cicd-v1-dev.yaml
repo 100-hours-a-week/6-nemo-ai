@@ -19,5 +19,5 @@ jobs:
           username: ${{ secrets.DEV_USER }}
           key: ${{ secrets.DEV_SSH_KEY }}
           script: |
-            cd ~/nemo/ai/scripts
+            cd ~/nemo/cloud/v1/ai/semi-automated
             bash deploy.sh

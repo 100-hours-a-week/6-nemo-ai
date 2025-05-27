@@ -22,5 +22,5 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            cd ~/nemo/ai/scripts
+            cd ~/nemo/cloud/v1/ai/semi-automated
             bash deploy.sh
