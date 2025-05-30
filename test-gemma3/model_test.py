@@ -7,7 +7,8 @@ load_dotenv()
 hf_token = os.environ.get("HF_TOKEN")
 
 # 모델 이름 (정확한 Hugging Face repo명 사용)
-model_name = "google/gemma-3-4b-it"
+#model_name = "google/gemma-3-4b-it"
+model_name = "kakaocorp/kanana-nano-2.1b-instruct"
 
 # 디바이스 설정: CPU
 device = torch.device("cpu")
