@@ -13,7 +13,14 @@ def add_group_document(payload: dict = Body(...)):
     try:
         doc = build_group_document(payload)
         add_documents_to_vector_db([doc], collection="group-info")
-        return {"status": "UP", "id": doc["id"]}
+        return {
+            "code": 200,
+            "message": "그룹 벡터 삽입 성공",
+            "data": {
+                "id": doc["id"]
+            }
+        }
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -23,7 +30,13 @@ def add_group_document(payload: dict = Body(...)):
 def add_user_document(payload: dict = Body(...)):
     doc = build_user_document(payload)
     add_documents_to_vector_db([doc], collection="user-activity")
-    return {"status": "UP", "id": doc["id"]}
+    return {
+        "code": 200,
+        "message": "유저 벡터 삽입 성공",
+        "data": {
+            "id": doc["id"]
+        }
+    }
 
 @router.get("/collection")
 def list_collection_items(
@@ -50,8 +63,12 @@ def list_collection_items(
                 continue  # 이상한 항목은 무시
 
         return {
-            "total": total,
-            "items": items
+            "code": 200,
+            "message": "조회 성공",
+            "data": {
+                "total": total,
+                "items": items
+            }
         }
     except Exception as e:
         import traceback

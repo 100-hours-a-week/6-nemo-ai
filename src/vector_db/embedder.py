@@ -1,12 +1,12 @@
 import torch
-from transformers import AutoModel, AutoTokenizer
+from sentence_transformers import SentenceTransformer
 from src.config import EMBED_MODEL
 from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = AutoModel.from_pretrained(EMBED_MODEL, trust_remote_code=True).to(device)
+model = SentenceTransformer(EMBED_MODEL, trust_remote_code=True).to(device)
 
 def embed(texts: list[str] | str) -> list[list[float]]:
     if isinstance(texts, str):
@@ -29,3 +29,6 @@ def embed(texts: list[str] | str) -> list[list[float]]:
     except Exception:
         ai_logger.exception("[AI] [임베딩 실패]")
         return []
+
+if __name__ == "__main__":
+    print("[임베딩 차원 확인]", len(model.encode(["test"], convert_to_numpy=True)[0]))

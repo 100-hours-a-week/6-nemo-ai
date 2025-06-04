@@ -3,9 +3,6 @@ POST http://localhost:8000/ai/v2/vector/group
 Content-Type: application/json
 
 {
-  "code": 201,
-  "message": "그룹 문서 저장",
-  "data": {
     "groupId": 123,
     "name": "SB 모임",
     "summary": "Spring boot를 개발할 수 있다.",
@@ -16,21 +13,42 @@ Content-Type: application/json
     "imageUrl": "image.jpg",
     "tags": ["Java", "비전공자 환영", "온라인스터디", "기초부터"],
     "plan": "매주 온라인으로 진행되는 Spring Boot 입문 스터디입니다."
-  }
 }
 
-### 사용자 참여 문서 저장
+### 그룹 삽입 - 책과 명상
+POST http://localhost:8000/ai/v2/vector/group
+Content-Type: application/json
+
+{
+  "groupId": 456,
+  "name": "책과 명상",
+  "summary": "조용히 책을 읽고 명상을 함께 해요",
+  "description": "내면의 평화를 찾고 싶은 사람들을 위한 모임입니다.",
+  "plan": "매주 일요일 오후, 종로 북카페",
+  "tags": ["독서", "명상", "조용한"],
+  "category": "자기계발",
+  "location": "종로",
+  "maxUserCount": "5"
+}
+
+### u123이 groupId 123에 참여
 POST http://localhost:8000/ai/v2/vector/user
 Content-Type: application/json
 
 {
-  "code": 201,
-  "message": "참여 정보 저장",
-  "data": {
-    "user_id": "user123",
-    "group_id": "123"
-  }
+  "user_id": "u123",
+  "group_id": "123"
 }
+
+### u123이 groupId 456에도 참여
+POST http://localhost:8000/ai/v2/vector/user
+Content-Type: application/json
+
+{
+  "user_id": "u123",
+  "group_id": "999"
+}
+
 
 ### 문서 전체 목록 조회
 GET http://localhost:8000/ai/v2/vector/collection?collection=group-info&limit=10&offset=0

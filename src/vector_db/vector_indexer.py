@@ -1,4 +1,3 @@
-
 from typing import List, Literal
 from src.vector_db.chroma_client import get_chroma_client
 from src.vector_db.embedder import embed
@@ -28,3 +27,4 @@ def add_documents_to_vector_db(docs: List[dict], collection: Literal["group-info
         metadatas=metadatas,
         embeddings=vectors
     )
+

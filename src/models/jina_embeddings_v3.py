@@ -1,8 +1,13 @@
-from src.core.vertex_client import embed_model
-# from src.core.cloud_logging import logger
+import torch
 from src.core.ai_logger import get_ai_logger
+from sentence_transformers import SentenceTransformer
+
+# 초기화 시 한번만 호출
+model = model = SentenceTransformer("jinaai/jina-embeddings-v3", trust_remote_code=True)
 
 ai_logger = get_ai_logger()
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def embed(texts: list[str] | str) -> list[list[float]]:
     if isinstance(texts, str):
@@ -12,8 +17,9 @@ def embed(texts: list[str] | str) -> list[list[float]]:
 
     try:
         ai_logger.info("[AI] [임베딩 요청]", extra={"input_count": len(texts)})
-        embeddings = embed_model.get_embeddings(texts)
-        vectors = [e.values for e in embeddings]
+
+        # 임베딩 수행
+        vectors = model.encode(texts, convert_to_numpy=True).tolist()
 
         if len(vectors) != len(texts):
             ai_logger.warning("[AI] [임베딩 수 불일치]", extra={"input_count": len(texts), "output_count": len(vectors)})
@@ -26,15 +32,4 @@ def embed(texts: list[str] | str) -> list[list[float]]:
         return []
 
 if __name__ == "__main__":
-    texts = [
-        "나는 오늘 강남에서 커피를 마셨다.",
-        "서울 강남역 근처에는 카페가 정말 많다.",
-        "나는 오늘 운동을 하지 못했다."
-    ]
-    try:
-        vectors = embed(texts)
-        print(f"임베딩 수: {len(vectors)}")
-        print(f"벡터 길이: {len(vectors[0])}")
-        print(f"첫 벡터 앞 5개 값: {vectors[0][:5]}")
-    except Exception as e:
-        print(f"오류 발생: {e}")
+    print("[임베딩 차원 확인]", len(model.encode(["test"], convert_to_numpy=True)[0]))

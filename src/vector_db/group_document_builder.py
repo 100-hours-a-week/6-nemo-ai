@@ -1,15 +1,16 @@
 from typing import Dict, Any
+from typing import Dict, Any
 
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
-    data = group_response.get("data", group_response)
-    group = group_response.get("data", {})
-    group_id = group.get("groupId")
+    group_id = str(group_response.get("groupId"))  # 항상 str로 강제
 
-    name = group.get("name", "")
-    summary = group.get("summary", "")
-    description = group.get("description", "")
-    plan = group.get("plan", "")
-    tags = group.get("tags", []) or []
+    name = group_response.get("name", "")
+    summary = group_response.get("summary", "")
+    description = group_response.get("description", "")
+    plan = group_response.get("plan", "")
+    tags = group_response.get("tags", [])
+    if tags is None:
+        tags = []
 
     tags_text = " ".join(tags)
 
@@ -22,13 +23,15 @@ def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
     ]
     text = "\n".join(text_parts)
 
-    metadata = {
-        "groupId": group.get("groupId"),
-        "category": group.get("category"),
-        "location": group.get("location"),
-        "maxUserCount": group.get("maxUserCount"),
-        "tags": ", ".join(data["tags"]) if isinstance(data.get("tags"), list) else data.get("tags")
+    raw_metadata = {
+        "groupId": group_id,
+        "category": group_response.get("category"),
+        "location": group_response.get("location"),
+        "maxUserCount": int(group_response["maxUserCount"]) if group_response.get("maxUserCount") else None,
+        "tags": ", ".join(tags)
     }
+
+    metadata = {k: v for k, v in raw_metadata.items() if v is not None}
 
     return {
         "id": f"group-{group_id}",

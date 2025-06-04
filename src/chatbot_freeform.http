@@ -1,0 +1,16 @@
+### 조용한 모임 추천 요청 (u123은 123, 456에 이미 참여함)
+POST http://localhost:8000/ai/v2/chatbot/freeform
+Content-Type: application/json
+
+{
+  "query": "사람 많은 곳은 좀 불편해서요. 조용한 모임이 좋아요.",
+  "user_id": "u123"
+}
+### 활동적인 모임 추천 요청 (u999은 아무 데도 참여 안 함)
+POST http://localhost:8000/ai/v2/chatbot/freeform
+Content-Type: application/json
+
+{
+  "query": "몸을 움직일 수 있는 야외 활동이나 운동 모임이 있으면 좋아요.",
+  "user_id": "u999"
+}

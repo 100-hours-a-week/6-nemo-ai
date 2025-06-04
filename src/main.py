@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from src.router.v1 import group_information, health
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
-from src.router.v2 import vector_db
+from src.router.v2 import vector_db, chatbot
 from src.middleware.ai_logger import AILoggingMiddleware
 import logging
 import src.core.vertex_client
@@ -27,6 +27,7 @@ def root():
 
 app.include_router(health.router)
 app.include_router(vector_db.router, prefix="/ai/v2")
+app.include_router(chatbot.router, prefix="/ai/v2")
 
 # [AI] 라우터 등록
 ai_logger.info("[AI] [라우터 등록 시작] group_information 라우터 준비 중")
