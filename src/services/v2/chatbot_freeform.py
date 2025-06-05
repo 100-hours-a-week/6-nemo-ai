@@ -23,11 +23,20 @@ def build_prompt(user_query: str, results: list[dict]) -> str:
 """
 
 def handle_freeform_chatbot(query: str, user_id: str) -> dict:
+    if not query.strip():
+        return {
+            "context": "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
+            "groupId": []
+        }
+
     cached = get_cached_response(query)
     if cached:
         return cached
 
-    joined_ids = get_user_joined_group_ids(user_id)  # 참여 중인 모임
+    try:
+        joined_ids = get_user_joined_group_ids(user_id)
+    except Exception:
+        joined_ids = set()  # 테스트 환경 또는 user가 없을 때 fallback
 
     results = search_similar_documents(query, top_k=10)
 
@@ -40,9 +49,20 @@ def handle_freeform_chatbot(query: str, user_id: str) -> dict:
         }
 
     prompt = build_prompt(query, filtered)
-    summary = generate_summary(prompt)
+
+    try:
+        summary = generate_summary(prompt)
+    except Exception:
+        summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
 
     group_ids = [r["metadata"]["groupId"] for r in filtered]
     response = {"context": summary, "groupId": group_ids}
     set_cached_response(query, response)
     return response
+
+if __name__ == "__main__":
+    import json
+
+    result = handle_freeform_chatbot("사람 많은 곳은 불편해서 조용한 모임이 좋아요", "u1")
+    print("📦 최종 챗봇 응답:")
+    print(json.dumps(result, ensure_ascii=False, indent=2))

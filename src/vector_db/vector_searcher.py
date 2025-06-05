@@ -33,12 +33,48 @@ def search_similar_documents(query: str, top_k: int = 5, collection: Literal["gr
         for _id, doc, meta, dist in zip(ids, documents, metadatas, distances)
     ]
 
+
 def get_user_joined_group_ids(user_id: str) -> set[str]:
     client = get_chroma_client()
     col = client.get_or_create_collection(name="user-activity", embedding_function=embed)
-    results = col.query(
-        query_texts=[f"user-{user_id}"],  # 이건 인덱싱에 따라 조정 가능
-        n_results=100,  # 참여 이력이 많은 경우 늘릴 수 있음
-        include=["metadatas"]
-    )
+
+    try:
+        all_ids = col.get().get("ids", [])
+    except Exception:
+        all_ids = []
+
+    if not all_ids or f"user-{user_id}" not in all_ids:
+        return set()
+
+    try:
+        results = col.query(
+            query_texts=[f"user-{user_id}"],
+            n_results=100,
+            include=["metadatas"]
+        )
+        return {
+            item.get("group_id")
+            for item in results.get("metadatas", [[]])[0]
+            if "group_id" in item
+        }
+    except Exception:
+        return set()
+
+
     return {item.get("group_id") for item in results["metadatas"][0] if "group_id" in item}
+if __name__ == "__main__":
+    from pprint import pprint
+
+    user_id = "u2"
+    joined_ids = get_user_joined_group_ids(user_id)
+    print("✅ 유저가 참여 중인 group_id 리스트:")
+    pprint(joined_ids)
+
+    query = "조용한 모임이 좋아요"
+    results = search_similar_documents(query, top_k=10)
+    print("✅ 유사한 그룹 검색 결과:")
+    for r in results:
+        print("ID:", r["id"])
+        print("GroupID in Metadata:", r["metadata"].get("groupId"))
+        print("Score:", r["score"])
+        print("-" * 50)
