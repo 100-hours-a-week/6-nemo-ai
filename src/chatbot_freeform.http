@@ -11,6 +11,15 @@ POST http://localhost:8000/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
-  "query": "몸을 움직일 수 있는 야외 활동이나 운동 모임이 있으면 좋아요.",
+  "query": "개발을 배우고 싶어.",
+  "user_id": "u999"
+}
+
+### 새로운 유저 u999 (어떤 그룹에도 참여하지 않음)
+POST http://localhost:8000/ai/v2/chatbot/freeform
+Content-Type: application/json
+
+{
+  "query": "사람이 적고 조용한 모임 원해요.",
   "user_id": "u999"
 }

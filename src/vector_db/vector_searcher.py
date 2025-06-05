@@ -1,21 +1,21 @@
 from typing import List, Dict, Any, Literal, Optional
 from src.vector_db.chroma_client import get_chroma_client
-from src.vector_db.embedder import embed
+from src.vector_db.embedder import JinaEmbeddingFunction
 # 컬렉션 이름 상수
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
+embed = JinaEmbeddingFunction()
 
 def search_similar_documents(query: str, top_k: int = 5, collection: Literal["group-info", "user-activity"] = "group-info", where: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     client = get_chroma_client()
-    col = client.get_or_create_collection(name=collection)
+    col = client.get_or_create_collection(name=collection, embedding_function=embed)
 
     vector = embed(query)[0]
 
     results = col.query(
         query_embeddings=[vector],
         n_results=top_k,
-        where=where or {},
-        include=["documents", "metadatas", "distances", "ids"]
+        include=["documents", "metadatas", "distances"]
     )
 
     documents = results.get("documents", [])[0]
@@ -35,7 +35,7 @@ def search_similar_documents(query: str, top_k: int = 5, collection: Literal["gr
 
 def get_user_joined_group_ids(user_id: str) -> set[str]:
     client = get_chroma_client()
-    col = client.get_or_create_collection(name="user-activity")
+    col = client.get_or_create_collection(name="user-activity", embedding_function=embed)
     results = col.query(
         query_texts=[f"user-{user_id}"],  # 이건 인덱싱에 따라 조정 가능
         n_results=100,  # 참여 이력이 많은 경우 늘릴 수 있음

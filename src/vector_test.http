@@ -46,7 +46,7 @@ Content-Type: application/json
 
 {
   "user_id": "u123",
-  "group_id": "999"
+  "group_id": "456"
 }
 
 
