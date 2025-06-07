@@ -33,7 +33,7 @@ def add_user_document(payload: dict = Body(...)):
         group_ids = payload.get("group_id")
 
         if not user_id or not group_ids:
-            raise HTTPException(status_code=400, detail="user_id와 group_ids는 필수입니다.")
+            raise HTTPException(status_code=400, detail="user_id와 group_id는 필수입니다.")
 
         docs = build_user_document(user_id, group_ids)  # <- 두 인자 전달
         add_documents_to_vector_db(docs, collection="user-activity")

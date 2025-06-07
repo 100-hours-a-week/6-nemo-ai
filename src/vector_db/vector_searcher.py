@@ -22,12 +22,12 @@ def search_similar_documents(
         results = col.query(
             query_embeddings=[vector],
             n_results=top_k,
-            include=["documents", "metadatas", "distances", "ids"]  # "ids" 복구
+            include=["documents", "metadatas", "distances"]
         )
 
+        ids = results.get("ids", [[]])[0]
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
-        ids = results.get("ids", [[]])[0]
         distances = results.get("distances", [[]])[0]
 
         return [
@@ -47,10 +47,6 @@ def get_user_joined_group_ids(user_id: str) -> set[str]:
     try:
         client = get_chroma_client()
         col = client.get_or_create_collection(name=USER_COLLECTION, embedding_function=embed)
-
-        all_ids = col.get().get("ids", [])
-        if not all_ids or f"user-{user_id}" not in all_ids:
-            return set()
 
         results = col.query(
             query_texts=[f"user-{user_id}"],
@@ -76,10 +72,10 @@ if __name__ == "__main__":
     pprint(joined_ids)
 
     query = "조용한 모임이 좋아요"
-    results = search_similar_documents(query, top_k=10)
+    results = search_similar_documents(query, top_k=4)
     print("✅ 유사한 그룹 검색 결과:")
     for r in results:
-        print("ID:", r["id"])
+        print("ID:", r["id"])  # ✅ 이제 정상 작동
         print("GroupID in Metadata:", r["metadata"].get("groupId"))
         print("Score:", r["score"])
         print("-" * 50)
