@@ -23,10 +23,6 @@ setup_exception_handlers(app)
 # [AI] 성능 로깅 미들웨어 등록
 app.add_middleware(AILoggingMiddleware)
 
-@app.get("/")
-def root():
-    return {"message": "Hello World"}
-
 app.include_router(health.router)
 app.include_router(vector_db.router, prefix="/ai/v2")
 app.include_router(chatbot.router, prefix="/ai/v2")

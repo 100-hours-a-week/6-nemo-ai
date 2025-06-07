@@ -21,7 +21,7 @@ def build_prompt(user_query: str, results: list[dict]) -> str:
     이 사용자에게 왜 이 모임들이 적절한지, 따뜻하고 자연스럽게 설명해 주세요. 서두에는 사용자의 요구를 언급하며 공감해 주세요.
     """
 
-def handle_freeform_chatbot(query: str, user_id: str) -> dict:
+def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> dict:
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
         return {
@@ -37,14 +37,29 @@ def handle_freeform_chatbot(query: str, user_id: str) -> dict:
     try:
         joined_ids = get_user_joined_group_ids(user_id)
         ai_logger.info("[Chatbot] 유저 참여 모임 조회 완료", extra={"user_id": user_id, "joined_ids": list(joined_ids)})
+        if debug:
+            print("✅ [1] 유저 참여 중인 groupId:", joined_ids)
     except Exception:
         joined_ids = set()
         ai_logger.warning("[Chatbot] 유저 참여 모임 조회 실패", extra={"user_id": user_id})
 
     results = search_similar_documents(query, top_k=10)
     ai_logger.info("[Chatbot] 유사한 모임 검색 완료", extra={"result_count": len(results)})
+    if debug:
+        print("✅ [2] 검색된 모임 수:", len(results))
+        for r in results:
+            print("   - 검색된 groupId:", r.get("metadata", {}).get("groupId"))
+            print("     요약 일부:", r["text"][:40])
 
-    filtered = [r for r in results if r["metadata"].get("groupId") not in joined_ids]
+    filtered = [
+        r for r in results
+        if r.get("metadata", {}).get("groupId") not in joined_ids
+        and r.get("metadata", {}).get("groupId") is not None
+    ]
+    if debug:
+        print("✅ [3] 필터링 후 추천 모임 수:", len(filtered))
+        for r in filtered:
+            print("   - 추천 대상 groupId:", r["metadata"]["groupId"])
 
     if not filtered:
         msg = "추천 가능한 새로운 모임이 아직 없어요. 당신이 직접 비슷한 모임을 열어보는 건 어떨까요?"
@@ -56,6 +71,8 @@ def handle_freeform_chatbot(query: str, user_id: str) -> dict:
 
     prompt = build_prompt(query, top_results)
     ai_logger.debug("[Chatbot] 프롬프트 생성 완료", extra={"user_id": user_id})
+    if debug:
+        print("✅ [4] 생성된 프롬프트:\n", prompt)
 
     try:
         summary = generate_summary(prompt)
@@ -74,6 +91,10 @@ def handle_freeform_chatbot(query: str, user_id: str) -> dict:
 
 if __name__ == "__main__":
     import json
-    result = handle_freeform_chatbot("사람 많은 곳은 불편해서 조용한 모임이 좋아요", "u1")
+    result = handle_freeform_chatbot(
+        "사람 많은 곳은 불편해서 조용한 모임이 좋아요",
+        "u1",
+        debug=True  # 🔍 여기를 True로 설정하면 디버깅 출력이 됩니다
+    )
     print("📦 최종 챗봇 응답:")
     print(json.dumps(result, ensure_ascii=False, indent=2))

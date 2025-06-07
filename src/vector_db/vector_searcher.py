@@ -47,15 +47,15 @@ def get_user_joined_group_ids(user_id: str) -> set[str]:
         client = get_chroma_client()
         col = client.get_or_create_collection(name=USER_COLLECTION, embedding_function=embed)
 
-        results = col.query(
-            query_texts=[f"user-{user_id}"],
-            n_results=100,
-            include=["metadatas"]
-        )
+        user_doc_id = f"user-{user_id}"
+        all_ids = col.get().get("ids", [])
+        if user_doc_id not in all_ids:
+            return set()
 
+        result = col.get(ids=[user_doc_id], include=["metadatas"])
         return {
             item.get("group_id")
-            for item in results.get("metadatas", [[]])[0]
+            for item in result.get("metadatas", [[]])[0]
             if "group_id" in item
         }
     except Exception as e:
