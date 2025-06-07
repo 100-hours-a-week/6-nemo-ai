@@ -1,67 +1,72 @@
 from typing import List, Dict, Any, Literal, Optional
 from src.vector_db.chroma_client import get_chroma_client
 from src.vector_db.embedder import JinaEmbeddingFunction
-# 컬렉션 이름 상수
+from src.core.ai_logger import get_ai_logger
+
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
 embed = JinaEmbeddingFunction()
+logger = get_ai_logger()
 
-def search_similar_documents(query: str, top_k: int = 5, collection: Literal["group-info", "user-activity"] = "group-info", where: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    client = get_chroma_client()
-    col = client.get_or_create_collection(name=collection, embedding_function=embed)
+def search_similar_documents(
+    query: str,
+    top_k: int = 5,
+    collection: Literal["group-info", "user-activity"] = "group-info",
+    where: Optional[Dict[str, Any]] = None
+) -> List[Dict[str, Any]]:
+    try:
+        client = get_chroma_client()
+        col = client.get_or_create_collection(name=collection, embedding_function=embed)
 
-    vector = embed(query)[0]
+        vector = embed(query)[0]
+        results = col.query(
+            query_embeddings=[vector],
+            n_results=top_k,
+            include=["documents", "metadatas", "distances", "ids"]  # "ids" 복구
+        )
 
-    results = col.query(
-        query_embeddings=[vector],
-        n_results=top_k,
-        include=["documents", "metadatas", "distances"]
-    )
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        ids = results.get("ids", [[]])[0]
+        distances = results.get("distances", [[]])[0]
 
-    documents = results.get("documents", [])[0]
-    metadatas = results.get("metadatas", [])[0]
-    ids = results.get("ids", [])[0]
-    distances = results.get("distances", [])[0]
-
-    return [
-        {
-            "id": _id,
-            "text": doc,
-            "metadata": meta,
-            "score": 1 - dist
-        }
-        for _id, doc, meta, dist in zip(ids, documents, metadatas, distances)
-    ]
-
+        return [
+            {
+                "id": _id,
+                "text": doc,
+                "metadata": meta,
+                "score": 1 - dist
+            }
+            for _id, doc, meta, dist in zip(ids, documents, metadatas, distances)
+        ]
+    except Exception as e:
+        logger.exception(f"[AI] search_similar_documents 실패: {str(e)}")
+        return []
 
 def get_user_joined_group_ids(user_id: str) -> set[str]:
-    client = get_chroma_client()
-    col = client.get_or_create_collection(name="user-activity", embedding_function=embed)
-
     try:
+        client = get_chroma_client()
+        col = client.get_or_create_collection(name=USER_COLLECTION, embedding_function=embed)
+
         all_ids = col.get().get("ids", [])
-    except Exception:
-        all_ids = []
+        if not all_ids or f"user-{user_id}" not in all_ids:
+            return set()
 
-    if not all_ids or f"user-{user_id}" not in all_ids:
-        return set()
-
-    try:
         results = col.query(
             query_texts=[f"user-{user_id}"],
             n_results=100,
             include=["metadatas"]
         )
+
         return {
             item.get("group_id")
             for item in results.get("metadatas", [[]])[0]
             if "group_id" in item
         }
-    except Exception:
+    except Exception as e:
+        logger.warning(f"[AI] 유저 참여 그룹 조회 실패: {str(e)}")
         return set()
 
-
-    return {item.get("group_id") for item in results["metadatas"][0] if "group_id" in item}
 if __name__ == "__main__":
     from pprint import pprint
 

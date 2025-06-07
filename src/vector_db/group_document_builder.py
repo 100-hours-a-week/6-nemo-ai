@@ -1,5 +1,9 @@
 from typing import Dict, Any
-from typing import Dict, Any
+from src.vector_db.chroma_client import get_chroma_client
+from src.vector_db.embedder import JinaEmbeddingFunction
+
+GROUP_COLLECTION = "group-info"
+embed = JinaEmbeddingFunction()
 
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
     group_id = str(group_response.get("groupId"))  # 항상 str로 강제
@@ -60,3 +64,13 @@ def build_document_from_partial(partial_update: Dict[str, Any], group_id: Any) -
         "text": text,
         "metadata": partial_update  # 변경된 필드만 저장
     }
+
+def remove_group_document(group_id: str) -> None:
+    """
+    특정 groupId에 해당하는 그룹 문서를 벡터 DB에서 삭제합니다.
+    """
+    client = get_chroma_client()
+    col = client.get_or_create_collection(name=GROUP_COLLECTION, embedding_function=embed)
+
+    doc_id = f"group-{group_id}"
+    col.delete(ids=[doc_id])

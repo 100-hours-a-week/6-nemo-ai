@@ -1,21 +1,25 @@
-from typing import Dict, Any
+from src.vector_db.chroma_client import get_chroma_client
+from src.vector_db.embedder import JinaEmbeddingFunction
 
-def build_user_document(user_response: Dict[str, Any]) -> Dict[str, Any]:
-    user_id = user_response.get("user_id")
-    group_id = user_response.get("group_id")
+def build_user_document(user_id: str, group_ids: list[str]) -> list[dict]:
+    if not user_id or not group_ids:
+        raise ValueError("user_id와 group_ids는 반드시 있어야 합니다.")
 
-    if not user_id or not group_id:
-        raise ValueError("user_id와 group_id는 반드시 있어야 합니다.")
+    docs = []
+    for group_id in group_ids:
+        docs.append({
+            "id": f"user-{user_id}-{group_id}",  # <-- 개선된 ID 규칙
+            "text": f"user-{user_id}",
+            "metadata": {
+                "user_id": user_id,
+                "group_id": group_id,
+            }
+        })
+    return docs
 
-    text = f"User {user_id} joined Group {group_id}"
-
-    metadata = {
-        "user_id": str(user_id),
-        "group_id": str(group_id)
-    }
-
-    return {
-        "id": f"user-{user_id}-group-{group_id}",
-        "text": text,
-        "metadata": metadata
-    }
+def remove_user_group_activity(user_id: str, group_id: str) -> None:
+    client = get_chroma_client()
+    embed = JinaEmbeddingFunction()
+    col = client.get_or_create_collection(name="user-activity", embedding_function=embed)
+    doc_id = f"user-{user_id}-{group_id}"
+    col.delete(ids=[doc_id])
