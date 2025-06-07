@@ -1,5 +1,5 @@
 ### Root Test
-GET http://grub-magical-totally.ngrok-free.app/
+GET http://grub-magical-totally.ngrok-free.app/health
 Accept: application/json
 
 ### --- GROUP CREATION (15 groups) ---

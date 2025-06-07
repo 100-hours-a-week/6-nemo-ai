@@ -28,15 +28,28 @@ def add_group_document(payload: dict = Body(...)):
 
 @router.post("/user")
 def add_user_document(payload: dict = Body(...)):
-    doc = build_user_document(payload)
-    add_documents_to_vector_db([doc], collection="user-activity")
-    return {
-        "code": 200,
-        "message": "유저 벡터 삽입 성공",
-        "data": {
-            "id": doc["id"]
+    try:
+        user_id = payload.get("user_id")
+        group_ids = payload.get("group_ids")
+
+        if not user_id or not group_ids:
+            raise HTTPException(status_code=400, detail="user_id와 group_ids는 필수입니다.")
+
+        docs = build_user_document(user_id, group_ids)  # <- 두 인자 전달
+        add_documents_to_vector_db(docs, collection="user-activity")
+
+        return {
+            "code": 200,
+            "message": "유저 벡터 삽입 성공",
+            "data": {
+                "count": len(docs),
+                "user_id": user_id
+            }
         }
-    }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/collection")
 def list_collection_items(
