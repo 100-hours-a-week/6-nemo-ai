@@ -78,11 +78,10 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
     try:
         summary = generate_summary(prompt)
         ai_logger.info("[Chatbot] 요약 생성 완료", extra={"user_id": user_id})
+        history.add_ai_message(summary)
     except Exception:
         summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
         ai_logger.error("[Chatbot] 요약 생성 실패", extra={"user_id": user_id})
-
-    history.add_ai_message(summary)
 
     group_ids = [r["metadata"]["groupId"] for r in top_results]
     return {
