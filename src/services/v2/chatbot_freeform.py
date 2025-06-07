@@ -11,14 +11,15 @@ def build_prompt(user_query: str, results: list[dict]) -> str:
     ])
     return f"""
     당신은 사용자로부터 다음과 같은 요청을 받았습니다:
-
     "{user_query}"
 
     다음은 추천할 수 있는 모임 리스트입니다:
-
     {group_summaries}
-
-    이 사용자에게 왜 이 모임들이 적절한지, 따뜻하고 자연스럽게 설명해 주세요. 서두에는 사용자의 요구를 언급하며 공감해 주세요.
+    
+    각 모임이 사용자의 요청과 어떤 점에서 잘 맞는지, 추천 이유를 간단히 설명해 주세요.
+    - 각 설명은 한 두 문장 이내로 작성해 주세요.
+    - 이 사용자에게 왜 이 모임들이 적절한지, 따뜻하고 자연스럽게 설명해 주세요. 서두에는 사용자의 요구를 언급하며 공감해 주세요.
+    - 이유 중심으로 작성해 주세요.
     """
 
 def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> dict:
