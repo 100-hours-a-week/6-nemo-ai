@@ -1,5 +1,5 @@
 ### Root Test
-GET https://grub-magical-totally.ngrok-free.app/
+GET http://grub-magical-totally.ngrok-free.app/
 Accept: application/json
 
 ### --- GROUP CREATION (15 groups) ---
@@ -126,9 +126,3 @@ POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
 Content-Type: application/json
 
 { "user_id": "u005", "group_id": ["112", "114", "115"] }
-
-### 문서 전체 목록 조회
-GET http://grub-magical-totally.ngrok-free.app/ai/v2/vector/collection?collection=group-info&limit=10&offset=0
-
-### 단건 조회
-GET http://grub-magical-totally.ngrok-free.app/ai/v2/vector/document?collection=group-info&id=group-123

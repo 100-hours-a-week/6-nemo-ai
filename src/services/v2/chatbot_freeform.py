@@ -10,15 +10,16 @@ def build_prompt(user_query: str, results: list[dict]) -> str:
         f"- {doc['text']}" for doc in results
     ])
     return f"""
-[사용자 입력]
-{user_query}
+    당신은 사용자로부터 다음과 같은 요청을 받았습니다:
 
-[추천된 모임 목록]
-{group_summaries}
+    "{user_query}"
 
-이 사용자에게 위의 모임들이 추천된 이유를 설명해 주세요.
-각 모임이 어떤 점에서 적합한지 자연스럽고 말하듯이 요약해 주세요.
-"""
+    다음은 추천할 수 있는 모임 리스트입니다:
+
+    {group_summaries}
+
+    이 사용자에게 왜 이 모임들이 적절한지, 따뜻하고 자연스럽게 설명해 주세요. 서두에는 사용자의 요구를 언급하며 공감해 주세요.
+    """
 
 def handle_freeform_chatbot(query: str, user_id: str) -> dict:
     if not query.strip():
@@ -51,7 +52,9 @@ def handle_freeform_chatbot(query: str, user_id: str) -> dict:
         ai_logger.info("[Chatbot] 새로운 추천 모임 없음", extra={"user_id": user_id})
         return {"context": msg, "groupId": []}
 
-    prompt = build_prompt(query, filtered)
+    top_results = filtered[:2]
+
+    prompt = build_prompt(query, top_results)
     ai_logger.debug("[Chatbot] 프롬프트 생성 완료", extra={"user_id": user_id})
 
     try:
@@ -63,7 +66,7 @@ def handle_freeform_chatbot(query: str, user_id: str) -> dict:
 
     history.add_ai_message(summary)
 
-    group_ids = [r["metadata"]["groupId"] for r in filtered]
+    group_ids = [r["metadata"]["groupId"] for r in top_results]
     return {
         "context": summary,
         "groupId": group_ids

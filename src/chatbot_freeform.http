@@ -1,26 +1,46 @@
-### 조용한 모임 추천 요청 (u123은 123, 456에 이미 참여함)
+###
 POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
-  "query": "사람 많은 곳은 좀 불편해서요. 조용한 모임이 좋아요.",
-  "user_id": "u123"
+  "query": "시끄럽지 않고 조용한 분위기의 모임이 좋을 것 같아요.",
+  "user_id": "u004"
 }
 
-### 활동적인 모임 추천 요청 (u999은 아무 데도 참여 안 함)
+
+###
 POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
-  "query": "개발을 배우고 싶어.",
-  "user_id": "u999"
+  "query": "몸을 많이 쓰는 활동적인 모임이 있을까요?",
+  "user_id": "u002"
 }
 
-### 새로운 유저 u999 (어떤 그룹에도 참여하지 않음)
+
+###
 POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
-  "query": "사람이 적고 조용한 모임 원해요.",
-  "user_id": "u999"
+  "query": "힐링하거나 스트레칭할 수 있는 모임 추천해주세요.",
+  "user_id": "u005"
+}
+
+###
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+Content-Type: application/json
+
+{
+  "query": "개발이 처음이라 기초부터 차근차근 배울 수 있는 모임 있을까요?",
+  "user_id": "u003"
+}
+
+###
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+Content-Type: application/json
+
+{
+  "query": "책을 읽거나 글을 쓸 수 있는 조용한 모임이 좋을 것 같아요.",
+  "user_id": "u001"
 }
