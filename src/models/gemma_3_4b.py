@@ -7,7 +7,7 @@ generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
 
 def generate_summary(prompt: str) -> str:
     try:
-        response = generator(prompt, max_new_tokens=256, do_sample=True, temperature=0.7)
+        response = generator(prompt, max_new_tokens=300, do_sample=True, temperature=0.7)
         full_text = response[0]["generated_text"]
         if prompt in full_text:
             return full_text.split(prompt, 1)[-1].strip()
