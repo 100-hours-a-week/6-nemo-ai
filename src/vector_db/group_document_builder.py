@@ -6,41 +6,36 @@ GROUP_COLLECTION = "group-info"
 embed = JinaEmbeddingFunction()
 
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
-    group_id = str(group_response.get("groupId"))  # 항상 str로 강제
+    group_id = str(group_response.get("groupId"))
 
     name = group_response.get("name", "")
     summary = group_response.get("summary", "")
     description = group_response.get("description", "")
     plan = group_response.get("plan", "")
-    tags = group_response.get("tags", [])
-    if tags is None:
-        tags = []
+    tags = group_response.get("tags", []) or []
 
     tags_text = " ".join(tags)
-
-    text_parts = [
+    text = "\n".join([
         f"[모임 이름] {name}",
         f"[한줄 소개] {summary}",
         f"[설명] {description}",
         f"[계획] {plan}",
         f"[태그] {tags_text}",
-    ]
-    text = "\n".join(text_parts)
+    ])
 
-    raw_metadata = {
+    metadata = {
         "groupId": group_id,
+        "id": f"group-{group_id}",
         "category": group_response.get("category"),
         "location": group_response.get("location"),
         "maxUserCount": int(group_response["maxUserCount"]) if group_response.get("maxUserCount") else None,
         "tags": ", ".join(tags)
     }
 
-    metadata = {k: v for k, v in raw_metadata.items() if v is not None}
-
     return {
         "id": f"group-{group_id}",
         "text": text,
-        "metadata": metadata
+        "metadata": {k: v for k, v in metadata.items() if v is not None}
     }
 
 def build_document_from_partial(partial_update: Dict[str, Any], group_id: Any) -> Dict[str, Any]:

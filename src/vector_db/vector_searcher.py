@@ -25,19 +25,18 @@ def search_similar_documents(
             include=["documents", "metadatas", "distances"]
         )
 
-        ids = results.get("ids", [[]])[0]
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
 
         return [
             {
-                "id": _id,
+                "id": meta.get("id"),  # ✅ metadata에서 id 복원
                 "text": doc,
                 "metadata": meta,
                 "score": 1 - dist
             }
-            for _id, doc, meta, dist in zip(ids, documents, metadatas, distances)
+            for doc, meta, dist in zip(documents, metadatas, distances)
         ]
     except Exception as e:
         logger.exception(f"[AI] search_similar_documents 실패: {str(e)}")

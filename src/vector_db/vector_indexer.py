@@ -28,14 +28,8 @@ def add_documents_to_vector_db(docs: List[dict], collection: Literal["group-info
             return
 
         col.delete(ids=ids)
+        col.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=vectors)
 
-        col.add(
-            ids=ids,
-            documents=texts,
-            metadatas=metadatas,
-            embeddings=vectors
-        )
         ai_logger.info(f"[AI] {collection} 컬렉션에 문서 {len(ids)}개가 성공적으로 추가되었습니다.")
-
     except Exception as e:
         ai_logger.exception(f"[AI] 문서 추가 중 오류 발생: {str(e)}")
