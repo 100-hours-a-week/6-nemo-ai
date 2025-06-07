@@ -1,18 +1,18 @@
 from src.vector_db.chroma_client import get_chroma_client
 from src.vector_db.embedder import JinaEmbeddingFunction
 
-def build_user_document(user_id: str, group_ids: list[str]) -> list[dict]:
-    if not user_id or not group_ids:
+def build_user_document(user_id: str, group_id: list[str]) -> list[dict]:
+    if not user_id or not group_id:
         raise ValueError("user_id와 group_ids는 반드시 있어야 합니다.")
 
     docs = []
-    for group_id in group_ids:
+    for id in group_id:
         docs.append({
-            "id": f"user-{user_id}-{group_id}",  # <-- 개선된 ID 규칙
+            "id": f"user-{user_id}-{id}",  # <-- 개선된 ID 규칙
             "text": f"user-{user_id}",
             "metadata": {
                 "user_id": user_id,
-                "group_id": group_id,
+                "group_id": id,
             }
         })
     return docs

@@ -30,7 +30,7 @@ def add_group_document(payload: dict = Body(...)):
 def add_user_document(payload: dict = Body(...)):
     try:
         user_id = payload.get("user_id")
-        group_ids = payload.get("group_ids")
+        group_ids = payload.get("group_id")
 
         if not user_id or not group_ids:
             raise HTTPException(status_code=400, detail="user_id와 group_ids는 필수입니다.")
