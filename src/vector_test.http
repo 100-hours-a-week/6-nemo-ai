@@ -1,5 +1,9 @@
+### 테스트용 루트 확인
+GET https://grub-magical-totally.ngrok-free.app/
+Accept: application/json
+
 ### 그룹 문서 저장
-POST http://localhost:8000/ai/v2/vector/group
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
 Content-Type: application/json
 
 {
@@ -16,7 +20,7 @@ Content-Type: application/json
 }
 
 ### 그룹 삽입 - 책과 명상
-POST http://localhost:8000/ai/v2/vector/group
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
 Content-Type: application/json
 
 {
@@ -32,7 +36,7 @@ Content-Type: application/json
 }
 
 ### u123이 groupId 123에 참여
-POST http://localhost:8000/ai/v2/vector/user
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
 Content-Type: application/json
 
 {
@@ -41,7 +45,7 @@ Content-Type: application/json
 }
 
 ### u123이 groupId 456에도 참여
-POST http://localhost:8000/ai/v2/vector/user
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
 Content-Type: application/json
 
 {
@@ -51,7 +55,7 @@ Content-Type: application/json
 
 
 ### 문서 전체 목록 조회
-GET http://localhost:8000/ai/v2/vector/collection?collection=group-info&limit=10&offset=0
+GET http://grub-magical-totally.ngrok-free.app/ai/v2/vector/collection?collection=group-info&limit=10&offset=0
 
 ### 단건 조회
-GET http://localhost:8000/ai/v2/vector/document?collection=group-info&id=group-123
+GET http://grub-magical-totally.ngrok-free.app/ai/v2/vector/document?collection=group-info&id=group-123

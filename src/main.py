@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import torch
 from src.router.v1 import group_information, health
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
@@ -7,6 +8,7 @@ from src.middleware.ai_logger import AILoggingMiddleware
 import logging
 import src.core.vertex_client
 
+torch.set_float32_matmul_precision("high")
 # 로거 초기화
 ai_logger = get_ai_logger()
 ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")

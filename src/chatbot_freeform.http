@@ -1,13 +1,14 @@
 ### 조용한 모임 추천 요청 (u123은 123, 456에 이미 참여함)
-POST http://localhost:8000/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
   "query": "사람 많은 곳은 좀 불편해서요. 조용한 모임이 좋아요.",
   "user_id": "u123"
 }
+
 ### 활동적인 모임 추천 요청 (u999은 아무 데도 참여 안 함)
-POST http://localhost:8000/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
@@ -16,7 +17,7 @@ Content-Type: application/json
 }
 
 ### 새로운 유저 u999 (어떤 그룹에도 참여하지 않음)
-POST http://localhost:8000/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
 Content-Type: application/json
 
 {
