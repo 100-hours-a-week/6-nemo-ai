@@ -28,3 +28,6 @@ data/chroma/
 *.log
 /src/data/chroma/chroma.sqlite3
 /naemo-project-admin-key.json
+
+# GCP 서비스 계정 키
+nemo-v2-ai.json
