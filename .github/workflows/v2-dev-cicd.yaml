@@ -58,4 +58,4 @@ jobs:
           proxy_key: ${{ secrets.BASTION_SSH_KEY }}      
 
           script: |
-            bash ${{ env.DEPLOY_SCRIPT }} ${{ env.SERVICE }} ${{ env.ENVIRONMENT }}
+            bash ${{ env.DEPLOY_SCRIPT }} ${{ env.SERVICE }}
