@@ -1,12 +1,14 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
+from transformers import Gemma3ForConditionalGeneration, AutoTokenizer, AutoProcessor
 import torch
 
 model_id = "google/gemma-3-4b-it"
 
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 processor = AutoProcessor.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id).eval()
-model = model.to("cuda") if torch.cuda.is_available() else model.to("cpu")
+model = Gemma3ForConditionalGeneration.from_pretrained(
+    model_id, device_map="auto"
+).eval()
+
 
 def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7) -> str:
     try:
@@ -37,7 +39,7 @@ def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, te
             tokenize=True,
             return_dict=True,
             return_tensors="pt"
-        ).to(model.device)
+        ).to(model.device, dtype=torch.bfloat16)
 
         with torch.inference_mode():
             outputs = model.generate(
