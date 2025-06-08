@@ -1,0 +1,30 @@
+### 객관식 질문 생성 테스트
+POST http://localhost:8000/chatbot/questions
+Content-Type: application/json
+
+{
+  "user_id": "123"
+}
+
+
+### 객관식 답변 제출 및 추천 요청 테스트
+POST http://localhost:8000/chatbot/answers
+Content-Type: application/json
+
+{
+  "user_id": "123",
+  "answers": [
+    {
+      "question": "모임에서 더 중요한 건?",
+      "selected_option": "사람"
+    },
+    {
+      "question": "처음 보는 사람 앞에서는?",
+      "selected_option": "조용해지는 편"
+    },
+    {
+      "question": "관심 있는 모임 주제는?",
+      "selected_option": "IT/기술"
+    }
+  ]
+}
