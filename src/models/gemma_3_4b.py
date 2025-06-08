@@ -43,25 +43,23 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
 
         input_len = inputs["input_ids"].shape[-1]
 
-        with torch.inference_mode(), torch.amp.autocast(dtype=torch.bfloat16):
+        with torch.inference_mode():
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
                 do_sample=False,
-                temperature=0.7,
-                top_p=0.95,
-                top_k=50
+                temperature=0.7
             )
 
         decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)
 
-        if debug:
+        if not decoded.strip():
             print(f"📏 Input Tokens: {input_len}, Output Tokens: {outputs.shape}")
             print(f"📦 생성된 텍스트:\n{decoded}")
             if torch.cuda.is_available():
                 print(f"🧠 GPU 메모리 사용량: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
 
-        return decoded.strip() or "추천 응답이 비어 있습니다."
+        return decoded.strip()
 
     except Exception as e:
         print(f"[❗️generate_summary 에러] {e}")
