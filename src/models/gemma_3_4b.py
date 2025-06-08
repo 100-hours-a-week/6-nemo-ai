@@ -11,7 +11,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
 
-def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7, debug: bool = False) -> str:
+def generate_explaination(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7, debug: bool = False) -> str:
     try:
         messages = [
             {
