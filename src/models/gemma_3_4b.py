@@ -5,12 +5,13 @@ model_id = "google/gemma-3-4b-it"
 
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 processor = AutoProcessor.from_pretrained(model_id)
-model = Gemma3ForConditionalGeneration.from_pretrained(
-    model_id, device_map="auto"
-).eval()
+model = Gemma3ForConditionalGeneration.from_pretrained(model_id).eval()
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
 
 
-def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7) -> str:
+def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7, debug: bool = False) -> str:
     try:
         messages = [
             {
@@ -39,7 +40,9 @@ def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, te
             tokenize=True,
             return_dict=True,
             return_tensors="pt"
-        ).to(model.device, dtype=torch.bfloat16)
+        ).to(device)
+
+        input_len = inputs["input_ids"].shape[-1]
 
         with torch.inference_mode():
             outputs = model.generate(
@@ -49,8 +52,16 @@ def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, te
                 temperature=temp
             )
 
-        decoded = tokenizer.decode(outputs[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
-        return decoded.strip()
+        decoded = tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
+
+        if debug:
+            print(f"📏 Input Tokens: {input_len}, Output Tokens: {outputs.shape}")
+            print(f"📦 생성된 텍스트:\n{decoded}")
+            if torch.cuda.is_available():
+                print(f"🧠 GPU 메모리 사용량: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+
+        return decoded.strip() or "추천 응답이 비어 있습니다."
+
     except Exception as e:
         print(f"[❗️generate_summary 에러] {e}")
         return "추천 응답을 생성하는 데 실패했습니다."

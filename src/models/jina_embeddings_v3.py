@@ -1,4 +1,3 @@
-import torch
 from typing import List, Union
 from sentence_transformers import SentenceTransformer
 from chromadb.api.types import EmbeddingFunction
