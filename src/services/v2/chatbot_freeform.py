@@ -15,7 +15,7 @@ def build_prompt(user_query: str, results: list[dict]) -> str:
 
     다음은 추천할 수 있는 모임 리스트입니다:
     {group_summaries}
-    
+
     각 모임이 사용자의 요청과 어떤 점에서 잘 맞는지, 추천 이유를 간단히 설명해 주세요.
     - 프롬프트를 절대 포함하지 마세요.
     - 각 설명은 한 두 문장 이내로 작성해 주세요.
@@ -23,6 +23,7 @@ def build_prompt(user_query: str, results: list[dict]) -> str:
     - 이유 중심으로 작성해 주세요.
     - 300자 이내로 작성해주세요
     """
+
 
 def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> dict:
     if not query.strip():
@@ -33,7 +34,6 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
         }
 
     ai_logger.info("[Chatbot] 유저 쿼리 수신", extra={"query": query, "user_id": user_id})
-
     history = get_session_history(user_id)
     history.add_user_message(query)
 
@@ -57,7 +57,7 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
     filtered = [
         r for r in results
         if r.get("metadata", {}).get("groupId") not in joined_ids
-        and r.get("metadata", {}).get("groupId") is not None
+           and r.get("metadata", {}).get("groupId") is not None
     ]
     if debug:
         print("✅ [3] 필터링 후 추천 모임 수:", len(filtered))
@@ -71,14 +71,14 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
         return {"context": msg, "groupId": []}
 
     top_results = filtered[:2]
-
     prompt = build_prompt(query, top_results)
+
     ai_logger.debug("[Chatbot] 프롬프트 생성 완료", extra={"user_id": user_id})
     if debug:
         print("✅ [4] 생성된 프롬프트:\n", prompt)
 
     try:
-        summary = generate_summary(prompt)
+        summary = generate_summary(query, [r["text"] for r in top_results])
         ai_logger.info("[Chatbot] 요약 생성 완료", extra={"user_id": user_id})
         history.add_ai_message(summary)
     except Exception:
@@ -91,12 +91,14 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
         "groupId": group_ids
     }
 
+
 if __name__ == "__main__":
     import json
+
     result = handle_freeform_chatbot(
         "사람 많은 곳은 불편해서 조용한 모임이 좋아요",
         "u1",
-        debug=True  # 🔍 여기를 True로 설정하면 디버깅 출력이 됩니다
+        debug=True
     )
     print("📦 최종 챗봇 응답:")
     print(json.dumps(result, ensure_ascii=False, indent=2))
