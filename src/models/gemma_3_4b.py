@@ -4,10 +4,14 @@ import torch
 model_id = "google/gemma-3-4b-it"
 
 tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id).eval()
 processor = AutoProcessor.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    torch_dtype=torch.bfloat16,
+    device_map="auto"
+).eval()
 
-def generate_summary(user_query: str, group_texts: list[str], max_tokens=300, temp=0.7) -> str:
+def generate_summary(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7) -> str:
     try:
         messages = [
             {
