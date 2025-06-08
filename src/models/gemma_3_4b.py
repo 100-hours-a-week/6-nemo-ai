@@ -3,7 +3,6 @@ import torch
 
 model_id = "google/gemma-3-4b-it"
 
-tokenizer = AutoTokenizer.from_pretrained(model_id)
 processor = AutoProcessor.from_pretrained(model_id)
 model = Gemma3ForConditionalGeneration.from_pretrained(model_id).eval()
 
@@ -44,15 +43,17 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
 
         input_len = inputs["input_ids"].shape[-1]
 
-        with torch.inference_mode():
+        with torch.inference_mode(), torch.cuda.amp.autocast(dtype=torch.bfloat16):
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
-                do_sample=True,
-                temperature=temp
+                do_sample=False,
+                temperature=0.7,
+                top_p=0.95,
+                top_k=50
             )
 
-        decoded = tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
+        decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)
 
         if debug:
             print(f"📏 Input Tokens: {input_len}, Output Tokens: {outputs.shape}")
