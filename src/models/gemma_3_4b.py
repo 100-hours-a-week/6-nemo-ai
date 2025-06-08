@@ -10,7 +10,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
 
-def generate_explaination(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7, debug: bool = False) -> str:
+def generate_explaination(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7, debug: bool = True) -> str:
     try:
         messages = [
             {
@@ -47,13 +47,13 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
-                do_sample=False,
-                temperature=0.7
+                do_sample=True,
+                temperature=temp
             )
 
         decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)
 
-        if not decoded.strip():
+        if debug:
             print(f"📏 Input Tokens: {input_len}, Output Tokens: {outputs.shape}")
             print(f"📦 생성된 텍스트:\n{decoded}")
             if torch.cuda.is_available():
