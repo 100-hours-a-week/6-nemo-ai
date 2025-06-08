@@ -43,7 +43,7 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
 
         input_len = inputs["input_ids"].shape[-1]
 
-        with torch.inference_mode(), torch.cuda.amp.autocast(dtype=torch.bfloat16):
+        with torch.inference_mode(), torch.amp.autocast(dtype=torch.bfloat16):
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
