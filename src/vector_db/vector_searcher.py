@@ -1,11 +1,10 @@
 from typing import List, Dict, Any, Literal, Optional
 from src.vector_db.chroma_client import get_chroma_client
-from src.vector_db.embedder import JinaEmbeddingFunction
+from src.models.jina_embeddings_v3 import embed
 from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
-embed = JinaEmbeddingFunction()
 logger = get_ai_logger()
 
 def search_similar_documents(

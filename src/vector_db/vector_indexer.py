@@ -1,12 +1,11 @@
 from typing import List, Literal
 from src.vector_db.chroma_client import get_chroma_client
-from src.vector_db.embedder import JinaEmbeddingFunction
+from src.models.jina_embeddings_v3 import embed
 from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
 
-embed = JinaEmbeddingFunction()
 ai_logger = get_ai_logger()
 
 def add_documents_to_vector_db(docs: List[dict], collection: Literal["group-info", "user-activity"]) -> None:

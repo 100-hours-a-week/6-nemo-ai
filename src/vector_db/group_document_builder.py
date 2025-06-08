@@ -1,9 +1,8 @@
 from typing import Dict, Any
 from src.vector_db.chroma_client import get_chroma_client
-from src.vector_db.embedder import JinaEmbeddingFunction
+from src.models.jina_embeddings_v3 import embed
 
 GROUP_COLLECTION = "group-info"
-embed = JinaEmbeddingFunction()
 
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
     group_id = str(group_response.get("groupId"))
