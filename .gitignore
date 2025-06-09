@@ -28,3 +28,5 @@ data/chroma/
 *.log
 /src/data/chroma/chroma.sqlite3
 /naemo-project-admin-key.json
+xlm-roberta-flash-implementation/
+database/
