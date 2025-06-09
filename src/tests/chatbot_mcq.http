@@ -1,5 +1,5 @@
 ### 객관식 질문 생성 테스트
-POST http://localhost:8000/chatbot/questions
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/questions
 Content-Type: application/json
 
 {
@@ -8,7 +8,7 @@ Content-Type: application/json
 
 
 ### 객관식 답변 제출 및 추천 요청 테스트
-POST http://localhost:8000/chatbot/answers
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/answers
 Content-Type: application/json
 
 {

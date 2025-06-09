@@ -10,7 +10,6 @@ def handle_mcq_question_generation(user_id: str, debug: bool = False) -> dict:
     ai_logger.info("[MCQ] 질문 생성 요청", extra={"user_id": user_id})
     history = get_session_history(user_id)
 
-    # 🧠 최근 AI 메시지가 'MCQ 질문들'이라면 캐시 재사용
     cached = [
         msg["content"] for msg in history.get_messages()
         if msg["role"] == "ai" and msg["content"].startswith("[MCQ 질문]")
@@ -20,8 +19,15 @@ def handle_mcq_question_generation(user_id: str, debug: bool = False) -> dict:
             print("♻️ 캐시된 질문 반환")
         return {"questions": eval(cached[-1].replace("[MCQ 질문]", "").strip())}
 
-    # 🔄 새로 생성
     questions = generate_mcq_questions(debug=debug)
+
+    if questions:
+        history.add_ai_message(f"[MCQ 질문]{str(questions)}")
+        ai_logger.info("[MCQ] 질문 생성 완료 및 캐시됨", extra={"user_id": user_id})
+    else:
+        ai_logger.warning("[MCQ] 질문 생성 실패", extra={"user_id": user_id})
+
+    return {"questions": questions or []}
 
     if questions:
         history.add_ai_message(f"[MCQ 질문]{str(questions)}")
@@ -38,7 +44,7 @@ def handle_mcq_answer_processing(user_id: str, answers: list[dict], debug: bool 
     if not answers:
         return {"context": "답변이 비어 있습니다.", "groupId": []}
 
-    combined_text = "\n".join(f"Q: {a['question']}\nA: {a['selected_option']}" for a in answers)
+    combined_text = "\n".join(f"Q: {a.question}\nA: {a.selected_option}" for a in answers)
 
     try:
         joined_ids = get_user_joined_group_ids(user_id)

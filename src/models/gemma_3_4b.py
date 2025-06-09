@@ -122,6 +122,7 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False) -> lis
             return json.loads(decoded.strip())
         except Exception as parse_err:
             print(f"[❗️JSON 파싱 실패] {parse_err}")
+            print(f"[🔍 원본 출력]: {decoded}")
             return []
 
     except Exception as e:
