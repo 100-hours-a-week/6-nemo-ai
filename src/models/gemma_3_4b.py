@@ -61,8 +61,13 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
 
         return decoded.strip()
 
+        if not decoded or "실패" in decoded or len(decoded) < 10:
+            return None
+
+        return decoded
+
     except Exception as e:
-        print(f"[❗️generate_summary 에러] {e}")
+        print(f"[❗️generate_description 에러] {e}")
         return "추천 응답을 생성하는 데 실패했습니다."
 
 def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False) -> list[dict]:
@@ -109,7 +114,9 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False) -> lis
                 **inputs,
                 max_new_tokens=max_tokens,
                 do_sample=True,
-                temperature=temp
+                temperature=0.8,
+                top_p=0.9,
+                top_k=40
             )
 
         decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)

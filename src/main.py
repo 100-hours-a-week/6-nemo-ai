@@ -17,7 +17,11 @@ ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging �
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
 # 앱 초기화
-app = FastAPI()
+app = FastAPI(
+    title="NE:MO AI API",
+    description="네가 찾는 모임: 네모",
+    version="1.9.0"
+)
 setup_exception_handlers(app)
 
 # [AI] 성능 로깅 미들웨어 등록

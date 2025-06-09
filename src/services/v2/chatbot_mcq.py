@@ -9,28 +9,11 @@ def handle_mcq_question_generation(user_id: str, debug: bool = False) -> dict:
     ai_logger.info("[MCQ] 질문 생성 요청", extra={"user_id": user_id})
     history = get_session_history(user_id)
 
-    cached = [
-        msg["content"] for msg in history.get_messages()
-        if msg["role"] == "ai" and msg["content"].startswith("[MCQ 질문]")
-    ]
-    if cached:
-        if debug:
-            print("♻️ 캐시된 질문 반환")
-        return {"questions": eval(cached[-1].replace("[MCQ 질문]", "").strip())}
-
     questions = generate_mcq_questions(debug=debug)
 
     if questions:
         history.add_ai_message(f"[MCQ 질문]{str(questions)}")
-        ai_logger.info("[MCQ] 질문 생성 완료 및 캐시됨", extra={"user_id": user_id})
-    else:
-        ai_logger.warning("[MCQ] 질문 생성 실패", extra={"user_id": user_id})
-
-    return {"questions": questions or []}
-
-    if questions:
-        history.add_ai_message(f"[MCQ 질문]{str(questions)}")
-        ai_logger.info("[MCQ] 질문 생성 완료 및 캐시됨", extra={"user_id": user_id})
+        ai_logger.info("[MCQ] 질문 생성 완료", extra={"user_id": user_id})
     else:
         ai_logger.warning("[MCQ] 질문 생성 실패", extra={"user_id": user_id})
 
