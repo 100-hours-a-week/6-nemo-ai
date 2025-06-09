@@ -70,7 +70,23 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
         print(f"[❗️generate_description 에러] {e}")
         return "추천 응답을 생성하는 데 실패했습니다."
 
-def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False) -> list[dict]:
+def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_context: bool = True) -> list[dict]:
+    if use_context:
+        return [
+            {
+                "question": "당신은 어떤 분위기의 모임을 선호하시나요?",
+                "options": ["조용한", "활기찬", "편안한", "새로운 사람들과 어울릴 수 있는"]
+            },
+            {
+                "question": "하루 중 모임에 참여하고 싶은 시간대는 언제인가요?",
+                "options": ["오전", "오후", "저녁", "시간 상관없음"]
+            },
+            {
+                "question": "어떤 활동에 가장 흥미를 느끼시나요?",
+                "options": ["운동", "스터디", "문화 체험", "수다 나누기"]
+            }
+        ]
+
     try:
         messages = [
             {

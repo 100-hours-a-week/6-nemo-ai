@@ -5,11 +5,11 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-def handle_mcq_question_generation(user_id: str, debug: bool = False) -> dict:
+def handle_mcq_question_generation(user_id: str, debug: bool = False, use_context: bool = True) -> dict:
     ai_logger.info("[MCQ] 질문 생성 요청", extra={"user_id": user_id})
     history = get_session_history(user_id)
 
-    questions = generate_mcq_questions(debug=debug)
+    questions = generate_mcq_questions(debug=debug, use_context=use_context)
 
     if questions:
         history.add_ai_message(f"[MCQ 질문]{str(questions)}")
@@ -20,13 +20,16 @@ def handle_mcq_question_generation(user_id: str, debug: bool = False) -> dict:
     return {"questions": questions or []}
 
 
-def handle_mcq_answer_processing(user_id: str, answers: list[dict], debug: bool = False) -> dict:
+def handle_mcq_answer_processing(user_id: str, answers: list[dict], debug: bool = False, return_context: bool = False) -> dict:
     ai_logger.info("[MCQ] 답변 처리 시작", extra={"user_id": user_id, "answer_count": len(answers)})
 
     if not answers:
-        return {"context": "답변이 비어 있습니다.", "groupId": []}
+        return {
+            "context": "" if not return_context else "답변이 비어 있습니다.",
+            "groupId": []
+        }
 
-    combined_text = "\n".join(f"Q: {a.question}\nA: {a.selected_option}" for a in answers)
+    combined_text = "\n".join(f"Q: {a['question']}\nA: {a['selected_option']}" for a in answers)
 
     try:
         joined_ids = get_user_joined_group_ids(user_id)
@@ -43,16 +46,21 @@ def handle_mcq_answer_processing(user_id: str, answers: list[dict], debug: bool 
     ]
 
     if not filtered:
+        msg = "추천 가능한 새로운 모임이 아직 없어요. 당신이 직접 비슷한 모임을 열어보는 건 어떨까요?"
         return {
-            "context": "추천 가능한 새로운 모임이 아직 없어요. 당신이 직접 비슷한 모임을 열어보는 건 어떨까요?",
+            "context": "" if not return_context else msg,
             "groupId": []
         }
 
     top_results = filtered[:2]
+    group_ids = [r["metadata"]["groupId"] for r in top_results]
+
+    if not return_context:
+        return {"context": "", "groupId": group_ids}
+
     try:
         summary = generate_explaination(combined_text, [r["text"] for r in top_results])
     except Exception:
         summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
 
-    group_ids = [r["metadata"]["groupId"] for r in top_results]
     return {"context": summary, "groupId": group_ids}

@@ -5,11 +5,11 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> dict:
+def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, return_context: bool = False) -> dict:
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
         return {
-            "context": "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
+            "context": "" if not return_context else "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
             "groupId": []
         }
 
@@ -46,11 +46,19 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
 
     if not filtered:
         msg = "추천 가능한 새로운 모임이 아직 없어요. 당신이 직접 비슷한 모임을 열어보는 건 어떨까요?"
-        history.add_ai_message(msg)
+        if return_context:
+            history.add_ai_message(msg)
         ai_logger.info("[Chatbot] 새로운 추천 모임 없음", extra={"user_id": user_id})
-        return {"context": msg, "groupId": []}
+        return {"context": msg if return_context else "", "groupId": []}
 
     top_results = filtered[:2]
+    group_ids = [r["metadata"]["groupId"] for r in top_results]
+
+    if not return_context:
+        return {
+            "context": "",
+            "groupId": group_ids
+        }
 
     try:
         summary = generate_explaination(query, [r["text"] for r in top_results])
@@ -60,19 +68,7 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False) -> di
         summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
         ai_logger.error("[Chatbot] 요약 생성 실패", extra={"user_id": user_id})
 
-    group_ids = [r["metadata"]["groupId"] for r in top_results]
     return {
         "context": summary,
         "groupId": group_ids
     }
-
-if __name__ == "__main__":
-    import json
-
-    result = handle_freeform_chatbot(
-        "사람 많은 곳은 불편해서 조용한 모임이 좋아요",
-        "u1",
-        debug=True
-    )
-    print("📦 최종 챗봇 응답:")
-    print(json.dumps(result, ensure_ascii=False, indent=2))
