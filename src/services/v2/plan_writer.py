@@ -2,6 +2,7 @@ from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.ai_logger import get_ai_logger
 from src.services.v2.local_model import local_model_generate  # 로컬 모델 호출로 교체
 import asyncio
+import re
 
 ai_logger = get_ai_logger()
 
@@ -10,18 +11,12 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
     prompt = f"""
     당신은 모임을 소개하는 AI 비서입니다.
 
-    #역할
+    # 역할
     모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성합니다.
 
-    #조건
+    # 조건
     - 아래 `기간` 항목은 정수형이 아닌 '기간 범위(예: 1~3개월)'로 주어질 수 있습니다.
     - 이 경우, LLM은 입력된 기간 범위를 참고하여 적절한 단계 수(1~8단계 이내)를 추정해야 합니다.
-    - 다음과 같이 해석하세요:
-      - 1개월 이하 → 약 2~3단계
-      - 1~3개월 → 약 3~5단계
-      - 3~6개월 → 약 5~6단계
-      - 6개월~1년 → 약 6~7단계
-      - 1년 이상 → 7~8단계
     - 단, 무조건 8단계를 채우지 말고, 모임 목적과 활동 적절성에 따라 1~8단계 내에서 유연하게 결정하세요.
 
     - 각 단계는 다음 형식을 따릅니다:
@@ -30,14 +25,7 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
         - [설명 문장 2]
         - [설명 문장 3]
 
-    + 아래 출력 형식을 반드시 정확히 따르세요. 줄 간 공백 없이 출력하세요.
-    - 각 설명은 간결하고 실천 가능한 내용으로 구성하며, 최대 3개까지만 작성하세요.
-    - 모든 활동은 반드시 모임의 '목적'과 직접적으로 연결되어야 합니다.
-    - 너무 작게 나누지 말고, 의미 있는 단위로 단계화하세요.
-    - 출력은 실제 줄바꿈(Enter)을 사용하여 파이썬의 멀티라인 문자열처럼 구성되어야 합니다.
-
-    # 아래 입력 정보로 Step 1부터 작성해주세요.
-    입력 정보:
+    # 입력 정보
     - 모임명: {data.name}
     - 목적: {data.goal}
     - 카테고리: {data.category}
@@ -49,10 +37,17 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
         response = await local_model_generate(prompt, max_new_tokens=700)
         result = response.strip()
 
-        step_count = result.count("Step ")
+        # 후처리: "Step 1"부터 시작되는 부분만 추출
+        step_start_match = re.search(r"(Step 1[\s\S]*)", result)
+        if step_start_match:
+            plan_text = step_start_match.group(1).strip()
+        else:
+            plan_text = result  # 만약 Step 1이 없다면 전체 출력
+
+        step_count = plan_text.count("Step ")
         ai_logger.info("[AI-v2] [커리큘럼 생성 완료]",
-                       extra={"steps": step_count, "text_length": len(result)})
-        return result
+                       extra={"steps": step_count, "text_length": len(plan_text)})
+        return plan_text
 
     except Exception:
         ai_logger.exception("[AI-v2] [로컬모델 단계별 계획 생성 실패]")
@@ -61,13 +56,12 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
 
 if __name__ == "__main__":
     data = GroupGenerationRequest(
-        name="OPIC 스터디 모임",
-        goal="함께 공부해서 다음 달 오픽 시험 목표 점수 달성하기",
-        category="학습/자기계발",
-        period="1개월",
-        isPlanCreated=False
+        name="RAG 스터디 모임",
+        goal="RAG 이론 공부하기",
+        category="개발",
+        period="1개월 이하",
+        isPlanCreated=True
     )
-
 
     async def run_test():
         plan = await generate_plan(data)
