@@ -1,6 +1,5 @@
 from transformers import Gemma3ForConditionalGeneration, AutoTokenizer, AutoProcessor
-import torch
-import json
+import torch, json, re
 
 model_id = "google/gemma-3-4b-it"
 
@@ -80,8 +79,8 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False) -> lis
                         "type": "text",
                         "text": (
                             "사용자의 성향과 모임 선호도를 파악하기 위해 아래 조건을 만족하는 객관식 질문 3개를 생성해 주세요:\n"
-                            "- 질문은 모두 '모임' 또는 '사용자 성향'에 관련되어야 합니다.\n"
-                            "- 각 질문은 3~5개의 보기를 포함해야 합니다.\n"
+                            "- 질문은 모두 '모임' 또는 '사용자 성향'에 관련되어야 합니다. 질문은 100자 이내로 작성해주세요\n"
+                            "- 각 질문은 3~5개의 보기를 포함해야 합니다. 보기는 20자 이내로 작성해주세요.\n"
                             "- JSON 포맷으로 출력해 주세요.\n"
                             "[\n"
                             "  {\n"
@@ -115,11 +114,13 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False) -> lis
 
         decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)
 
+        cleaned = re.sub(r"```json|```", "", decoded.strip()).strip()
+
         if debug:
-            print(f"📦 생성된 MCQ 질문:\n{decoded}")
+            print(f"📦 생성된 MCQ 질문:\n{cleaned}")
 
         try:
-            return json.loads(decoded.strip())
+            return json.loads(cleaned)
         except Exception as parse_err:
             print(f"[❗️JSON 파싱 실패] {parse_err}")
             print(f"[🔍 원본 출력]: {decoded}")
