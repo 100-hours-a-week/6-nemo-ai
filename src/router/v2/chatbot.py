@@ -18,7 +18,7 @@ router = APIRouter(prefix="/groups/recommendations", tags=["Chatbot"])
 @router.post("/freeform", response_model=FreeFormResponse)
 def freeform_chatbot_api(req: FreeFormRequest):
     try:
-        result = handle_freeform_chatbot(req.recommendationText, str(req.userId), return_context=True)
+        result = handle_freeform_chatbot(req.recommendationText, str(req.userId))
         # if not result.get("context"):  # ✅ 결과 없음 처리
         #     raise HTTPException(status_code=502, detail="모델이 유효한 응답을 생성하지 못했습니다.")
         return result
@@ -44,7 +44,7 @@ def mcq_question_api(req: MCQQuestionRequest):
 @router.post("", response_model=FreeFormResponse)
 def mcq_answer_api(req: MCQAnswerRequest):
     try:
-        result = handle_mcq_answer_processing(str(req.userId), req.answers, session_id=req.sessionId, return_context=True)
+        result = handle_mcq_answer_processing(str(req.userId), req.answers, session_id=req.sessionId)
         # if not result.get("context"):  # ✅ 결과 없음 처리
         #     raise HTTPException(status_code=502, detail="모델이 추천 사유 생성을 실패했습니다.")
         return result
