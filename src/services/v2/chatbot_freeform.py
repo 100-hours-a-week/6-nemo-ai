@@ -9,8 +9,7 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
         return {
-            "recommendationText": "" if not return_context else "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
-            "groupId": ""
+            "recommendations": []
         }
 
     ai_logger.info("[Chatbot] 유저 쿼리 수신", extra={"query": query, "user_id": user_id})
@@ -49,15 +48,17 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
         if return_context:
             history.add_ai_message(msg)
         ai_logger.info("[Chatbot] 새로운 추천 모임 없음", extra={"user_id": user_id})
-        return {"recommendationText": msg if return_context else "", "groupId": ""}
+        return {"recommendations": []}
 
     top_result = filtered[0]
-    group_id = top_result["metadata"]["groupId"]
+    group_id = int(top_result["metadata"]["groupId"])
 
     if not return_context:
         return {
-            "recommendationText": "",
-            "groupId": group_id
+            "recommendations": [{
+                "groupId": group_id,
+                "context": ""
+            }]
         }
 
     try:
@@ -69,6 +70,8 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
         ai_logger.error("[Chatbot] 요약 생성 실패", extra={"user_id": user_id})
 
     return {
-        "recommendationText": summary,
-        "groupId": group_id
+        "recommendations": [{
+            "groupId": group_id,
+            "context": summary
+        }]
     }
