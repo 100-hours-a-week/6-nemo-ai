@@ -5,29 +5,33 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-def handle_mcq_question_generation(user_id: str, debug: bool = False, use_context: bool = True) -> dict:
-    ai_logger.info("[MCQ] 질문 생성 요청", extra={"user_id": user_id})
+def handle_mcq_question_generation(user_id: str, session_id: str, step: int, previous_answers: list[str], debug: bool = False) -> dict:
+    ai_logger.info("[MCQ] 질문 생성 요청", extra={"user_id": user_id, "session_id": session_id, "step": step})
     history = get_session_history(user_id)
 
-    questions = generate_mcq_questions(debug=debug, use_context=use_context)
+    questions = generate_mcq_questions(debug=debug, use_context=True, step=step, previous_answers=previous_answers)
 
-    if questions:
-        history.add_ai_message(f"[MCQ 질문]{str(questions)}")
-        ai_logger.info("[MCQ] 질문 생성 완료", extra={"user_id": user_id})
-    else:
+    if not questions:
         ai_logger.warning("[MCQ] 질문 생성 실패", extra={"user_id": user_id})
+        return {
+            "sessionId": session_id,
+            "question": "",
+            "options": []
+        }
 
-    return {"questions": questions or []}
+    question = questions[0]  # Get the first question for the current step
+    return {
+        "sessionId": session_id,
+        "question": question["question"],
+        "options": question["options"]
+    }
 
 
-def handle_mcq_answer_processing(user_id: str, answers: list[dict], debug: bool = False, return_context: bool = False) -> dict:
-    ai_logger.info("[MCQ] 답변 처리 시작", extra={"user_id": user_id, "answer_count": len(answers)})
+def handle_mcq_answer_processing(user_id: str, answers: list[dict], session_id: str, debug: bool = False, return_context: bool = False) -> dict:
+    ai_logger.info("[MCQ] 답변 처리 시작", extra={"user_id": user_id, "session_id": session_id, "answer_count": len(answers)})
 
     if not answers:
-        return {
-            "context": "" if not return_context else "답변이 비어 있습니다.",
-            "groupId": []
-        }
+        return {"recommendations": []}
 
     combined_text = "\n".join(f"Q: {a['question']}\nA: {a['selected_option']}" for a in answers)
 
@@ -47,20 +51,27 @@ def handle_mcq_answer_processing(user_id: str, answers: list[dict], debug: bool 
 
     if not filtered:
         msg = "추천 가능한 새로운 모임이 아직 없어요. 당신이 직접 비슷한 모임을 열어보는 건 어떨까요?"
-        return {
-            "context": "" if not return_context else msg,
-            "groupId": []
-        }
+        if return_context:
+            history = get_session_history(user_id)
+            history.add_ai_message(msg)
+        return {"recommendations": []}
 
     top_results = filtered[:2]
-    group_ids = [r["metadata"]["groupId"] for r in top_results]
-
-    if not return_context:
-        return {"context": "", "groupId": group_ids}
+    recommendations = []
 
     try:
-        summary = generate_explaination(combined_text, [r["text"] for r in top_results])
+        for result in top_results:
+            group_id = int(result["metadata"]["groupId"])
+            context = generate_explaination(combined_text, [result["text"]]) if return_context else ""
+            recommendations.append({
+                "groupId": group_id,
+                "context": context
+            })
+        if return_context:
+            history = get_session_history(user_id)
+            history.add_ai_message(str(recommendations))
     except Exception:
-        summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        ai_logger.error("[MCQ] 요약 생성 실패", extra={"user_id": user_id})
+        return {"recommendations": []}
 
-    return {"context": summary, "groupId": group_ids}
+    return {"recommendations": recommendations}

@@ -1,46 +1,46 @@
 ###
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/freeform
 Content-Type: application/json
 
 {
-  "query": "시끄럽지 않고 조용한 분위기의 모임이 좋을 것 같아요.",
-  "user_id": "u004"
+  "userId": 1,
+  "recommendationText": "시끄럽지 않고 조용한 분위기의 모임이 좋을 것 같아요."
 }
 
 
 ###
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/freeform
 Content-Type: application/json
 
 {
-  "query": "몸을 많이 쓰는 활동적인 모임이 있을까요?",
-  "user_id": "u002"
+  "userId": 2,
+  "recommendationText": "몸을 많이 쓰는 활동적인 모임이 있을까요?"
 }
 
 
 ###
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/freeform
 Content-Type: application/json
 
 {
-  "query": "힐링하거나 스트레칭할 수 있는 모임 추천해주세요.",
-  "user_id": "u005"
+  "userId": 5,
+  "recommendationText": "힐링하거나 스트레칭할 수 있는 모임 추천해주세요."
 }
 
 ###
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/freeform
 Content-Type: application/json
 
 {
-  "query": "개발이 처음이라 기초부터 차근차근 배울 수 있는 모임 있을까요?",
-  "user_id": "u003"
+  "userId": 3,
+  "recommendationText": "개발이 처음이라 기초부터 차근차근 배울 수 있는 모임 있을까요?"
 }
 
 ###
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/freeform
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/freeform
 Content-Type: application/json
 
 {
-  "query": "책을 읽거나 글을 쓸 수 있는 조용한 모임이 좋을 것 같아요.",
-  "user_id": "u001"
+  "userId": 1,
+  "recommendationText": "책을 읽거나 글을 쓸 수 있는 조용한 모임이 좋을 것 같아요."
 }
