@@ -53,7 +53,7 @@ if __name__ == "__main__":
         name="토익 스터디 모임",
         goal="함께 공부해서 다음 달 토익 시험 목표 점수 달성하기",
         category="학습/자기계발",
-        period="2주",
+        period="1개월 이하",
         isPlanCreated=True,
     )
 

@@ -34,7 +34,7 @@ async def extract_tags(text: str) -> list[str]:
 
     try:
         ai_logger.info("[AI-v2] [태그 추출 시작]", extra={"text_length": len(text)})
-        response = await local_model_generate(prompt, max_new_tokens=128)
+        response, _ = await local_model_generate(prompt, max_new_tokens=128)
         raw = response.strip()
 
         try:

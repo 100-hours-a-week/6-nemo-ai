@@ -24,7 +24,7 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
         ai_logger.info("[AI-v2] [요약 생성 시작]", extra={"meeting_name": data.name})
 
         # 로컬 모델로 교체
-        response = await local_model_generate(prompt, max_new_tokens=512)
+        response, _ = await local_model_generate(prompt, max_new_tokens=512)
         raw = response.strip()
 
         # 결과 파싱 (v1과 동일하게 유지)
