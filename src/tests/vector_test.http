@@ -1,0 +1,128 @@
+### Root Test
+GET http://grub-magical-totally.ngrok-free.app/health
+Accept: application/json
+
+### --- GROUP CREATION (15 groups) ---
+
+### Group 101 - React 정복
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 101, "name": "React 정복", "summary": "React를 배우고 실전 프로젝트를 함께 해요.", "description": "프론트엔드 개발자 지망생을 위한 모임입니다.", "category": "개발", "location": "강남", "maxUserCount": "20", "imageUrl": "react.jpg", "tags": ["React", "프로젝트", "초보환영"], "plan": "매주 수요일 온라인 + 오프라인 스터디" }
+
+### Group 102 - AI 논문 읽기
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 102, "name": "AI 논문 읽기", "summary": "최신 AI 논문을 읽고 토론하는 모임", "description": "논문에 관심 있는 분들을 환영합니다.", "category": "인공지능", "location": "온라인", "maxUserCount": "15", "imageUrl": "ai_papers.jpg", "tags": ["논문", "AI", "딥러닝"], "plan": "매주 금요일 Zoom 미팅" }
+
+### Group 103 - 런닝 크루 서울
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 103, "name": "런닝 크루 서울", "summary": "서울 시내 러닝 모임", "description": "함께 달리고 건강 챙겨요!", "category": "운동", "location": "서울", "maxUserCount": "30", "imageUrl": "run.jpg", "tags": ["달리기", "야외", "건강"], "plan": "매주 화/목 저녁" }
+
+### Group 104 - 스터디 메이트
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 104, "name": "스터디 메이트", "summary": "자격증 공부를 함께 해요", "description": "혼자 하기 어려울 땐 같이!", "category": "자기계발", "location": "신촌", "maxUserCount": "10", "imageUrl": "study.jpg", "tags": ["자격증", "집중", "책상앞"], "plan": "주 3회 도서관에서 공부" }
+
+### Group 105 - 블로그 글쓰기
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 105, "name": "블로그 글쓰기", "summary": "매주 글을 쓰고 공유합니다.", "description": "꾸준한 글쓰기 습관을 들이고 싶다면?", "category": "취미", "location": "온라인", "maxUserCount": "20", "imageUrl": "writing.jpg", "tags": ["글쓰기", "습관", "블로그"], "plan": "주말마다 글 작성 & 피드백" }
+
+### Group 106 - 마케팅 실전반
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 106, "name": "마케팅 실전반", "summary": "디지털 마케팅 실습 중심", "description": "온라인 마케팅 실무를 배우는 그룹", "category": "비즈니스", "location": "역삼", "maxUserCount": "25", "imageUrl": "marketing.jpg", "tags": ["마케팅", "SNS", "브랜딩"], "plan": "월/수 오프라인 수업" }
+
+### Group 107 - 영어 회화 스터디
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 107, "name": "영어 회화 스터디", "summary": "영어로 말하는 것이 두렵지 않도록!", "description": "기초부터 차근차근 말하기 연습", "category": "언어", "location": "홍대", "maxUserCount": "12", "imageUrl": "english.jpg", "tags": ["영어", "회화", "초보"], "plan": "매주 토요일 영어 카페" }
+
+### Group 108 - 기획자 커뮤니티
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 108, "name": "기획자 커뮤니티", "summary": "기획자들끼리의 정보 공유", "description": "기획의 고수가 되고 싶은가요?", "category": "비즈니스", "location": "을지로", "maxUserCount": "30", "imageUrl": "planning.jpg", "tags": ["기획", "실무", "UX"], "plan": "매월 기획 워크숍 진행" }
+
+### Group 109 - 프랑스어 기초반
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 109, "name": "프랑스어 기초반", "summary": "Bonjour! 프랑스어 시작해요", "description": "프랑스어 문화를 함께 배우는 모임", "category": "언어", "location": "강남", "maxUserCount": "8", "imageUrl": "french.jpg", "tags": ["프랑스어", "초보", "문화"], "plan": "격주 일요일 스터디" }
+
+### Group 110 - 커리어 세미나
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 110, "name": "취준생을 위한 커리어 세미나", "summary": "이력서, 면접 노하우 공유", "description": "취업 준비하는 이들의 네트워크", "category": "취업", "location": "온라인", "maxUserCount": "100", "imageUrl": "career.jpg", "tags": ["취준", "면접", "네트워킹"], "plan": "월간 온라인 세미나" }
+
+### Group 111 - 요가와 스트레칭
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 111, "name": "요가와 스트레칭", "summary": "몸과 마음의 유연성을 기르기", "description": "아침을 요가와 함께 시작해요", "category": "운동", "location": "성수", "maxUserCount": "10", "imageUrl": "yoga.jpg", "tags": ["요가", "힐링", "스트레칭"], "plan": "매일 오전 7시 공원 모임" }
+
+### Group 112 - 사진 찍는 사람들
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 112, "name": "사진 찍는 사람들", "summary": "취미로 사진을 찍는 모임", "description": "함께 출사하고 사진을 공유해요", "category": "취미", "location": "남산", "maxUserCount": "15", "imageUrl": "photo.jpg", "tags": ["사진", "출사", "카메라"], "plan": "월 2회 출사 + 온라인 공유" }
+
+### Group 113 - 비건 요리 모임
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 113, "name": "비건 요리 모임", "summary": "비건 식단으로 건강 챙기기", "description": "건강한 식습관을 실천하고 공유합니다", "category": "건강", "location": "홍대", "maxUserCount": "10", "imageUrl": "vegan.jpg", "tags": ["비건", "요리", "식습관"], "plan": "주 1회 레시피 공유 및 요리 실습" }
+
+### Group 114 - 고전 읽기 모임
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 114, "name": "고전 읽기 모임", "summary": "고전을 읽고 토론해요", "description": "함께 읽으면 더 재미있는 고전 문학", "category": "독서", "location": "종로", "maxUserCount": "12", "imageUrl": "classic.jpg", "tags": ["문학", "독서", "고전"], "plan": "매주 금요일 저녁 북카페" }
+
+### Group 115 - 창업 아이디어 피드백
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/group
+Content-Type: application/json
+
+{ "groupId": 115, "name": "창업 아이디어 피드백", "summary": "아이디어 피칭과 멘토링", "description": "창업 아이디어를 함께 나누고 조언 받기", "category": "스타트업", "location": "판교", "maxUserCount": "30", "imageUrl": "startup.jpg", "tags": ["창업", "아이디어", "멘토링"], "plan": "격주 온라인 발표 & 피드백 세션" }
+
+
+### --- USER PARTICIPATION (groupId is a list) ---
+
+### u001 joins groups 101, 103, 105
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
+Content-Type: application/json
+
+{ "user_id": "u001", "group_id": ["101", "103", "105"] }
+
+### u002 joins groups 102, 106, 110
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
+Content-Type: application/json
+
+{ "user_id": "u002", "group_id": ["102", "106", "110"] }
+
+### u003 joins groups 104, 107, 111
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
+Content-Type: application/json
+
+{ "user_id": "u003", "group_id": ["104", "107", "111"] }
+
+### u004 joins groups 108, 109, 113
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
+Content-Type: application/json
+
+{ "user_id": "u004", "group_id": ["108", "109", "113"] }
+
+### u005 joins groups 112, 114, 115
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/vector/user
+Content-Type: application/json
+
+{ "user_id": "u005", "group_id": ["112", "114", "115"] }

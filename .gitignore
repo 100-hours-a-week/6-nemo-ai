@@ -31,3 +31,6 @@ data/chroma/
 
 # GCP 서비스 계정 키
 nemo-v2-ai.json
+
+xlm-roberta-flash-implementation/
+database/
