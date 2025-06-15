@@ -5,10 +5,13 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, return_context: bool = False) -> list[dict]:
+def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, return_context: bool = False) -> dict:
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
-        return []
+        return {
+            "groupId": -1,
+            "reason": "입력된 질문이 비어 있습니다."
+        }
 
     ai_logger.info("[Chatbot] 유저 쿼리 수신", extra={"query": query, "user_id": user_id})
     history = get_session_history(user_id)
@@ -46,12 +49,13 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
         if return_context:
             history.add_ai_message(msg)
         ai_logger.info("[Chatbot] 새로운 추천 모임 없음", extra={"user_id": user_id})
-        return []
+        return {
+            "groupId": -1,
+            "reason": msg
+        }
 
     top_result = filtered[0]
     group_id = int(top_result["metadata"]["groupId"])
-
-    # 기본 reason 생성
     reason = "이 모임은 당신의 관심사와 유사한 주제를 다루고 있어 추천드립니다."
 
     if return_context:
@@ -62,7 +66,7 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
         except Exception:
             ai_logger.warning("[Chatbot] 추천 사유 생성 실패 (기본값 사용)", extra={"user_id": user_id})
 
-    return [{
+    return {
         "groupId": group_id,
         "reason": reason
-    }]
+    }
