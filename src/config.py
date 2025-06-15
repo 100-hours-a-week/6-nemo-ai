@@ -26,9 +26,11 @@ EMBED_MODEL = os.getenv("EMBED_MODEL_NAME")
 
 if not PERSPECTIVE_API_KEY:
     raise ValueError("PERSPECTIVE_API_KEY가 .env에 설정되어 있지 않습니다.")
+
 if not EMBED_MODEL:
     raise ValueError("EMBED_MODEL이 .env에 설정되어 있지 않습니다.")
 # if not PROJECT_ID or not REGION:
 #     raise ValueError("GCP 설정이 누락되었습니다.")
 # if not TXTGEN_MODEL_ID or not EMBEDDING_MODEL_ID:
 #     raise ValueError("모델 ID가 누락되었습니다.")
+

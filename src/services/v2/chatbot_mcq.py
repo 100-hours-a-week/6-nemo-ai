@@ -5,7 +5,6 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-
 def handle_mcq_question_generation(user_id: str, answer: str = None, debug: bool = False) -> dict:
     ai_logger.info("[MCQ] 질문 생성 요청", extra={"user_id": user_id, "answer": answer})
     history = get_session_history(user_id)

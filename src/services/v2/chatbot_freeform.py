@@ -9,8 +9,8 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
         return {
-            "groupId": -1,
-            "reason": "입력된 질문이 비어 있습니다."
+            "reason": "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
+            "groupId": -1
         }
 
     ai_logger.info("[Chatbot] 유저 쿼리 수신", extra={"query": query, "user_id": user_id})
@@ -69,4 +69,3 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
     return {
         "groupId": group_id,
         "reason": reason
-    }

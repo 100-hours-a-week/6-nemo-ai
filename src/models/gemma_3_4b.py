@@ -6,6 +6,7 @@ model_id = "google/gemma-3-4b-it"
 processor = AutoProcessor.from_pretrained(model_id)
 model = Gemma3ForCausalLM.from_pretrained(model_id).eval()
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
