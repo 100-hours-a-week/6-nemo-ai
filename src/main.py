@@ -56,7 +56,7 @@ ai_logger.info("[AI-v2] [라우터 등록 완료] v2 group_information 라우터
 if __name__ == "__main__":
     import uvicorn
     host = "0.0.0.0"
-    port = 9999
+    port = 8000
     ai_logger.info("[FastAPI 실행] 서버 시작 전 초기화")
     try:
         uvicorn.run(app, host=host, port=port)
