@@ -5,12 +5,10 @@ from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 
-def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, return_context: bool = False) -> dict:
+def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, return_context: bool = False) -> list[dict]:
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
-        return {
-            "recommendations": []
-        }
+        return []
 
     ai_logger.info("[Chatbot] 유저 쿼리 수신", extra={"query": query, "user_id": user_id})
     history = get_session_history(user_id)
@@ -48,30 +46,23 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
         if return_context:
             history.add_ai_message(msg)
         ai_logger.info("[Chatbot] 새로운 추천 모임 없음", extra={"user_id": user_id})
-        return {"recommendations": []}
+        return []
 
     top_result = filtered[0]
     group_id = int(top_result["metadata"]["groupId"])
 
-    if not return_context:
-        return {
-            "recommendations": [{
-                "groupId": group_id,
-                "context": ""
-            }]
-        }
+    # 기본 reason 생성
+    reason = "이 모임은 당신의 관심사와 유사한 주제를 다루고 있어 추천드립니다."
 
-    try:
-        summary = generate_explaination(query, [top_result["text"]])
-        ai_logger.info("[Chatbot] 요약 생성 완료", extra={"user_id": user_id})
-        history.add_ai_message(summary)
-    except Exception:
-        summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
-        ai_logger.error("[Chatbot] 요약 생성 실패", extra={"user_id": user_id})
+    if return_context:
+        try:
+            reason = generate_explaination(query, [top_result["text"]])
+            ai_logger.info("[Chatbot] 추천 사유 생성 완료", extra={"user_id": user_id})
+            history.add_ai_message(reason)
+        except Exception:
+            ai_logger.warning("[Chatbot] 추천 사유 생성 실패 (기본값 사용)", extra={"user_id": user_id})
 
-    return {
-        "recommendations": [{
-            "groupId": group_id,
-            "context": summary
-        }]
-    }
+    return [{
+        "groupId": group_id,
+        "reason": reason
+    }]

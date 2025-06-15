@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from src.schemas.v2.chatbot import (
     FreeFormRequest,
-    FreeFormResponse,
+    RecommendationResponse,
     MCQQuestionRequest,
     MCQQuestionResponse,
     MCQAnswerRequest
@@ -15,13 +15,15 @@ from src.services.v2.chatbot_mcq import (
 router = APIRouter(prefix="/groups/recommendations", tags=["Chatbot"])
 
 
-@router.post("/freeform", response_model=FreeFormResponse)
+@router.post("/freeform", response_model=RecommendationResponse)
 def freeform_chatbot_api(req: FreeFormRequest):
     try:
-        result = handle_freeform_chatbot(req.recommendationText, str(req.userId))
-        # if not result.get("context"):  # ✅ 결과 없음 처리
-        #     raise HTTPException(status_code=502, detail="모델이 유효한 응답을 생성하지 못했습니다.")
-        return result
+        result = handle_freeform_chatbot(req.requestText, str(req.userId))
+        return {
+            "code": 200,
+            "message": "챗봇 응답 생성 완료",
+            "data": result
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -31,23 +33,27 @@ def freeform_chatbot_api(req: FreeFormRequest):
 @router.post("/questions", response_model=MCQQuestionResponse)
 def mcq_question_api(req: MCQQuestionRequest):
     try:
-        result = handle_mcq_question_generation(str(req.userId), session_id=req.sessionId, step=req.step, previous_answers=req.previousAnswers)
-        # if not result.get("context"):  # ✅ 결과 없음 처리
-        #     raise HTTPException(status_code=502, detail="모델이 유효한 응답을 생성하지 못했습니다.")
-        return result
+        result = handle_mcq_question_generation(str(req.userId), req.answer)
+        return {
+            "code": 200,
+            "message": "챗봇 질문 생성 완료",
+            "data": result
+        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"질문 생성 실패: {str(e)}")
 
 
-@router.post("", response_model=FreeFormResponse)
+@router.post("", response_model=RecommendationResponse)
 def mcq_answer_api(req: MCQAnswerRequest):
     try:
-        result = handle_mcq_answer_processing(str(req.userId), req.answers, session_id=req.sessionId)
-        # if not result.get("context"):  # ✅ 결과 없음 처리
-        #     raise HTTPException(status_code=502, detail="모델이 추천 사유 생성을 실패했습니다.")
-        return result
+        result = handle_mcq_answer_processing(req.messages)
+        return {
+            "code": 200,
+            "message": "챗봇 응답 생성 완료",
+            "data": result
+        }
     except HTTPException:
         raise
     except Exception as e:
