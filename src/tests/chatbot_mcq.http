@@ -1,30 +1,20 @@
 ### 객관식 질문 생성 테스트
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/questions
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/questions
 Content-Type: application/json
 
 {
-  "user_id": "123"
+  "sessionId": "abc-123",
+  "userId": 1,
+  "step": 2,
+  "previousAnswers": ["화기차로운 분위기"]
 }
 
 
 ### 객관식 답변 제출 및 추천 요청 테스트
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/chatbot/answers
+POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations
 Content-Type: application/json
 
 {
-  "user_id": "123",
-  "answers": [
-    {
-      "question": "모임에서 더 중요한 건?",
-      "selected_option": "사람"
-    },
-    {
-      "question": "처음 보는 사람 앞에서는?",
-      "selected_option": "조용해지는 편"
-    },
-    {
-      "question": "관심 있는 모임 주제는?",
-      "selected_option": "IT/기술"
-    }
-  ]
+  "sessionId": "abc-123",
+  "userId": 1,
 }

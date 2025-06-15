@@ -9,8 +9,8 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
     if not query.strip():
         ai_logger.warning("[Chatbot] 비어 있는 질문 수신", extra={"user_id": user_id})
         return {
-            "context": "" if not return_context else "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
-            "groupId": []
+            "reason": "질문을 이해할 수 없어요. 조금만 더 구체적으로 말씀해 주세요!",
+            "groupId": -1
         }
 
     ai_logger.info("[Chatbot] 유저 쿼리 수신", extra={"query": query, "user_id": user_id})
@@ -49,26 +49,23 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
         if return_context:
             history.add_ai_message(msg)
         ai_logger.info("[Chatbot] 새로운 추천 모임 없음", extra={"user_id": user_id})
-        return {"context": msg if return_context else "", "groupId": []}
-
-    top_results = filtered[:2]
-    group_ids = [r["metadata"]["groupId"] for r in top_results]
-
-    if not return_context:
         return {
-            "context": "",
-            "groupId": group_ids
+            "groupId": -1,
+            "reason": msg
         }
 
-    try:
-        summary = generate_explaination(query, [r["text"] for r in top_results])
-        ai_logger.info("[Chatbot] 요약 생성 완료", extra={"user_id": user_id})
-        history.add_ai_message(summary)
-    except Exception:
-        summary = "추천 사유를 생성하는 데 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
-        ai_logger.error("[Chatbot] 요약 생성 실패", extra={"user_id": user_id})
+    top_result = filtered[0]
+    group_id = int(top_result["metadata"]["groupId"])
+    reason = "이 모임은 당신의 관심사와 유사한 주제를 다루고 있어 추천드립니다."
+
+    if return_context:
+        try:
+            reason = generate_explaination(query, [top_result["text"]])
+            ai_logger.info("[Chatbot] 추천 사유 생성 완료", extra={"user_id": user_id})
+            history.add_ai_message(reason)
+        except Exception:
+            ai_logger.warning("[Chatbot] 추천 사유 생성 실패 (기본값 사용)", extra={"user_id": user_id})
 
     return {
-        "context": summary,
-        "groupId": group_ids
-    }
+        "groupId": group_id,
+        "reason": reason

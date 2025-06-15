@@ -28,9 +28,13 @@ setup_exception_handlers(app)
 # [AI] 성능 로깅 미들웨어 등록
 app.add_middleware(AILoggingMiddleware)
 
+app.include_router(health.router)
+app.include_router(vector_db.router, prefix="/ai/v2")
+app.include_router(chatbot.router, prefix="/ai/v2")
+
 @app.get("/")
 def root():
-    return {"message": "Hello World"}
+    return {"message": "Ne:Mo AI Server Running!"}
 
 # 공통 헬스 체크 라우터
 

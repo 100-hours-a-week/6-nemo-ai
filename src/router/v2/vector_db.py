@@ -6,9 +6,9 @@ from src.vector_db.user_document_builder import build_user_document
 from src.vector_db.vector_indexer import add_documents_to_vector_db
 from src.vector_db.chroma_client import get_chroma_client
 
-router = APIRouter(prefix="/vector", tags=["Vector DB"])
+router = APIRouter(prefix="/groups", tags=["Vector DB"])
 
-@router.post("/group")
+@router.post("/")
 def add_group_document(payload: dict = Body(...)):
     try:
         doc = build_group_document(payload)
@@ -26,7 +26,7 @@ def add_group_document(payload: dict = Body(...)):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/user")
+@router.post("/participants")
 def add_user_document(payload: dict = Body(...)):
     try:
         user_id = payload.get("user_id")
