@@ -69,3 +69,4 @@ def handle_freeform_chatbot(query: str, user_id: str, debug: bool = False, retur
     return {
         "groupId": group_id,
         "reason": reason
+    }
