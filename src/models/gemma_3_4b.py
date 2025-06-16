@@ -3,8 +3,13 @@ import torch, json, re
 
 model_id = "google/gemma-3-4b-it"
 
+torch.cuda.empty_cache()
+
 tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = Gemma3ForCausalLM.from_pretrained(model_id).eval()
+model = Gemma3ForCausalLM.from_pretrained(model_id,
+                                          torch_dtype=torch.float32,
+                                          device_map="auto"
+                                          ).eval()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
