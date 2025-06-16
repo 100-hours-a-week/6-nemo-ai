@@ -1,0 +1,16 @@
+### Delete participant u001 from group 101
+POST http://localhost:8000/ai/v2/groups/participants/delete
+Content-Type: application/json
+
+{
+  "userId": "u001",
+  "groupId": "101"
+}
+
+### Delete group 101
+POST http://localhost:8000/ai/v2/groups/delete
+Content-Type: application/json
+
+{
+  "groupId": 101
+}

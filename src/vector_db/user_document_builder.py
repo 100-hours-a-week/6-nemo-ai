@@ -1,21 +1,20 @@
 from src.vector_db.chroma_client import get_chroma_client
 from src.models.jina_embeddings_v3 import embed
 
-def build_user_document(user_id: str, group_id: list[str]) -> list[dict]:
-    if not user_id or not group_id:
-        raise ValueError("user_id와 group_ids는 반드시 있어야 합니다.")
+def build_user_document(userId: str, groupId: str) -> list[dict]:
+    if not userId or not groupId:
+        raise ValueError("userId와 groupId는 반드시 있어야 합니다.")
 
-    docs = []
-    for id in group_id:
-        docs.append({
-            "id": f"user-{user_id}-{id}",  # <-- 개선된 ID 규칙
-            "text": f"user-{user_id}",
+    return [
+        {
+            "id": f"user-{userId}-{groupId}",
+            "text": f"user-{userId}",
             "metadata": {
-                "user_id": user_id,
-                "group_id": id,
+                "userId": userId,
+                "groupId": groupId,
             }
-        })
-    return docs
+        }
+    ]
 
 def remove_user_group_activity(user_id: str, group_id: str) -> None:
     client = get_chroma_client()
