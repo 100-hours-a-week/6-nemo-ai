@@ -1,9 +1,8 @@
 import json
 import re
 # from src.core.cloud_logging import logger
-from src.services.v2.local_model import local_model_generate   # 로컬 모델로 교체
+from src.models.gemma_3_4b import local_model_generate   # 로컬 모델로 교체
 from src.core.ai_logger import get_ai_logger
-import asyncio
 
 ai_logger = get_ai_logger()
 

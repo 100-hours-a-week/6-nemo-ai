@@ -1,11 +1,10 @@
-from transformers import Gemma3ForCausalLM, AutoTokenizer, AutoProcessor
+from transformers import Gemma3ForCausalLM, AutoTokenizer
 import torch, json, re
 
 model_id = "google/gemma-3-4b-it"
 
-processor = AutoProcessor.from_pretrained(model_id)
+tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = Gemma3ForCausalLM.from_pretrained(model_id).eval()
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
@@ -34,7 +33,7 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
             }
         ]
 
-        inputs = processor.apply_chat_template(
+        inputs = tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             tokenize=True,
@@ -52,7 +51,7 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
                 temperature=temp
             )
 
-        decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)
+        decoded = tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
 
         if debug:
             print(f"📏 Input Tokens: {input_len}, Output Tokens: {outputs.shape}")
@@ -62,14 +61,10 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
 
         return decoded.strip()
 
-        if not decoded or "실패" in decoded or len(decoded) < 10:
-            return None
-
-        return decoded
-
     except Exception as e:
-        print(f"[❗️generate_description 에러] {e}")
+        print(f"[❗️generate_explaination 에러] {e}")
         return "추천 응답을 생성하는 데 실패했습니다."
+
 
 def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_context: bool = True) -> list[dict]:
     if use_context:
@@ -116,7 +111,7 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_co
             }
         ]
 
-        inputs = processor.apply_chat_template(
+        inputs = tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             tokenize=True,
@@ -136,20 +131,41 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_co
                 top_k=40
             )
 
-        decoded = processor.decode(outputs[0][input_len:], skip_special_tokens=True)
-
+        decoded = tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
         cleaned = re.sub(r"```json|```", "", decoded.strip()).strip()
 
         if debug:
             print(f"📦 생성된 MCQ 질문:\n{cleaned}")
 
-        try:
-            return json.loads(cleaned)
-        except Exception as parse_err:
-            print(f"[❗️JSON 파싱 실패] {parse_err}")
-            print(f"[🔍 원본 출력]: {decoded}")
-            return []
-
+        return json.loads(cleaned)
     except Exception as e:
         print(f"[❗️generate_mcq_questions 에러] {e}")
         return []
+
+
+async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    input_len = inputs["input_ids"].shape[-1]
+
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            temperature=0.4,
+            top_k=50,
+            top_p=0.8,
+            repetition_penalty=1.1
+        )
+
+    decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return decoded, input_len
+
+
+if __name__ == "__main__":
+    import asyncio
+    async def run_test():
+        prompt = "딥러닝 동아리에 대한 소개글을 하나의 문장으로 작성해줘."
+        result, _ = await local_model_generate(prompt)
+        print(result)
+    asyncio.run(run_test())

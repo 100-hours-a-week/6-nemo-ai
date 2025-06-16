@@ -39,6 +39,10 @@ def root():
 # 공통 헬스 체크 라우터
 
 app.include_router(health.router)
+# [AI] v2 라우터 등록
+ai_logger.info("[AI-v2] [라우터 등록 시작] v2 group_information 라우터 준비 중")
+app.include_router(v2_group_information.router, prefix="/ai/v2")
+ai_logger.info("[AI-v2] [라우터 등록 완료] v2 group_information 라우터 활성화")
 app.include_router(vector_db.router, prefix="/ai/v2")
 app.include_router(chatbot.router, prefix="/ai/v2")
 
@@ -47,10 +51,6 @@ app.include_router(chatbot.router, prefix="/ai/v2")
 #app.include_router(v1_group_information.router, prefix="/ai/v1")
 #ai_logger.info("[AI] [라우터 등록 완료] v1 group_information 라우터 활성화")
 
-# [AI] v2 라우터 등록
-ai_logger.info("[AI-v2] [라우터 등록 시작] v2 group_information 라우터 준비 중")
-app.include_router(v2_group_information.router, prefix="/ai/v2")
-ai_logger.info("[AI-v2] [라우터 등록 완료] v2 group_information 라우터 활성화")
 
 # 서버 실행
 if __name__ == "__main__":
