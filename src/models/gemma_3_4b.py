@@ -6,14 +6,11 @@ model_id = "google/gemma-3-4b-it"
 torch.cuda.empty_cache()
 
 tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = Gemma3ForCausalLM.from_pretrained(model_id,
-                                          torch_dtype=torch.float32,
-                                          device_map="auto"
-                                          ).eval()
+model = Gemma3ForCausalLM.from_pretrained(model_id).eval()
 
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# model = model.to(device)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
 
 
 def generate_explaination(user_query: str, group_texts: list[str], max_tokens=500, temp=0.7, debug: bool = False) -> str:
@@ -45,7 +42,7 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
             tokenize=True,
             return_dict=True,
             return_tensors="pt"
-        )#.to(device)
+        ).to(device)
 
         input_len = inputs["input_ids"].shape[-1]
 
@@ -127,7 +124,7 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_co
             tokenize=True,
             return_dict=True,
             return_tensors="pt"
-        )#.to(device)
+        ).to(device)
 
         input_len = inputs["input_ids"].shape[-1]
 
