@@ -5,7 +5,7 @@ Accept: application/json
 ### --- GROUP CREATION (15 groups) ---
 
 ### Group 101 - React 정복
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -22,7 +22,7 @@ Content-Type: application/json
 }
 
 ### Group 102 - AI 논문 읽기
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -39,7 +39,7 @@ Content-Type: application/json
 }
 
 ### Group 103 - 런닝 크루 서울
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -56,7 +56,7 @@ Content-Type: application/json
 }
 
 ### Group 104 - 스터디 메이트
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -73,7 +73,7 @@ Content-Type: application/json
 }
 
 ### Group 105 - 블로그 글쓰기
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -90,7 +90,7 @@ Content-Type: application/json
 }
 
 ### Group 106 - 마케팅 실전반
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -107,7 +107,7 @@ Content-Type: application/json
 }
 
 ### Group 107 - 영어 회화 스터디
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -124,7 +124,7 @@ Content-Type: application/json
 }
 
 ### Group 108 - 기획자 커뮤니티
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -141,7 +141,7 @@ Content-Type: application/json
 }
 
 ### Group 109 - 프랑스어 기초반
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -158,7 +158,7 @@ Content-Type: application/json
 }
 
 ### Group 110 - 커리어 세미나
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -175,7 +175,7 @@ Content-Type: application/json
 }
 
 ### Group 111 - 요가와 스트레칭
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -192,7 +192,7 @@ Content-Type: application/json
 }
 
 ### Group 112 - 사진 찍는 사람들
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -209,7 +209,7 @@ Content-Type: application/json
 }
 
 ### Group 113 - 비건 요리 모임
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -226,7 +226,7 @@ Content-Type: application/json
 }
 
 ### Group 114 - 고전 읽기 모임
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -243,7 +243,7 @@ Content-Type: application/json
 }
 
 ### Group 115 - 창업 아이디어 피드백
-POST http://localhost:8000/groups/save
+POST http://localhost:8000/ai/v2/groups/save
 Content-Type: application/json
 
 {
@@ -262,7 +262,7 @@ Content-Type: application/json
 ### --- USER PARTICIPATION (with camelCase) ---
 
 ### u001 joins group 101
-POST http://localhost:8000/groups/participants
+POST http://localhost:8000/ai/v2/groups/participants
 Content-Type: application/json
 
 {
@@ -271,7 +271,7 @@ Content-Type: application/json
 }
 
 ### u002 joins group 102
-POST http://localhost:8000/groups/participants
+POST http://localhost:8000/ai/v2/groups/participants
 Content-Type: application/json
 
 {
@@ -280,7 +280,7 @@ Content-Type: application/json
 }
 
 ### u003 joins group 103
-POST http://localhost:8000/groups/participants
+POST http://localhost:8000/ai/v2/groups/participants
 Content-Type: application/json
 
 {

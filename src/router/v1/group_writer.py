@@ -7,7 +7,7 @@ from src.core.ai_logger import get_ai_logger
 ai_logger = get_ai_logger()
 router = APIRouter()
 
-@router.post("/groups/description", response_model=GroupDescriptionResponse)
+@router.post("/ai/v2/groups/description", response_model=GroupDescriptionResponse)
 def generate_group_description(data: GroupGenerationRequest, request: Request) -> GroupDescriptionResponse:
     ai_logger.info("[AI] [POST /groups/description] 그룹 소개 생성 요청 수신", extra={"meeting_name": data.name})
 
@@ -23,7 +23,7 @@ def generate_group_description(data: GroupGenerationRequest, request: Request) -
         raise HTTPException(status_code=500, detail="그룹 소개 생성 중 오류가 발생했습니다.")
 
 
-@router.post("/groups/plan", response_model=GroupPlanResponse)
+@router.post("/ai/v2/groups/plan", response_model=GroupPlanResponse)
 def generate_group_plan(data: GroupGenerationRequest, request: Request) -> GroupPlanResponse:
     ai_logger.info("[AI] [POST /groups/plan] 그룹 커리큘럼 생성 요청 수신", extra={"meeting_name": data.name})
 

@@ -33,7 +33,7 @@ def add_group_document(payload: GroupSaveRequest):
 def add_user_document(payload: UserParticipationRequest):
     try:
         user_id = payload.userId
-        group_ids = payload.group_id
+        group_ids = payload.groupId
 
         docs = build_user_document(user_id, group_ids)
         add_documents_to_vector_db(docs, collection="user-activity")
@@ -41,10 +41,7 @@ def add_user_document(payload: UserParticipationRequest):
         return {
             "code": 200,
             "message": "유저 벡터 삽입 성공",
-            "data": {
-                "count": len(docs),
-                "user_id": user_id
-            }
+            "data": None
         }
     except Exception as e:
         import traceback
@@ -152,9 +149,7 @@ def add_user_document(payload: UserParticipationRequest):
         return {
             "code": 200,
             "message": "유저 벡터 삽입 성공",
-            "data": {
-                "userId": user_id
-            }
+            "data": None
         }
     except Exception as e:
         import traceback
