@@ -15,7 +15,7 @@ REJECTION_REASONS = {
     "IDENTITY_ATTACK": "특정 집단이나 정체성을 공격하는 표현이 포함되어 있습니다."
 }
 
-@router.post("/ai/v2/groups/information", response_model=APIResponse, response_model_exclude_none=True)
+@router.post("/groups/information", response_model=APIResponse, response_model_exclude_none=True)
 async def create_meeting(meeting: MeetingInput, request: Request):
     ai_logger.info("[AI-v2] [POST /groups/information] 모임 정보 생성 요청 수신", extra={"meeting_name": meeting.name})
     input_text = f"{meeting.name}\n{meeting.goal}"
