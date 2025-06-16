@@ -4,10 +4,8 @@ import torch, json, re
 model_id = "google/gemma-3-4b-it"
 
 torch.cuda.empty_cache()
-
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = Gemma3ForCausalLM.from_pretrained(model_id).eval()
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
@@ -64,14 +62,10 @@ def generate_explaination(user_query: str, group_texts: list[str], max_tokens=50
 
         return decoded.strip()
 
-        if not decoded or "실패" in decoded or len(decoded) < 10:
-            return None
-
-        return decoded
-
     except Exception as e:
-        print(f"[❗️generate_description 에러] {e}")
+        print(f"[❗️generate_explaination 에러] {e}")
         return "추천 응답을 생성하는 데 실패했습니다."
+
 
 def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_context: bool = True) -> list[dict]:
     if use_context:
@@ -139,19 +133,12 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_co
             )
 
         decoded = tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
-
         cleaned = re.sub(r"```json|```", "", decoded.strip()).strip()
 
         if debug:
             print(f"📦 생성된 MCQ 질문:\n{cleaned}")
 
-        try:
-            return json.loads(cleaned)
-        except Exception as parse_err:
-            print(f"[❗️JSON 파싱 실패] {parse_err}")
-            print(f"[🔍 원본 출력]: {decoded}")
-            return []
-
+        return json.loads(cleaned)
     except Exception as e:
         print(f"[❗️generate_mcq_questions 에러] {e}")
         return []

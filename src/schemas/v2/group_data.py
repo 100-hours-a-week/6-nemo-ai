@@ -1,8 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-
-class GroupSaveRequest(BaseModel):
+class GroupData(BaseModel):
     groupId: int
     name: str
     summary: Optional[str] = ""
@@ -14,17 +13,10 @@ class GroupSaveRequest(BaseModel):
     tags: Optional[List[str]] = []
     plan: Optional[str] = ""
 
-
-class GroupDeleteRequest(BaseModel):
-    groupId: int
-
-
-# ✅ 기존 내용 (그대로 유지 가능)
 class GroupResponse(BaseModel):
     code: int
     message: str
-    data: GroupSaveRequest
-
+    data: GroupData
 
 class GroupPartialUpdate(BaseModel):
     groupId: Optional[int] = None

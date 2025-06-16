@@ -1,18 +1,11 @@
 from pydantic import BaseModel
 from typing import List
 
-
-class UserParticipationRequest(BaseModel):
-    userId: str
-    groupId: str
-
-
-class UserRemoveRequest(BaseModel):
-    userId: str
-    groupId: str
-
+class UserParticipationData(BaseModel):
+    user_id: str
+    group_id: List[str]
 
 class UserParticipationResponse(BaseModel):
     code: int
     message: str
-    data: UserParticipationRequest
+    data: UserParticipationData

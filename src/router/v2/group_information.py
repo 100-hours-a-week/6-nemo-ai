@@ -6,7 +6,7 @@ from src.core.moderation import analyze_queued, is_request_valid
 from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
-router = APIRouter()
+router = APIRouter(tags=["Group Information"])
 
 REJECTION_REASONS = {
     "TOXICITY": "전체적으로 공격적인 표현이 감지되었습니다.",
