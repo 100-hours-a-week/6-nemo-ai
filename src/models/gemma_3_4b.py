@@ -3,6 +3,7 @@ import torch, json, re
 
 model_id = "google/gemma-3-4b-it"
 
+torch.cuda.empty_cache()
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = Gemma3ForCausalLM.from_pretrained(model_id).eval()
 
@@ -141,7 +142,6 @@ def generate_mcq_questions(max_tokens=500, temp=0.7, debug: bool = False, use_co
     except Exception as e:
         print(f"[❗️generate_mcq_questions 에러] {e}")
         return []
-
 
 async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)

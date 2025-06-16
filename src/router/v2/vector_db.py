@@ -29,8 +29,8 @@ def add_group_document(payload: dict = Body(...)):
 @router.post("/participants")
 def add_user_document(payload: dict = Body(...)):
     try:
-        user_id = payload.get("user_id")
-        group_ids = payload.get("group_id")
+        user_id = payload.userId
+        group_ids = payload.groupId
 
         if not user_id or not group_ids:
             raise HTTPException(status_code=400, detail="user_id와 group_id는 필수입니다.")
@@ -41,10 +41,7 @@ def add_user_document(payload: dict = Body(...)):
         return {
             "code": 200,
             "message": "유저 벡터 삽입 성공",
-            "data": {
-                "count": len(docs),
-                "user_id": user_id
-            }
+            "data": None
         }
     except Exception as e:
         import traceback
@@ -104,6 +101,71 @@ def get_single_document(
             "id": id,
             "text": result["documents"][0],
             "metadata": result["metadatas"][0]
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/save")
+def save_group_to_chroma_route(payload: GroupSaveRequest):
+    try:
+        doc = build_group_document(payload.dict())
+        add_documents_to_vector_db([doc], collection="group-info")
+        return {
+            "code": 200,
+            "message": "모임 정보 저장 완료",
+            "data": None
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/participants")
+def add_user_document(payload: UserParticipationRequest):
+    try:
+        user_id = payload.userId
+        group_id = payload.groupId
+
+        docs = [{
+            "id": f"user-{user_id}-{group_id}",
+            "text": f"user-{user_id}",
+            "metadata": {
+                "user_id": user_id,
+                "group_id": group_id
+            }
+        }]
+        add_documents_to_vector_db(docs, collection="user-activity")
+
+        return {
+            "code": 200,
+            "message": "유저 벡터 삽입 성공",
+            "data": None
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/participants/delete")
+def remove_user_from_chroma_route(payload: UserRemoveRequest):
+    try:
+        user_id = payload.userId
+        group_id = payload.groupId
+
+        ids = [f"user-{user_id}-{group_id}"]
+
+        client = get_chroma_client()
+        col = client.get_or_create_collection("user-activity")
+        col.delete(ids=ids)
+
+        return {
+            "code": 200,
+            "message": "사용자 정보 삭제 완료",
+            "data": None
         }
     except Exception as e:
         import traceback
