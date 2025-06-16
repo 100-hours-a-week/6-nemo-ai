@@ -1,9 +1,8 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.ai_logger import get_ai_logger
-from src.services.v2.local_model import local_model_generate  # 로컬 모델 호출로 교체
+from src.models.gemma_3_4b import local_model_generate  # 로컬 모델 호출로 교체
 import asyncio
 import re
-import torch
 
 ai_logger = get_ai_logger()
 
