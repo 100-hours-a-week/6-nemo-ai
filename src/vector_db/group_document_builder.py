@@ -27,6 +27,7 @@ def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
         "id": f"group-{group_id}",
         "category": group_response.get("category"),
         "location": group_response.get("location"),
+        "currentUserCount": int(group_response["currentUserCount"]) if group_response.get("currentUserCount") else None,
         "maxUserCount": int(group_response["maxUserCount"]) if group_response.get("maxUserCount") else None,
         "tags": ", ".join(tags)
     }
