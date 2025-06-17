@@ -8,7 +8,8 @@ class GroupSaveRequest(BaseModel):
     description: Optional[str] = ""
     category: Optional[str] = ""
     location: Optional[str] = ""
-    maxUserCount: Optional[str] = ""
+    currentUserCount: Optional[int] = ""
+    maxUserCount: Optional[int] = ""
     imageUrl: Optional[str] = ""
     tags: Optional[List[str]] = []
     plan: Optional[str] = ""
@@ -28,7 +29,8 @@ class GroupPartialUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     location: Optional[str] = None
-    maxUserCount: Optional[str] = None
+    currentUserCount: Optional[int] = None
+    maxUserCount: Optional[int] = None
     imageUrl: Optional[str] = None
     tags: Optional[List[str]] = None
     plan: Optional[str] = None
