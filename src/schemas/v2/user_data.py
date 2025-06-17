@@ -13,3 +13,4 @@ class UserParticipationResponse(BaseModel):
 class UserRemoveRequest(BaseModel):
     userId: int
     groupId: int
+
