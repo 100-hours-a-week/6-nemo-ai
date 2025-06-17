@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from src.middleware.http import log_requests
 from src.router.v1 import group_information as v1_group_information
 from src.router.v1 import health
 from src.router.v2 import group_information as v2_group_information
@@ -27,6 +29,8 @@ setup_exception_handlers(app)
 
 # [AI] 성능 로깅 미들웨어 등록
 app.add_middleware(AILoggingMiddleware)
+app.middleware("http")(log_requests)
+
 @app.get("/")
 def root():
     return {"message": "Ne:Mo AI Server Running!"}
