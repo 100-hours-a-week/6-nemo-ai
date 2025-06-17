@@ -12,7 +12,7 @@ from src.schemas.v2.user_data import UserParticipationRequest, UserRemoveRequest
 
 router = APIRouter(prefix="/groups", tags=["Vector DB"])
 
-@router.post("/")
+@router.post("")
 def save_group_to_chroma_route(payload: GroupSaveRequest):
     try:
         doc = build_group_document(payload.dict())
