@@ -8,8 +8,8 @@ class GroupSaveRequest(BaseModel):
     description: Optional[str] = ""
     category: Optional[str] = ""
     location: Optional[str] = ""
-    currentUserCount: Optional[int] = ""
-    maxUserCount: Optional[int] = ""
+    currentUserCount: Optional[int] = None
+    maxUserCount: Optional[int] = None
     imageUrl: Optional[str] = ""
     tags: Optional[List[str]] = []
     plan: Optional[str] = ""
