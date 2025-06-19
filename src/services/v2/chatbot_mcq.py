@@ -14,8 +14,6 @@ def handle_mcq_question_generation(user_id: str, answer: str = None, debug: bool
     questions = generate_mcq_questions(
         debug=debug,
         use_context=True,
-        step=len(previous_answers),
-        previous_answers=previous_answers
     )
 
     if not questions:
