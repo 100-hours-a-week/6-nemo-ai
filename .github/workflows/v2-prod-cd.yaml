@@ -1,0 +1,77 @@
+name: AI CD for v2-prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '릴리즈 버전 태그 (예: v1.2.0)'
+        required: true
+
+  push:
+    branches: [ infra/v2-cicd ]
+
+jobs:
+  pull-and-deploy:
+    name: Pull & Deploy to Prod AI Server
+    runs-on: ubuntu-latest
+    environment: prod
+
+    env:
+      REGION: asia-northeast3
+      REPOSITORY: registry
+      SERVICE: ai
+      ENVIRONMENT: prod
+      DEPLOY_SCRIPT: ~/nemo/cloud/v2/scripts/deploy.sh
+
+    steps:
+    - name: Set image tag and URI
+      run: |
+        TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
+        echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
+
+        VERSION_TAG="prod-${{ github.event.inputs.version }}"
+        echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
+
+        IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_AI }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
+        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+    - name: Docker Login for prod project
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGION }}-docker.pkg.dev
+        username: _json_key
+        password: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Pull dev-latest image
+      run: docker pull ${{ env.IMAGE_URI }}:dev-latest
+
+    - name: Set GCP Project
+      run: gcloud config set project ${{ secrets.GCP_PROJECT_ID_AI }}
+
+    - name: Retag and Push to Prod
+      run: |
+        docker tag ${{ env.IMAGE_URI }}:dev-latest ${{ env.IMAGE_URI }}:${{ env.TIME_TAG }}
+        docker tag ${{ env.IMAGE_URI }}:dev-latest ${{ env.IMAGE_URI }}:${{ VERSION_TAG }}
+        docker tag ${{ env.IMAGE_URI }}:dev-latest ${{ env.IMAGE_URI }}:prod-latest
+
+        echo "Pushing: ${{ env.IMAGE_URI }}:${{ env.TIME_TAG }}"
+        echo "Pushing: ${{ env.IMAGE_URI }}:${{ VERSION_TAG }}"
+        echo "Pushing: ${{ env.IMAGE_URI }}:prod-latest"
+
+        docker push ${{ env.IMAGE_URI }}:${{ env.TIME_TAG }}
+        docker push ${{ env.IMAGE_URI }}:${{ VERSION_TAG }}
+        docker push ${{ env.IMAGE_URI }}:prod-latest
+
+    - name: Deploy via Bastion to AI Server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.AI_HOST }}
+        username: ${{ secrets.AI_USER }}
+        key: ${{ secrets.AI_SSH_KEY }}
+
+        proxy_host: ${{ secrets.BASTION_HOST }}
+        proxy_username: ${{ secrets.BASTION_USER }}
+        proxy_key: ${{ secrets.BASTION_SSH_KEY }}
+
+        script: |
+          bash ${{ env.DEPLOY_SCRIPT }} ${{ env.SERVICE }} ${{ env.ENVIRONMENT }}

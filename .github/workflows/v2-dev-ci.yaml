@@ -1,0 +1,53 @@
+name: AI CI for v2-dev
+
+on:
+  push:
+    branches: [ develop, infra/v2-cicd ]
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy to Dev Server
+    runs-on: ubuntu-latest
+
+    env:
+      REGION: asia-northeast3
+      REPOSITORY: registry
+      SERVICE: ai
+      ENVIRONMENT: dev
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set GCP Project
+      run: gcloud config set project ${{ secrets.GCP_PROJECT_ID_AI }}
+
+    - name: Set image tag and URI
+      run: |
+        TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
+        echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
+
+        IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_AI }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
+        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+    - name: Build and Push Docker Image
+      run: |
+        echo Checking pushed image: ${IMAGE_URI}:${TIME_TAG}
+        echo Checking pushed image: ${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest
+
+        docker buildx build \
+          --platform linux/amd64 \
+          -t "${IMAGE_URI}:${TIME_TAG}" \
+          -t "${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest" \
+          --push .
