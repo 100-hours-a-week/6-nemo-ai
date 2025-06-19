@@ -1,36 +1,39 @@
 from pydantic import BaseModel
 from typing import List, Literal, Optional
 
+
 class MessageItem(BaseModel):
     role: Literal["user", "ai"]
     text: str
 
 
-class QuestionGenerationRequest(BaseModel):
+# 질문 생성 요청
+class ChatQuestionRequest(BaseModel):
     userId: int
-    answer: Optional[str] = None  # null 가능 (첫 질문일 경우)
+    answer: Optional[str] = None  # 첫 질문이면 null 가능
 
 
-class QuestionGenerationResponseItem(BaseModel):
+# 질문 생성 응답
+class QuestionItem(BaseModel):
     question: str
-    options: List[str]
+    answer: List[str]  # 기존: options → answer 로 맞춤
 
-
-class QuestionGenerationResponse(BaseModel):
+class QuestionResponse(BaseModel):
     code: int
     message: str
-    data: QuestionGenerationResponseItem
+    data: QuestionItem
 
 
-class UnifiedChatAnswerRequest(BaseModel):
+# 답변 후 추천 요청
+class ChatAnswerRequest(BaseModel):
     userId: int
     messages: List[MessageItem]
 
 
+# 추천 응답
 class RecommendationItem(BaseModel):
     groupId: int
     reason: str
-
 
 class RecommendationResponse(BaseModel):
     code: int

@@ -1,57 +1,77 @@
-from fastapi import APIRouter, Request, Header, HTTPException
+from fastapi import APIRouter, Body, Header, Response
 from src.schemas.v2.chatbot import (
-    QuestionGenerationRequest,
-    QuestionGenerationResponse,
-    UnifiedChatAnswerRequest,
-    RecommendationResponse
+    ChatQuestionRequest,
+    QuestionResponse,
+    QuestionItem,
+    ChatAnswerRequest,
+    RecommendationResponse,
+    RecommendationItem,
 )
 from src.services.v2.chatbot import (
     handle_combined_question,
-    handle_answer_analysis
+    handle_answer_analysis,
 )
+from src.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 router = APIRouter(prefix="/groups/recommendations", tags=["Chatbot"])
 
-
-@router.post("/questions", response_model=QuestionGenerationResponse)
-async def generate_question(
-    req: QuestionGenerationRequest,
-    x_session_id: str = Header(...)
+@router.post("/questions", response_model=QuestionResponse)
+async def generate_question_route(
+    payload: ChatQuestionRequest = Body(...),
+    session_id: str = Header(..., alias="x-session-id"),
+    response: Response = None
 ):
-    try:
-        result = await handle_combined_question(
-            answer=req.answer,
-            user_id=str(req.userId),
-            session_id=x_session_id
-        )
+    ai_logger.info("[질문 생성 요청 수신]", extra={
+        "user_id": payload.userId,
+        "session_id": session_id,
+        "answer": payload.answer
+    })
 
-        return {
-            "code": 200,
-            "message": "질문 생성 완료",
-            "data": result
-        }
+    result = await handle_combined_question(
+        answer=payload.answer,
+        user_id=str(payload.userId),
+        session_id=session_id,
+    )
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"질문 생성 실패: {str(e)}")
+    response.headers["x-session-id"] = session_id
+
+    return QuestionResponse(
+        code=200,
+        message="요청이 성공적으로 처리되었습니다.",
+        data=QuestionItem(
+            question=result["question"],
+            answer=result["options"],  # 필드 이름만 변경된 구조
+        ),
+    )
 
 
-@router.post("", response_model=RecommendationResponse)
-def recommend_group(
-    req: UnifiedChatAnswerRequest,
-    x_session_id: str = Header(...)
+@router.post("/answer", response_model=RecommendationResponse)
+async def generate_recommendation_route(
+    payload: ChatAnswerRequest = Body(...),
+    session_id: str = Header(..., alias="x-session-id"),
+    response: Response = None
 ):
-    try:
-        result = handle_answer_analysis(
-            messages=[m.dict() for m in req.messages],
-            user_id=str(req.userId),
-            session_id=x_session_id
-        )
+    ai_logger.info("[추천 요청 수신]", extra={
+        "user_id": payload.userId,
+        "session_id": session_id,
+        "messages": [m.text for m in payload.messages]
+    })
 
-        return {
-            "code": 200,
-            "message": "추천 결과 생성 완료",
-            "data": result
-        }
+    result = await handle_answer_analysis(
+        messages=[m.dict() for m in payload.messages],
+        user_id=str(payload.userId),
+        session_id=session_id,
+    )
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"추천 생성 실패: {str(e)}")
+    response.headers["x-session-id"] = session_id
+
+    return RecommendationResponse(
+        code=200,
+        message="요청이 성공적으로 처리되었습니다.",
+        data=RecommendationItem(
+            groupId=result["groupId"],
+            reason=result["reason"],
+        ),
+    )

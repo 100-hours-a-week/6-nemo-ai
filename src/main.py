@@ -5,10 +5,12 @@ from src.router.v1 import group_information as v1_group_information
 from src.router.v1 import health
 from src.router.v2 import group_information as v2_group_information
 import torch
+from src.vector_db.chroma_client import get_chroma_client
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
 from src.router.v2 import vector_db, chatbot
 from src.middleware.ai_logger import AILoggingMiddleware
+from src.vector_db.sync import sync_group_documents, sync_user_documents, fetch_data_from_mysql
 import logging
 
 torch.set_float32_matmul_precision("high")
@@ -30,6 +32,35 @@ setup_exception_handlers(app)
 # [AI] 성능 로깅 미들웨어 등록
 app.add_middleware(AILoggingMiddleware)
 app.middleware("http")(log_requests)
+
+@app.on_event("startup")
+async def startup_event():
+    chroma = get_chroma_client()
+
+    should_sync = False
+
+    try:
+        chroma.get_collection("group-info")
+        ai_logger.info("[Chroma] group-info 컬렉션 존재 확인됨")
+    except Exception:
+        ai_logger.warning("[Chroma] group-info 컬렉션 없음 → 동기화 필요")
+        should_sync = True
+
+    try:
+        chroma.get_collection("user-info")
+        ai_logger.info("[Chroma] user-info 컬렉션 존재 확인됨")
+    except Exception:
+        ai_logger.warning("[Chroma] user-info 컬렉션 없음 → 동기화 필요")
+        should_sync = True
+
+    if should_sync:
+        ai_logger.info("[Chroma] 컬렉션 일부 누락 → 동기화 시작")
+        user_participation, group_infos = fetch_data_from_mysql()
+        sync_user_documents(user_participation)
+        sync_group_documents(group_infos)
+        ai_logger.info("[Chroma] 동기화 완료")
+    else:
+        ai_logger.info("[Chroma] 모든 컬렉션 존재 → 동기화 생략")
 
 @app.get("/")
 def root():

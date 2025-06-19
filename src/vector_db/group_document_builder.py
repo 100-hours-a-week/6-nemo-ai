@@ -5,8 +5,10 @@ from src.models.jina_embeddings_v3 import embed
 GROUP_COLLECTION = "group-info"
 
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
-    group_id = str(group_response.get("groupId"))
+    group_id = str(group_response.get("id"))
 
+    if group_id in (None, "None", ""):
+        raise ValueError(f"잘못된 groupId: {group_response.get('id')}")
     name = group_response.get("name", "")
     summary = group_response.get("summary", "")
     description = group_response.get("description", "")
