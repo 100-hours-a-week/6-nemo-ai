@@ -7,9 +7,6 @@ on:
         description: '릴리즈 버전 태그 (예: v1.2.0)'
         required: true
 
-  push:
-    branches: [ infra/v2-cicd ]
-
 jobs:
   pull-and-deploy:
     name: Pull & Deploy to Prod AI Server
