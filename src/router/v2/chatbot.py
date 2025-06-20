@@ -1,60 +1,77 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, Header, Response
 from src.schemas.v2.chatbot import (
-    FreeFormRequest,
+    ChatQuestionRequest,
+    QuestionResponse,
+    QuestionItem,
+    ChatAnswerRequest,
     RecommendationResponse,
-    MCQQuestionRequest,
-    MCQQuestionResponse,
-    MCQAnswerRequest
+    RecommendationItem,
 )
-from src.services.v2.chatbot_freeform import handle_freeform_chatbot
-from src.services.v2.chatbot_mcq import (
-    handle_mcq_question_generation,
-    handle_mcq_answer_processing
+from src.services.v2.chatbot import (
+    handle_combined_question,
+    handle_answer_analysis,
 )
+from src.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 router = APIRouter(prefix="/groups/recommendations", tags=["Chatbot"])
 
+@router.post("/questions", response_model=QuestionResponse)
+async def generate_question_route(
+    payload: ChatQuestionRequest = Body(...),
+    session_id: str = Header(..., alias="x-session-id"),
+    response: Response = None
+):
+    ai_logger.info("[질문 생성 요청 수신]", extra={
+        "user_id": payload.userId,
+        "session_id": session_id,
+        "answer": payload.answer
+    })
 
-@router.post("/freeform", response_model=RecommendationResponse)
-def freeform_chatbot_api(req: FreeFormRequest):
-    try:
-        result = handle_freeform_chatbot(req.requestText, str(req.userId))
-        return {
-            "code": 200,
-            "message": "챗봇 응답 생성 완료",
-            "data": result
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"자유형 응답 생성 실패: {str(e)}")
+    result = await handle_combined_question(
+        answer=payload.answer,
+        user_id=str(payload.userId),
+        session_id=session_id,
+    )
 
+    response.headers["x-session-id"] = session_id
 
-@router.post("/questions", response_model=MCQQuestionResponse)
-def mcq_question_api(req: MCQQuestionRequest):
-    try:
-        result = handle_mcq_question_generation(str(req.userId), req.answer)
-        return {
-            "code": 200,
-            "message": "챗봇 질문 생성 완료",
-            "data": result
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"질문 생성 실패: {str(e)}")
+    return QuestionResponse(
+        code=200,
+        message="요청이 성공적으로 처리되었습니다.",
+        data=QuestionItem(
+            question=result["question"],
+            options=result["options"],  # 필드 이름만 변경된 구조
+        ),
+    )
 
 
 @router.post("", response_model=RecommendationResponse)
-def mcq_answer_api(req: MCQAnswerRequest):
-    try:
-        result = handle_mcq_answer_processing(req.messages)
-        return {
-            "code": 200,
-            "message": "챗봇 응답 생성 완료",
-            "data": result
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"답변 분석 실패: {str(e)}")
+async def generate_recommendation_route(
+    payload: ChatAnswerRequest = Body(...),
+    session_id: str = Header(..., alias="x-session-id"),
+    response: Response = None
+):
+    ai_logger.info("[추천 요청 수신]", extra={
+        "user_id": payload.userId,
+        "session_id": session_id,
+        "messages": [m.text for m in payload.messages]
+    })
+
+    result = await handle_answer_analysis(
+        messages=[m.dict() for m in payload.messages],
+        user_id=str(payload.userId),
+        session_id=session_id,
+    )
+
+    response.headers["x-session-id"] = session_id
+
+    return RecommendationResponse(
+        code=200,
+        message="요청이 성공적으로 처리되었습니다.",
+        data=RecommendationItem(
+            groupId=result["groupId"],
+            reason=result["reason"],
+        ),
+    )

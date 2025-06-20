@@ -24,11 +24,21 @@ APP_ENV = os.getenv("APP_ENV", "development")
 CHROMA_DB_PATH = str((BASE_DIR / "database" / APP_ENV).resolve())
 EMBED_MODEL = os.getenv("EMBED_MODEL_NAME")
 
+#MySQL
+HOST = os.getenv("HOST")
+PORT = os.getenv("PORT")
+USER = os.getenv("USER")
+PASSWORD = os.getenv("PASSWORD")
+DATABASE = os.getenv("DATABASE")
+
+vLLM_URL = os.getenv("VLLM_API_URL")
+
+
 if not PERSPECTIVE_API_KEY:
     raise ValueError("PERSPECTIVE_API_KEY가 .env에 설정되어 있지 않습니다.")
 
-if not EMBED_MODEL:
-    raise ValueError("EMBED_MODEL이 .env에 설정되어 있지 않습니다.")
+# if not EMBED_MODEL:
+#     raise ValueError("EMBED_MODEL이 .env에 설정되어 있지 않습니다.")
 # if not PROJECT_ID or not REGION:
 #     raise ValueError("GCP 설정이 누락되었습니다.")
 # if not TXTGEN_MODEL_ID or not EMBEDDING_MODEL_ID:

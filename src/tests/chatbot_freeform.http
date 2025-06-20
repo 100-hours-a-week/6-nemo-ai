@@ -1,10 +1,10 @@
 ###
-POST http://grub-magical-totally.ngrok-free.app/ai/v2/groups/recommendations/freeform
+POST http://localhost:8000/ai/v2/groups/recommendations/freeform
 Content-Type: application/json
 
 {
   "userId": 1,
-  "recommendationText": "시끄럽지 않고 조용한 분위기의 모임이 좋을 것 같아요."
+  "requestText": "시끄럽지 않고 조용한 분위기의 모임이 좋을 것 같아요."
 }
 
 

@@ -1,39 +1,40 @@
 from pydantic import BaseModel
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
 
-#자유형 챗봇
-class FreeFormRequest(BaseModel):
+
+class MessageItem(BaseModel):
+    role: Literal["USER", "AI"]
+    text: str
+
+
+# 질문 생성 요청
+class ChatQuestionRequest(BaseModel):
     userId: int
-    requestText: str
+    answer: Optional[str] = None  # 첫 질문이면 null 가능
 
+
+# 질문 생성 응답
+class QuestionItem(BaseModel):
+    question: str
+    options: List[str]  # 기존: options → answer 로 맞춤
+
+class QuestionResponse(BaseModel):
+    code: int
+    message: str
+    data: QuestionItem
+
+
+# 답변 후 추천 요청
+class ChatAnswerRequest(BaseModel):
+    userId: int
+    messages: List[MessageItem]
+
+
+# 추천 응답
 class RecommendationItem(BaseModel):
     groupId: int
     reason: str
 
-#MCQ 질문 요청 (질문 생성)
-class MCQQuestionRequest(BaseModel):
-    userId: int
-    answer: Optional[str] = None
-
-class MCQQuestionItem(BaseModel):
-    question: str
-    options: List[str]
-
-class MCQQuestionResponse(BaseModel):
-    code: int
-    message: str
-    data: MCQQuestionItem
-
-#MCQ 답변 요청 (질문 응답 → 추천)
-class MessageItem(BaseModel):
-    role: Literal["user", "ai"]
-    text: str
-
-class MCQAnswerRequest(BaseModel):
-    messages: List[MessageItem]
-
-
-#추천 답변
 class RecommendationResponse(BaseModel):
     code: int
     message: str
