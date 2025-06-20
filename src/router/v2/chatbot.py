@@ -42,7 +42,7 @@ async def generate_question_route(
         message="요청이 성공적으로 처리되었습니다.",
         data=QuestionItem(
             question=result["question"],
-            answer=result["options"],  # 필드 이름만 변경된 구조
+            options=result["options"],  # 필드 이름만 변경된 구조
         ),
     )
 
