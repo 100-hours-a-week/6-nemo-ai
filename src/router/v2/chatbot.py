@@ -47,7 +47,7 @@ async def generate_question_route(
     )
 
 
-@router.post("/answer", response_model=RecommendationResponse)
+@router.post("", response_model=RecommendationResponse)
 async def generate_recommendation_route(
     payload: ChatAnswerRequest = Body(...),
     session_id: str = Header(..., alias="x-session-id"),
