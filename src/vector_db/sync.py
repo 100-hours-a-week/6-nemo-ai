@@ -7,7 +7,7 @@ from src.config import HOST, PORT, USER, PASSWORD, DATABASE
 def fetch_data_from_mysql():
     conn = pymysql.connect(
         host=HOST,
-        port=PORT,
+        port=int(PORT),
         user=USER,
         password=PASSWORD,
         db=DATABASE,

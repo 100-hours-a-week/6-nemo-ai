@@ -1,6 +1,6 @@
-from transformers import Gemma3ForCausalLM, AutoTokenizer
-import torch, httpx
+import httpx
 from src.core.ai_logger import get_ai_logger
+from src.config import vLLM_URL
 
 ai_logger = get_ai_logger()
 
@@ -13,7 +13,7 @@ ai_logger = get_ai_logger()
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # model = model.to(device)
 
-VLLM_API_URL = "http://localhost:8000/generate"
+VLLM_API_URL = vLLM_URL + "/v1/completions"
 
 async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
     payload = {
@@ -40,23 +40,24 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
         ai_logger.warning("[vLLM] 응답 실패", extra={"error": str(e)})
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
-# async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
-#     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-#     input_len = inputs["input_ids"].shape[-1]
-#
-#     with torch.no_grad():
-#         outputs = model.generate(
-#             **inputs,
-#             max_new_tokens=max_new_tokens,
-#             do_sample=True,
-#             temperature=0.4,
-#             top_k=50,
-#             top_p=0.8,
-#             repetition_penalty=1.1
-#         )
-#
-#     decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
-#     return decoded, input_len
+async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
+    # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    # input_len = inputs["input_ids"].shape[-1]
+    #
+    # with torch.no_grad():
+    #     outputs = model.generate(
+    #         **inputs,
+    #         max_new_tokens=max_new_tokens,
+    #         do_sample=True,
+    #         temperature=0.4,
+    #         top_k=50,
+    #         top_p=0.8,
+    #         repetition_penalty=1.1
+    #     )
+    #
+    # decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    # return decoded, input_len
+    pass
 
 
 # if __name__ == "__main__":
