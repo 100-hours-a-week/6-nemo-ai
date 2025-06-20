@@ -53,28 +53,7 @@ jobs:
           --push .
 
     # AI 전용 디스코드 알림 
-    - name: Notify Discord on Success (AI CI)
-      if: success()
-      run: |
-        WEBHOOK_CLOUD_URL="${{ secrets.WEBHOOK_CLOUD_URL }}"
-        WEBHOOK_AI_URL="${{ secrets.WEBHOOK_AI_URL }}"
-        TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
-        IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_AI }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
-        MESSAGE="🎯 [AI CI 성공: ${{ env.ENVIRONMENT }}] Docker 이미지 빌드 및 푸시 완료 (태그: ${TIME_TAG}, ${{ env.ENVIRONMENT }}-latest)"
-
-        send_discord() {
-          local webhook_url="$1"
-          local message="$2"
-          curl -s -H "Content-Type: application/json" \
-            -X POST \
-            -d "{\"content\": \"$message\"}" \
-            "$webhook_url" > /dev/null
-        }
-
-        [ -n "$WEBHOOK_CLOUD_URL" ] && send_discord "$WEBHOOK_CLOUD_URL" "$MESSAGE"
-        [ -n "$WEBHOOK_AI_URL" ] && send_discord "$WEBHOOK_AI_URL" "$MESSAGE"
-
-    - name: Notify Discord on Success (AI CI)
+    - name: Notify Discord on Success
       if: success()
       run: |
         curl -s -H "Content-Type: application/json" \
@@ -87,7 +66,7 @@ jobs:
           -d '{"content": "🎯 [AI CI 성공: dev] 이미지 빌드 및 푸시 완료"}' \
           ${{ secrets.WEBHOOK_AI_URL }}
 
-    - name: Notify Discord on Failure (AI CI)
+    - name: Notify Discord on Failure
       if: failure()
       run: |
         curl -s -H "Content-Type: application/json" \
