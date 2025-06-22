@@ -1,7 +1,8 @@
 import json
 import re
 # from src.core.cloud_logging import logger
-from src.services.v2.local_model import local_model_generate   # 로컬 모델로 교체
+#from src.services.v2.local_model import local_model_generate   # 로컬 모델로 교체
+from src.models.tgi_client import tgi_generate
 from src.core.ai_logger import get_ai_logger
 import asyncio
 
@@ -9,7 +10,7 @@ ai_logger = get_ai_logger()
 
 async def extract_tags(text: str) -> list[str]:
     prompt = f"""
-    당신은 한국어 텍스트에서 핵심 키워드를 추출하는 AI입니다.
+    당신은 입력된 한국어 텍스트를 분석하여, 모임의 주제나 성격을 가장 잘 표현하는 핵심 키워드만을 정제하여 JSON 배열 형태로 추출하는 AI 태그 생성기입니다.
 
     사용자의 입력이 부적절하거나 욕설이 포함되어 있을 경우,
     이를 무시하고 건전한 태그만 생성하세요.
@@ -17,14 +18,13 @@ async def extract_tags(text: str) -> list[str]:
 
     다음 조건을 지켜서 키워드를 추출하세요:
 
-    1. 명사 중심 키워드로만 추출하세요. 불용어(예: 그리고, 또는, 등)는 제외합니다.
-    2. 주제와 관련된 의미 있는 단어(예: 활동내용, 관심사, 서비스, 모임 카테고리, 대상층, 분위기, 스터디/동아리 등)를 선정하세요.
-    3. 각 키워드는 반드시 한 어절이어야 하고, 공백이 없어야 합니다. 공백이 있을 경우 공백을 기준으로 각각의 태그로 나누어 가공하세요.
-    4. 각 키워드는 1~5음절 이내이어야 하며, 너무 일반적인 단어는 피하세요. 반드시 모임을 나타낼 수 있는 키워드이어야 합니다.
-    5. 출력은 반드시 JSON 배열 형식으로만 하세요.
-    6. 총 키워드 개수는 3개 이상 5개 이하를 출력하세요.
-    7. 결과 외 다른 문장은 포함하지 마세요. 출력에는 절대 이모지(emoji)를 포함하지 마세요.
-
+    1. 모든 키워드는 의미 있는 명사 단어로만 구성되어야 합니다.
+    2. 불용어(예: 그리고, 또는, 이다 등)와 욕설/비하/부적절 표현은 제거합니다.
+    3. 각 키워드는 공백 없는 단일 어절이어야 하며, 공백이 있다면 단어를 분할하여 별도 키워드로 추출하세요.
+    4. 키워드는 1~5음절 이내로 제한하고, 너무 일반적인 단어(예: 모임, 사람, 활동 등)는 제외하세요.
+    5. 태그는 JSON 배열 형식으로만 출력하며, 총 3개 이상 5개 이하를 생성합니다.
+    6. 출력에는 절대 이모지, 기호, 문장 설명을 포함하지 마세요.
+    7. 모든 태그는 중복되지 않아야 하며, 숫자나 기호로만 이루어진 단어는 제외합니다.
 
     아래 텍스트에서 키워드를 추출하세요:
     <텍스트 시작>
@@ -34,7 +34,7 @@ async def extract_tags(text: str) -> list[str]:
 
     try:
         ai_logger.info("[AI-v2] [태그 추출 시작]", extra={"text_length": len(text)})
-        response, _ = await local_model_generate(prompt, max_new_tokens=128)
+        response, _ = await tgi_generate(prompt, max_new_tokens=128)
         raw = response.strip()
 
         try:
@@ -54,7 +54,8 @@ async def extract_tags(text: str) -> list[str]:
 if __name__ == "__main__":
 
     sample_text = """
-    미야옹즈는 사랑스러운 고양이들과 함께하는 일상을 공유하고, 서로에게 필요한 정보를 나누는 고양이 집사들의 모임입니다.    """
+    백엔드 개발에 관심 있는 사람들과 함께 기술 블로그를 운영하며, 실습 중심으로 성장하는 개발자 스터디입니다.
+    """
     import asyncio
     async def run_test():
         tags = await extract_tags(sample_text)

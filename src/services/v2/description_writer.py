@@ -2,7 +2,8 @@ from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
-from src.services.v2.local_model import local_model_generate   #로컬 모델 호출로 교체
+#from src.services.v2.local_model import local_model_generate  # 로컬 모델 호출로 교체
+from src.models.tgi_client import tgi_generate
 
 ai_logger = get_ai_logger()
 
@@ -11,8 +12,8 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     당신은 모임을 소개하는 AI 비서입니다.
 
     출력 내용:
-    - 한 줄 소개 : 모임의 핵심 목적을 간결하고 명확하게 50자 이내로 요약한 한 문장입니다. 문장이 반드시 **명사형**으로 끝나야 합니다.
-    - 상세 설명 : 모임의 목적에 맞게 추천 대상과 모임 운영 방식에 대해 300자 이내로 작성해주세요.
+    - 한 줄 소개 : 모임의 핵심 목적을 간결하고 명확하게 50자 이내로 요약한 한 문장입니다. 문장이 반드시 명사(예: 모임,스터디,동아리)로 끝나야 합니다.
+    - 상세 설명 : 모임의 목적에 맞게 소개글과 추천 대상에 대해 3문장으로 작성해주세요. 이후 '-'로 시작하는 모임 운영 방법에 대해 간략하게 3개 작성해주세요.
 
     입력 정보:
     - 모임명: {data.name}
@@ -24,7 +25,7 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
         ai_logger.info("[AI-v2] [요약 생성 시작]", extra={"meeting_name": data.name})
 
         # 로컬 모델로 교체
-        response, _ = await local_model_generate(prompt, max_new_tokens=512)
+        response, _ = await tgi_generate(prompt, max_new_tokens=512)
         raw = response.strip()
 
         # 결과 파싱 (v1과 동일하게 유지)
@@ -56,10 +57,10 @@ if __name__ == "__main__":
     from src.schemas.v1.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
-        name="로미의 백반기행",
-        goal="판교의 맛집과 분좋카를 찾아 다니며 즐기는 친목 모임",
-        category="친목/사교",
-        period="3개월",
+        name="고전문학 독서 모임",
+        goal="함께 고전문학을 읽고 토론하며 깊은 대화를 나누기 위해",
+        category="독서/토론",
+        period="1개월 이하",
         isPlanCreated=False
     )
 

@@ -1,6 +1,7 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.ai_logger import get_ai_logger
-from src.services.v2.local_model import local_model_generate  # 로컬 모델 호출로 교체
+#from src.services.v2.local_model import local_model_generate  # 로컬 모델 호출로 교체
+from src.models.tgi_client import tgi_generate
 import asyncio
 import re
 import torch
@@ -13,6 +14,18 @@ def clean_output_to_steps(text:str) -> str:
         return text.strip()
 
     steps_text = match.group(1).strip()
+
+    # 마크다운 강조 표현(**강조**) 제거
+    steps_text = re.sub(r"\*\*(.*?)\*\*", r"\1", steps_text)
+
+    # Step 구간 이후에 ``` 또는 그 이후 텍스트가 있다면 제거
+    codeblock_index = steps_text.find("```")
+    if codeblock_index != -1:
+        steps_text = steps_text[:codeblock_index].strip()
+
+    # Step N: 앞에 \n이 2번 이상 반복되면 1번으로 정규화
+    steps_text = re.sub(r"\n{2,}(?=Step\s*\d+:)", "\n", steps_text)
+
 
     # 줄별로 순회하며 Step N: 앞의 들여쓰기만 제거
     cleaned_lines = []
@@ -34,10 +47,11 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
     - 아래 `기간` 항목은 정수형이 아닌 '기간 범위(예: 1~3개월)'로 주어질 수 있습니다.
     - 이 경우, LLM은 입력된 기간 범위를 참고하여 적절한 단계 수(1~8단계 이내)를 추정해야 합니다.
     - 단, 무조건 8단계를 채우지 말고, 모임 목적과 활동 적절성에 따라 1~8단계 내에서 유연하게 결정하세요.
+    - 출력에 줄바꿈 기호(`\\n`)나 실제 줄바꿈(Enter)을 포함하지 마세요.
     - 출력 형식은 순수한 텍스트로만 작성합니다. 코드 예시나 함수 정의는 작성하지 않습니다.
 
     - 각 단계는 다음 형식을 따릅니다:
-    - Step N: [제목]
+    - Step N: 제목
         - [설명 문장 1]
         - [설명 문장 2]
         - [설명 문장 3]
@@ -51,7 +65,7 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
     try:
         ai_logger.info("[AI-v2] [커리큘럼 생성 시작]", extra={"meeting_name": data.name})
         # 로컬 모델 호출로 교체
-        response, input_len = await local_model_generate(prompt, max_new_tokens=700)
+        response, input_len = await tgi_generate(prompt, max_new_tokens=700)
 
         # 슬라이싱 적용 (프롬프트 제거)
         generated = response[0][input_len:] if input_len is not None else response[0]

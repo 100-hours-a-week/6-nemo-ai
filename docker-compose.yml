@@ -1,0 +1,41 @@
+version: '3.8'
+services:
+  fastapi:
+    build: .
+    container_name: fastapi-server
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - tgi
+    networks:
+      - tgi-network
+
+  tgi:
+    image: ghcr.io/huggingface/text-generation-inference:3.3.4
+    container_name: tgi-server
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+    command:
+      [
+      "--model-id", "google/gemma-3-4b-it",
+      "--max-total-tokens", "2048",
+      "--port", "80"
+      ]
+    shm_size: "1g"
+    networks:
+      - tgi-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+networks:
+  tgi-network:
+    driver: bridge
