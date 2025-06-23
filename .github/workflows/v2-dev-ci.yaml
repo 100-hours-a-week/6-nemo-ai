@@ -2,7 +2,7 @@ name: AI CI for v2-dev
 
 on:
   push:
-    branches: [ develop, infra/v2-cicd ]
+    branches: [ develop ]
 
 jobs:
   build-and-deploy:
@@ -42,7 +42,7 @@ jobs:
       run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
     - name: Build and Push Docker Image
-      run: |
+      run: |+
         echo Checking pushed image: ${IMAGE_URI}:${TIME_TAG}
         echo Checking pushed image: ${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest
 
@@ -51,30 +51,17 @@ jobs:
           -t "${IMAGE_URI}:${TIME_TAG}" \
           -t "${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest" \
           --push .
+          
+    - name: Deploy via Bastion to AI Server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.AI_HOST }}
+        username: ${{ secrets.AI_USER }}
+        key: ${{ secrets.AI_SSH_KEY }}
 
-    # AI 전용 디스코드 알림 
-    - name: Notify Discord on Success
-      if: success()
-      run: |
-        curl -s -H "Content-Type: application/json" \
-          -X POST \
-          -d '{"content": "🎯 [AI CI 성공: dev] 이미지 빌드 및 푸시 완료"}' \
-          ${{ secrets.WEBHOOK_CLOUD_URL }}
+        proxy_host: ${{ secrets.BASTION_HOST }}
+        proxy_username: ${{ secrets.BASTION_USER }}
+        proxy_key: ${{ secrets.BASTION_SSH_KEY }}
 
-        curl -s -H "Content-Type: application/json" \
-          -X POST \
-          -d '{"content": "🎯 [AI CI 성공: dev] 이미지 빌드 및 푸시 완료"}' \
-          ${{ secrets.WEBHOOK_AI_URL }}
-
-    - name: Notify Discord on Failure
-      if: failure()
-      run: |
-        curl -s -H "Content-Type: application/json" \
-          -X POST \
-          -d '{"content": "❌ [AI CI 실패: dev] 이미지 빌드 또는 푸시에 실패했습니다"}' \
-          ${{ secrets.WEBHOOK_CLOUD_URL }}
-
-        curl -s -H "Content-Type: application/json" \
-          -X POST \
-          -d '{"content": "❌ [AI CI 실패: dev] 이미지 빌드 또는 푸시에 실패했습니다"}' \
-          ${{ secrets.WEBHOOK_AI_URL }}
+        script: |
+          bash ${{ env.DEPLOY_SCRIPT }} ${{ env.SERVICE }} ${{ env.ENVIRONMENT }}
