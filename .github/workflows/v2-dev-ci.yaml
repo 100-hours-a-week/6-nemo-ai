@@ -14,6 +14,7 @@ jobs:
       REPOSITORY: registry
       SERVICE: ai
       ENVIRONMENT: dev
+      DEPLOY_SCRIPT: ~/nemo/cloud/v2/scripts/deploy.sh
 
     steps:
     - name: Checkout Code
