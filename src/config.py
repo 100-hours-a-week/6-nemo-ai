@@ -27,7 +27,7 @@ EMBED_MODEL = os.getenv("EMBED_MODEL_NAME")
 #MySQL
 HOST = os.getenv("HOST")
 PORT = os.getenv("PORT")
-USER = os.getenv("USER")
+DB_USER = os.getenv("DB_USER")
 PASSWORD = os.getenv("PASSWORD")
 DATABASE = os.getenv("DATABASE")
 

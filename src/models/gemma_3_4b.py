@@ -2,8 +2,6 @@ import httpx
 from src.core.ai_logger import get_ai_logger
 from src.config import vLLM_URL
 
-ai_logger = get_ai_logger()
-
 # model_id = "google/gemma-3-4b-it"
 #
 # torch.cuda.empty_cache()
@@ -13,7 +11,8 @@ ai_logger = get_ai_logger()
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # model = model.to(device)
 
-VLLM_API_URL = vLLM_URL + "/v1/completions"
+ai_logger = get_ai_logger()
+VLLM_API_URL = vLLM_URL + "v1/completions"
 
 async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
     payload = {
@@ -28,10 +27,18 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
 
         response.raise_for_status()
         result = response.json()
-        generated = result.get("text", "").strip()
+
+        print("[vLLM 응답 전체]", result)
+
+        # ✅ 응답 형식에 맞게 고정
+        generated = result.get("choices", [{}])[0].get("text", "").strip()
+
+        if not generated:
+            raise ValueError("빈 응답 수신")
 
         ai_logger.info("[vLLM] 응답 수신 성공", extra={
-            "length": len(generated)
+            "length": len(generated),
+            "preview": generated[:100]
         })
 
         return generated

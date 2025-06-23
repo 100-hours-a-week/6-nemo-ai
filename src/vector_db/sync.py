@@ -2,13 +2,13 @@ import pymysql
 from src.vector_db.user_document_builder import build_user_document
 from src.vector_db.group_document_builder import build_group_document
 from src.vector_db.vector_indexer import add_documents_to_vector_db
-from src.config import HOST, PORT, USER, PASSWORD, DATABASE
+from src.config import HOST, PORT, DB_USER, PASSWORD, DATABASE
 
 def fetch_data_from_mysql():
     conn = pymysql.connect(
         host=HOST,
         port=int(PORT),
-        user=USER,
+        user=DB_USER,
         password=PASSWORD,
         db=DATABASE,
         charset='utf8mb4',
@@ -75,11 +75,11 @@ def sync_group_documents(group_infos):
 if __name__ == "__main__":
     print("📦 MySQL에서 데이터 불러오는 중...")
     user_participation, group_infos = fetch_data_from_mysql()
-
-    print(f"👥 유저 참여 문서: {len(user_participation)}건")
-    sync_user_documents(user_participation)
-
-    print(f"📘 그룹 문서: {len(group_infos)}건")
-    sync_group_documents(group_infos)
+    #
+    # print(f"👥 유저 참여 문서: {len(user_participation)}건")
+    # sync_user_documents(user_participation)
+    #
+    # print(f"📘 그룹 문서: {len(group_infos)}건")
+    # sync_group_documents(group_infos)
 
     print("✅ ChromaDB 동기화 완료")
