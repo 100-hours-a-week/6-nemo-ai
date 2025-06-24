@@ -1,22 +1,27 @@
 import json
+import re
+from src.core.ai_logger import get_ai_logger
 from src.models.gemma_3_4b import call_vllm_api
 from src.vector_db.vector_searcher import search_similar_documents, get_user_joined_group_ids
-from src.core.ai_logger import get_ai_logger
+from src.core.chat_cache import get_session_history
+from src.core.similarity_filter import is_similar_to_any  # 유사 질문 비교
 
 ai_logger = get_ai_logger()
 
-import re
 
 async def handle_combined_question(
     answer: str | None,
     user_id: str,
     session_id: str,
-    debug_mode: bool = True
+    debug_mode: bool = False
 ) -> dict:
+    history = get_session_history(session_id)
+
     if debug_mode:
-        ai_logger.info("[Chatbot] Debug 모드: 고정 질문 반환", extra={"user_id": user_id, "session_id": session_id})
+        question = "어떤 활동을 좋아하시나요?"
+        history.add_ai_message(question)
         return {
-            "question": "어떤 활동을 좋아하시나요?",
+            "question": question,
             "options": ["운동", "스터디", "봉사활동", "게임"]
         }
 
@@ -27,7 +32,6 @@ async def handle_combined_question(
         raw_response = await call_vllm_api(prompt)
         ai_logger.info("[Chatbot] 원시 응답", extra={"response": raw_response})
 
-        # ✅ JSON 부분만 추출 (정규식 기반)
         json_match = re.search(r"\{[\s\S]+?\}", raw_response)
         if not json_match:
             raise ValueError("JSON 부분 추출 실패")
@@ -39,17 +43,18 @@ async def handle_combined_question(
         options = parsed.get("options", [])
 
         if not question or not isinstance(options, list) or len(options) < 2:
-            ai_logger.warning("[Chatbot] 생성된 질문 형식 이상 → fallback 적용", extra={
-                "question": question, "options": options
-            })
             raise ValueError("질문 또는 보기 생성 실패")
 
-        ai_logger.info("[Chatbot] 질문 생성 성공", extra={
-            "user_id": user_id,
-            "session_id": session_id,
-            "question": question,
-            "options": options
-        })
+        past_questions = [m["content"] for m in history.get_messages() if m["role"] == "AI"]
+        if is_similar_to_any(question, past_questions):
+            ai_logger.info("[Chatbot] 유사 질문 감지 → fallback 질문 반환")
+            fallback_q = "다른 사람과 함께 하고 싶은 활동은 무엇인가요?"
+            return {
+                "question": fallback_q,
+                "options": ["문화 체험", "운동", "스터디", "봉사"]
+            }
+
+        history.add_ai_message(question)
 
         return {
             "question": question,
@@ -66,6 +71,7 @@ async def handle_combined_question(
             "question": "새로운 모임을 찾기 위해 어떤 활동을 선호하시나요?",
             "options": ["문화 체험", "운동", "스터디", "봉사"]
         }
+
 
 def generate_combined_prompt(previous_answer: str | None) -> str:
     if previous_answer:
@@ -92,7 +98,7 @@ async def handle_answer_analysis(
     messages: list[dict],
     user_id: str,
     session_id: str,
-    debug_mode: bool = True
+    debug_mode: bool = False
 ) -> dict:
     if not messages:
         ai_logger.warning("[추천] 빈 메시지 수신", extra={"session_id": session_id})
@@ -127,13 +133,6 @@ async def handle_answer_analysis(
     group_id = int(top_result["metadata"]["groupId"])
     group_text = top_result["text"]
 
-    if debug_mode:
-        ai_logger.info("[추천] Debug 모드: 설명 생략", extra={"group_id": group_id})
-        return {
-            "groupId": group_id,
-            "reason": "대화 내용을 바탕으로 가장 적합한 모임을 추천드립니다."
-        }
-
     try:
         reason = await generate_explaination(messages, group_text)
         ai_logger.info("[추천] 추천 사유 생성 성공", extra={"group_id": group_id})
@@ -141,10 +140,13 @@ async def handle_answer_analysis(
         reason = "이 모임은 당신의 대화 내용과 가장 잘 어울려 추천드립니다."
         ai_logger.warning("[추천] 추천 사유 생성 실패", extra={"group_id": group_id, "error": str(e)})
 
+    get_session_history(session_id).clear()
+
     return {
         "groupId": group_id,
         "reason": reason
     }
+
 
 async def generate_explaination(messages: list[dict], group_text: str, debug: bool = True) -> str:
     conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
@@ -172,11 +174,7 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
     바로 아래에 설명을 작성하세요.
     """.strip()
 
-    try:
-        explanation = await call_vllm_api(prompt, max_tokens=400)
-        if debug:
-            print("📦 생성된 추천 설명:\n", explanation)
-        return explanation.strip()
-    except Exception as e:
-        print(f"[❗️generate_explaination 에러] {e}")
-        return "추천 사유를 생성하는 데 실패했습니다."
+    explanation = await call_vllm_api(prompt, max_tokens=400)
+    if debug:
+        print("📦 생성된 추천 설명:\n", explanation)
+    return explanation.strip()
