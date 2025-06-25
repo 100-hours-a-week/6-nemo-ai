@@ -3,6 +3,7 @@ from src.core.ai_logger import get_ai_logger
 from src.config import vLLM_URL
 from src.core.rate_limiter import QueuedExecutor
 
+
 # model_id = "google/gemma-3-4b-it"
 #
 # torch.cuda.empty_cache()

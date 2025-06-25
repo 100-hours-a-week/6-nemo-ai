@@ -21,6 +21,7 @@ class InMemoryHistory:
         })
         self.last_access = datetime.now()
 
+
     def add_user_message(self, content: str):
         self.add_message("USER", content)
 
@@ -29,6 +30,7 @@ class InMemoryHistory:
 
     def get_messages(self) -> List[ChatMessage]:
         self.last_access = datetime.now()
+
         return self.messages
 
     def clear(self):
@@ -43,6 +45,7 @@ def get_session_history(session_id: str) -> InMemoryHistory:
         store[session_id] = InMemoryHistory()
     else:
         store[session_id].last_access = datetime.now()
+
     return store[session_id]
 
 def chat_history_to_string(history: InMemoryHistory) -> str:
