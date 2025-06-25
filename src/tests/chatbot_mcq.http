@@ -1,0 +1,18 @@
+### 객관식 질문 생성 테스트
+POST http://localhost:8000/ai/v2/groups/recommendations/questions
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "answer": "화기차로운 분위기"
+}
+
+
+### 객관식 답변 제출 및 추천 요청 테스트
+POST http://localhost:8000/ai/v2/groups/recommendations
+Content-Type: application/json
+
+{
+  "sessionId": "abc-123",
+  "userId": 1
+}
