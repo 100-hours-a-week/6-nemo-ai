@@ -1,19 +1,23 @@
-name: AI CI for v2-dev
+name: AI CI for v2-prod
 
 on:
-  push:
-    branches: [ develop ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '릴리즈 버전 태그 (예: v1.3.0)'
+        required: true
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy to Dev Server
+    name: Build & Deploy to AI Server
     runs-on: ubuntu-latest
+    environment: prod
 
     env:
       REGION: asia-northeast3
       REPOSITORY: registry
-      SERVICE: ai
-      ENVIRONMENT: dev
+      SERVICE: ai-prod
+      ENVIRONMENT: prod
       DEPLOY_SCRIPT: ~/nemo/cloud/v2/scripts/deploy.sh
 
     steps:
@@ -33,6 +37,9 @@ jobs:
         TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
         echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
 
+        VERSION_TAG="prod-${{ github.event.inputs.version }}"
+        echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
+
         IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_AI }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
@@ -45,11 +52,13 @@ jobs:
     - name: Build and Push Docker Image
       run: |+
         echo Checking pushed image: ${IMAGE_URI}:${TIME_TAG}
+        echo Checking pushed image: ${IMAGE_URI}:${VERSION_TAG}
         echo Checking pushed image: ${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest
 
         docker buildx build \
           --platform linux/amd64 \
           -t "${IMAGE_URI}:${TIME_TAG}" \
+          -t "${IMAGE_URI}:${VERSION_TAG}" \
           -t "${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest" \
           --push .
           
