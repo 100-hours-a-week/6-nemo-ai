@@ -4,7 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 import asyncio
 
+
 class RateLimitedExecutor:
+    """동기 작업용 QPS 제한 실행기"""
     def __init__(self, max_workers: int = 5, qps: float = 1.0):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.qps = qps
@@ -26,7 +28,9 @@ class RateLimitedExecutor:
     def shutdown(self, wait: bool = True):
         self.executor.shutdown(wait=wait)
 
+
 class QueuedExecutor:
+    """비동기 함수 또는 동기 함수를 QPS 및 큐잉 제어와 함께 실행"""
     def __init__(self, max_workers: int = 3, qps: float = 1.0, max_queue_size: int = 100):
         self.semaphore = asyncio.Semaphore(max_workers)
         self.qps = qps
@@ -45,17 +49,21 @@ class QueuedExecutor:
 
     async def submit(self, func: Callable, *args, timeout: float = 30.0, **kwargs):
         try:
-            await self.queue.put_nowait(1)  # 간단한 대기 토큰
+            self.queue.put_nowait(1)  # 큐가 가득 차면 예외 발생
         except asyncio.QueueFull:
             raise RuntimeError("요청 큐가 가득 찼습니다. 나중에 다시 시도해주세요.")
 
         async with self.semaphore:
             await self._respect_qps()
             try:
-                return await asyncio.wait_for(
-                    asyncio.to_thread(func, *args, **kwargs),
-                    timeout=timeout
-                )
+                if asyncio.iscoroutinefunction(func):
+                    coro = func(*args, **kwargs)
+                    return await asyncio.wait_for(coro, timeout=timeout)
+                else:
+                    return await asyncio.wait_for(
+                        asyncio.to_thread(func, *args, **kwargs),
+                        timeout=timeout,
+                    )
             finally:
                 self.queue.get_nowait()
                 self.queue.task_done()
