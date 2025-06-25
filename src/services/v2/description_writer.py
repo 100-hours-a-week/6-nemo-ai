@@ -2,7 +2,7 @@ from typing import Tuple
 from src.schemas.v1.group_writer import GroupGenerationRequest
 # from src.core.cloud_logging import logger
 from src.core.ai_logger import get_ai_logger
-from src.models.gemma_3_4b import local_model_generate   #로컬 모델 호출로 교체
+from src.models.gemma_3_4b import call_vllm_api   #로컬 모델 호출로 교체
 
 ai_logger = get_ai_logger()
 
@@ -13,7 +13,11 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
     출력 내용:
     - 한 줄 소개 : 모임의 핵심 목적을 간결하고 명확하게 50자 이내로 요약한 한 문장입니다. 문장이 반드시 **명사형**으로 끝나야 합니다.
     - 상세 설명 : 모임의 목적에 맞게 추천 대상과 모임 운영 방식에 대해 300자 이내로 작성해주세요.
-
+    
+    출력 형식:
+    한 줄 소개: [요약 내용]
+    상세 설명: [상세 설명 내용]
+    
     입력 정보:
     - 모임명: {data.name}
     - 목적: {data.goal}
@@ -24,7 +28,7 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
         ai_logger.info("[AI-v2] [요약 생성 시작]", extra={"meeting_name": data.name})
 
         # 로컬 모델로 교체
-        response, _ = await local_model_generate(prompt, max_new_tokens=512)
+        response = await call_vllm_api(prompt, max_new_tokens=512)
         raw = response.strip()
 
         # 결과 파싱 (v1과 동일하게 유지)

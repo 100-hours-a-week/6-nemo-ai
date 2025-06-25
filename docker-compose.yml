@@ -1,0 +1,42 @@
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi-server
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - vllm
+    networks:
+      - ai-network
+    volumes:
+      - .:/app  # 개발 전용 (운영 시 제거 권장)
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-server
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+    command: >
+      --model google/gemma-3-4b-it
+      --dtype float16
+      --host 0.0.0.0
+      --port 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - ai-network
+    shm_size: 1g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+networks:
+  ai-network:
+    driver: bridge

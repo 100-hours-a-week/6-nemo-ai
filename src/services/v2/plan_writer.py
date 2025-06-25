@@ -1,6 +1,6 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.ai_logger import get_ai_logger
-from src.models.gemma_3_4b import local_model_generate  # 로컬 모델 호출로 교체
+from src.models.gemma_3_4b import call_vllm_api  # 로컬 모델 호출로 교체
 import asyncio
 import re
 
@@ -50,7 +50,7 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
     try:
         ai_logger.info("[AI-v2] [커리큘럼 생성 시작]", extra={"meeting_name": data.name})
         # 로컬 모델 호출로 교체
-        response, input_len = await local_model_generate(prompt, max_new_tokens=700)
+        response, input_len = await call_vllm_api(prompt, max_new_tokens=700)
 
         # 슬라이싱 적용 (프롬프트 제거)
         generated = response[0][input_len:] if input_len is not None else response[0]

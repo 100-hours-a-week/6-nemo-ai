@@ -30,7 +30,7 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
 
         print("[vLLM 응답 전체]", result)
 
-        # ✅ 응답 형식에 맞게 고정
+        # 응답 형식에 맞게 고정
         generated = result.get("choices", [{}])[0].get("text", "").strip()
 
         if not generated:
@@ -45,7 +45,8 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
 
     except Exception as e:
         ai_logger.warning("[vLLM] 응답 실패", extra={"error": str(e)})
-        return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
+        #return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
+        return "[vLLM] 텍스트 생성 실패"
 
 async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
