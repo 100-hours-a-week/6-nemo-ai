@@ -1,6 +1,8 @@
 import httpx
 from src.core.ai_logger import get_ai_logger
 from src.config import vLLM_URL
+from src.core.rate_limiter import QueuedExecutor
+
 
 # model_id = "google/gemma-3-4b-it"
 #
@@ -11,30 +13,38 @@ from src.config import vLLM_URL
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # model = model.to(device)
 
+queued_executor = QueuedExecutor(max_workers=5, qps=1.5)
+
 ai_logger = get_ai_logger()
 VLLM_API_URL = vLLM_URL + "v1/completions"
 
 async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
-    payload = {
-        "prompt": prompt,
-        "max_tokens": max_tokens,
-        "temperature": temperature
-    }
+    async def request():
+        payload = {
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(VLLM_API_URL, json=payload)
+                response.raise_for_status()
+                result = response.json()
+                return result.get("choices", [{}])[0].get("text", "").strip()
+        except Exception as e:
+            raw_text = ""
+            try:
+                raw_text = (await response.aread()).decode("utf-8", errors="ignore")
+            except:
+                pass
+            raise RuntimeError(f"vLLM 요청 실패: {e}\n원시 응답: {raw_text}")
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(VLLM_API_URL, json=payload)
-
-        response.raise_for_status()
-        result = response.json()
-
-        print("[vLLM 응답 전체]", result)
-
-        # ✅ 응답 형식에 맞게 고정
-        generated = result.get("choices", [{}])[0].get("text", "").strip()
+        generated = await queued_executor.submit(request)
 
         if not generated:
-            raise ValueError("빈 응답 수신")
+            ai_logger.warning("[vLLM] 응답이 비어 있습니다.")
+            return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
         ai_logger.info("[vLLM] 응답 수신 성공", extra={
             "length": len(generated),
@@ -44,8 +54,13 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
         return generated
 
     except Exception as e:
-        ai_logger.warning("[vLLM] 응답 실패", extra={"error": str(e)})
+        ai_logger.warning("[vLLM] 응답 실패", extra={
+            "error": str(e),
+            "prompt": prompt
+        })
+
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
+
 
 async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
