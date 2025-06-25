@@ -27,16 +27,12 @@ class RateLimitedExecutor:
         self.executor.shutdown(wait=wait)
 
 class QueuedExecutor:
-    def __init__(self, max_workers: int = 3, qps: float = 1.0):
+    def __init__(self, max_workers: int = 3, qps: float = 1.0, max_queue_size: int = 100):
         self.semaphore = asyncio.Semaphore(max_workers)
         self.qps = qps
         self.lock = asyncio.Lock()
         self.last_call_time = None
-
-    async def submit(self, func: Callable, *args, **kwargs):
-        async with self.semaphore:
-            await self._respect_qps()
-            return await asyncio.to_thread(func, *args, **kwargs)
+        self.queue = asyncio.Queue(maxsize=max_queue_size)
 
     async def _respect_qps(self):
         async with self.lock:
@@ -46,3 +42,20 @@ class QueuedExecutor:
                 if wait_time > 0:
                     await asyncio.sleep(wait_time)
             self.last_call_time = asyncio.get_event_loop().time()
+
+    async def submit(self, func: Callable, *args, timeout: float = 30.0, **kwargs):
+        try:
+            await self.queue.put_nowait(1)  # 간단한 대기 토큰
+        except asyncio.QueueFull:
+            raise RuntimeError("요청 큐가 가득 찼습니다. 나중에 다시 시도해주세요.")
+
+        async with self.semaphore:
+            await self._respect_qps()
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(func, *args, **kwargs),
+                    timeout=timeout
+                )
+            finally:
+                self.queue.get_nowait()
+                self.queue.task_done()

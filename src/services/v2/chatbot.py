@@ -95,7 +95,8 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 - 질문은 100~200자 이내의 자연스럽고 대화체 말투로 작성하세요.
 - AI에 대한 설명 없이, 사용자에게 직접 질문하세요.
 - 질문 내용은 모임의 성격, 분위기, 규모, 목적 등 사용자에게 맞는 '모임 유형'을 파악하는 데 집중하세요.
-- 선택지는 1~3단어 이내로 4개 작성하세요.
+- 선택지는 4개 작성하세요.
+- 각 선택지는 1-3개 단어로 구성하세요.
 
 다음 형식의 JSON으로만 출력하세요:
 {{
@@ -173,10 +174,6 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
 
     이 모임이 사용자에게 적합한 이유를 **마크다운 형식**으로 작성하세요. 아래 조건을 지키세요:
 
-    - 최대 300자
-    - 제목 스타일(예: `###`, `**`)을 활용해 **모임 이름**을 강조하세요
-    - 줄바꿈(`\\n` 또는 빈 줄)을 활용해 시각적으로 구분하세요
-    - 리스트(`-`) 또는 하이라이트(`**`)를 적절히 사용하세요
     - 설명은 300자 이내로, 핵심만 간결하게    
     - 텍스트 설명만 출력 (JSON, 따옴표, 리스트 등 X)
     - 문장은 하나로 자연스럽게 이어지며, 반복 없이 핵심만 담을 것
@@ -189,3 +186,11 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
     if debug:
         print("📦 생성된 추천 설명:\n", explanation)
     return explanation.strip()
+
+#removed from prompt:
+"""
+- 최대 300자
+- 제목 스타일(예: `###`, `**`)을 활용해 **모임 이름**을 강조하세요
+- 줄바꿈(`\\n` 또는 빈 줄)을 활용해 시각적으로 구분하세요
+- 리스트(`-`) 또는 하이라이트(`**`)를 적절히 사용하세요
+"""
