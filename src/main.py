@@ -23,6 +23,7 @@ from src.vector_db.sync import (
     sync_group_documents,
     sync_user_documents,
 )
+from src.tests.rate_test import router as rate_test_router
 
 # 로거 초기화
 ai_logger = get_ai_logger()
@@ -67,12 +68,13 @@ setup_exception_handlers(app)
 
 # [AI] 성능 로깅 미들웨어 등록
 app.add_middleware(AILoggingMiddleware)
-app.middleware("http")(log_requests)
-app.add_middleware(LogRequestsMiddleware)
+# app.middleware("http")(log_requests)
+# app.add_middleware(LogRequestsMiddleware)
 @app.get("/")
 def root():
     return {"message": "Ne:Mo AI Server Running!"}
 app.include_router(health.router)
+# app.include_router(rate_test_router)
 app.include_router(vector_db.router, prefix="/ai/v2")
 app.include_router(chatbot.router, prefix="/ai/v2")
 
