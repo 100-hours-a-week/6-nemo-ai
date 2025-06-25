@@ -13,7 +13,7 @@ from src.core.rate_limiter import QueuedExecutor
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # model = model.to(device)
 
-queued_executor = QueuedExecutor(max_workers=5, qps=1.5)
+queued_executor = QueuedExecutor(max_workers=3, qps=2.3)
 
 ai_logger = get_ai_logger()
 VLLM_API_URL = vLLM_URL + "v1/completions"
