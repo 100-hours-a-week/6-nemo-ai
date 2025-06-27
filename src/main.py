@@ -12,6 +12,7 @@ from src.router.v1 import health
 from src.router.v1 import group_information as v1_group_information
 from src.router.v2 import group_information as v2_group_information
 from src.router.v2 import vector_db, chatbot
+from src.router.v2 import ws_chatbot
 # 코어 유틸
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
@@ -77,6 +78,7 @@ app.include_router(health.router)
 # app.include_router(rate_test_router)
 app.include_router(vector_db.router, prefix="/ai/v2")
 app.include_router(chatbot.router, prefix="/ai/v2")
+app.include_router(ws_chatbot.router)
 
 # [AI] v1 라우터 등록
 ai_logger.info("[AI] [라우터 등록 시작] v1 group_information 라우터 준비 중")

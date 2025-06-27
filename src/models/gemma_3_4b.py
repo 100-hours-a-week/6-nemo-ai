@@ -1,4 +1,4 @@
-import httpx
+import httpx, json
 from src.core.ai_logger import get_ai_logger
 from src.config import vLLM_URL
 from src.core.rate_limiter import QueuedExecutor
@@ -61,6 +61,29 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
 
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
+async def stream_vllm_response(messages: list[dict]):
+    payload = {
+        "messages": messages,
+        "stream": True,
+        "max_tokens": 256,
+        "temperature": 0.7
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream("POST", VLLM_API_URL, json=payload) as response:
+            async for line in response.aiter_lines():
+                if line.startswith("data:"):
+                    content = line[len("data:"):].strip()
+                    if content == "[DONE]":
+                        break
+                    try:
+                        parsed = json.loads(content)
+                        delta = parsed["choices"][0]["delta"]
+                        token = delta.get("content", "")
+                        if token:
+                            yield token
+                    except Exception as e:
+                        ai_logger.warning("[vLLM 스트리밍 파싱 실패]", extra={"line": line, "error": str(e)})
 
 async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
