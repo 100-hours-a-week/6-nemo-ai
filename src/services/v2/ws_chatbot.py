@@ -100,7 +100,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 
 async def stream_recommendation_chunks(messages: list[dict], user_id: str, session_id: str):
     if not messages:
-        yield "대화 내용이 부족하여 추천을 생성할 수 없습니다."
+        yield (-1, "대화 내용이 부족하여 추천을 생성할 수 없습니다.")
         return
 
     combined_text = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
@@ -119,7 +119,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     ]
 
     if not filtered:
-        yield "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
+        yield (-1, "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
         return
 
     top_result = filtered[0]
@@ -142,17 +142,11 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 """.strip()
 
     messages_for_vllm = [
-        {
-            "role": "system",
-            "text": "당신은 한국어로 대화하는 친절한 모임 추천 챗봇입니다. 영어를 절대 사용하지 마세요."
-        },
-        {
-            "role": "user",
-            "text": prompt
-        }
+        {"role": "system", "text": "당신은 한국어로 대화하는 친절한 모임 추천 챗봇입니다. 영어를 절대 사용하지 마세요."},
+        {"role": "user", "text": prompt}
     ]
 
-    chunks = []
+    full_reason = ""
     first = True
 
     async for chunk in stream_vllm_response(messages_for_vllm):
@@ -160,10 +154,10 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
             ai_logger.info("[vLLM 첫 chunk 수신 - 추천]", extra={"chunk": chunk})
             first = False
 
-        chunks.append(chunk)
-        yield chunk
+        full_reason += chunk
+        yield (group_id, chunk)
 
-    full_reason = "".join(chunks).strip()
+    full_reason = full_reason.strip()
     ai_logger.info("[추천 전체 응답 수신 완료]", extra={"groupId": group_id, "reason": full_reason})
-
     yield ("__COMPLETE__", group_id, full_reason)
+
