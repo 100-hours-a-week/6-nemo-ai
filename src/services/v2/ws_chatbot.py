@@ -2,7 +2,11 @@ import json
 from src.models.gemma_3_4b import stream_vllm_response
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any
-from src.vector_db.vector_searcher import search_similar_documents, get_user_joined_group_ids
+from src.vector_db.vector_searcher import (
+    search_similar_documents,
+    get_user_joined_group_ids,
+    RECOMMENDATION_THRESHOLD,
+)
 from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
@@ -118,8 +122,8 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         and r.get("metadata", {}).get("groupId") is not None
     ]
 
-    if not filtered:
-        yield (-1, "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
+    if not filtered or filtered[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
+        yield (-1, "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
         return
 
     top_result = filtered[0]

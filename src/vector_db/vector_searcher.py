@@ -5,6 +5,7 @@ from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
+RECOMMENDATION_THRESHOLD = 0.5
 logger = get_ai_logger()
 
 def search_similar_documents(
@@ -30,7 +31,7 @@ def search_similar_documents(
 
         return [
             {
-                "id": meta.get("id"),  # ✅ metadata에서 id 복원
+                "id": meta.get("id"),
                 "text": doc,
                 "metadata": meta,
                 "score": 1 - dist
@@ -66,14 +67,14 @@ if __name__ == "__main__":
 
     user_id = "u2"
     joined_ids = get_user_joined_group_ids(user_id)
-    print("✅ 유저가 참여 중인 group_id 리스트:")
+    print("유저가 참여 중인 group_id 리스트:")
     pprint(joined_ids)
 
     query = "조용한 모임이 좋아요"
     results = search_similar_documents(query, top_k=4)
-    print("✅ 유사한 그룹 검색 결과:")
+    print("유사한 그룹 검색 결과:")
     for r in results:
-        print("ID:", r["id"])  # ✅ 이제 정상 작동
+        print("ID:", r["id"])
         print("GroupID in Metadata:", r["metadata"].get("groupId"))
         print("Score:", r["score"])
         print("-" * 50)
