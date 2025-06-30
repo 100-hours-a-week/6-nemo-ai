@@ -14,23 +14,27 @@ from src.core.rate_limiter import QueuedExecutor
 # model = model.to(device)
 
 queued_executor = QueuedExecutor(max_workers=5, qps=1.5)
-
 ai_logger = get_ai_logger()
-VLLM_API_URL = vLLM_URL + "v1/completions"
+
+VLLM_API_URL = vLLM_URL + "v1/chat/completions"
 
 async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
+    """chat/completions 방식 - 비스트리밍 호출"""
     async def request():
         payload = {
-            "prompt": prompt,
+            "messages": [
+                {"role": "system", "content": prompt}
+            ],
             "max_tokens": max_tokens,
-            "temperature": temperature
+            "temperature": temperature,
+            "stream": False
         }
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(VLLM_API_URL, json=payload)
                 response.raise_for_status()
                 result = response.json()
-                return result.get("choices", [{}])[0].get("text", "").strip()
+                return result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
         except Exception as e:
             raw_text = ""
             try:
@@ -58,32 +62,46 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
             "error": str(e),
             "prompt": prompt
         })
-
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
+
 async def stream_vllm_response(messages: list[dict]):
+    """chat/completions 방식 - 스트리밍 호출"""
+    # 예: [{"role": "user", "text": "안녕"}] → {"role": ..., "content": ...}
+    converted_messages = [
+        {"role": m["role"], "content": m["text"]} for m in messages
+    ]
+
     payload = {
-        "messages": messages,
+        "messages": converted_messages,
         "stream": True,
         "max_tokens": 256,
-        "temperature": 0.7
+        "temperature": 0.7,
     }
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        async with client.stream("POST", VLLM_API_URL, json=payload) as response:
-            async for line in response.aiter_lines():
-                if line.startswith("data:"):
-                    content = line[len("data:"):].strip()
-                    if content == "[DONE]":
-                        break
-                    try:
-                        parsed = json.loads(content)
-                        delta = parsed["choices"][0]["delta"]
-                        token = delta.get("content", "")
-                        if token:
-                            yield token
-                    except Exception as e:
-                        ai_logger.warning("[vLLM 스트리밍 파싱 실패]", extra={"line": line, "error": str(e)})
+    try:
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", VLLM_API_URL, json=payload) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data:"):
+                        content = line[len("data:"):].strip()
+                        if content == "[DONE]":
+                            break
+                        try:
+                            parsed = json.loads(content)
+                            delta = parsed["choices"][0]["delta"]
+                            token = delta.get("content", "")
+                            if token:
+                                yield token
+                        except Exception as e:
+                            ai_logger.warning(
+                                "[vLLM 스트리밍 파싱 실패]",
+                                extra={"line": line, "error": str(e)},
+                            )
+    except httpx.HTTPError as e:
+        ai_logger.error("[vLLM SSE 연결 실패]", extra={"error": str(e)})
+        raise
 
 async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
@@ -105,10 +123,11 @@ async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     pass
 
 
-# if __name__ == "__main__":
-#     import asyncio
-#     async def run_test():
-#         prompt = "딥러닝 동아리에 대한 소개글을 하나의 문장으로 작성해줘."
-#         result, _ = await local_model_generate(prompt)
-#         print(result)
-#     asyncio.run(run_test())
+if __name__ == "__main__":
+    import asyncio
+    async def test():
+        messages = [{"role": "user", "text": "안녕"}]
+        async for token in stream_vllm_response(messages):
+            print("Token:", token)
+
+    asyncio.run(test())

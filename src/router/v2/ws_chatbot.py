@@ -1,9 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from starlette.websockets import WebSocketState
 from src.core.ai_logger import get_ai_logger
 from src.core.websocket_manager import websocket_manager
 from src.services.v2.ws_chatbot import stream_question_chunks, stream_recommendation_chunks
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter(prefix="/ws/groups/recommendations", tags=["WebSocket"])
 ai_logger = get_ai_logger()
@@ -31,32 +29,32 @@ async def stream_question(websocket: WebSocket):
                 "answer": answer
             })
 
-            question_so_far = ""
-
             async for chunk in stream_question_chunks(answer, user_id, session_id):
                 if isinstance(chunk, str):
-                    question_so_far += chunk
                     await websocket.send_json({
                         "code": 200,
                         "message": "streaming",
                         "data": {
-                            "question": question_so_far,
+                            "question": chunk,
                             "options": None
                         }
                     })
+
                 elif isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
                     result = chunk[1]
                     await websocket.send_json({
                         "code": 200,
                         "message": "complete",
                         "data": {
-                            "question": result["question"],
-                            "options": result["options"]
+                            "question": result.get("question"),  # None
+                            "options": result.get("options")
                         }
                     })
 
     except WebSocketDisconnect:
         ai_logger.info("[WS 연결 종료]", extra={"session_id": session_id})
+    except Exception as e:
+        ai_logger.error("[WS 질문 처리 오류]", extra={"session_id": session_id, "error": str(e)})
     finally:
         await websocket_manager.disconnect(session_id)
 
@@ -83,35 +81,38 @@ async def stream_recommendation(websocket: WebSocket):
                 "messages": [m.get("text") for m in messages]
             })
 
-            reason_so_far = ""
             group_id = None
 
             async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
-                # 스트리밍 중 (chunk는 str)
-                if isinstance(chunk, str):
-                    reason_so_far += chunk
+                if isinstance(chunk, tuple) and chunk[0] == "__START__":
+                    _, group_id = chunk
+                    continue
+
+                elif isinstance(chunk, str):
                     await websocket.send_json({
                         "code": 200,
                         "message": "streaming",
                         "data": {
                             "groupId": group_id,
-                            "reason": reason_so_far
+                            "reason": chunk
                         }
                     })
 
-                # 마지막 완료 시점: ("__COMPLETE__", group_id, reason)
                 elif isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
-                    _, group_id, final_reason = chunk
+                    _, final_group_id, _ = chunk
+                    group_id = final_group_id
                     await websocket.send_json({
                         "code": 200,
                         "message": "complete",
                         "data": {
                             "groupId": group_id,
-                            "reason": final_reason
+                            "reason": None
                         }
                     })
 
     except WebSocketDisconnect:
         ai_logger.info("[WS 연결 종료 - 추천]", extra={"session_id": session_id})
+    except Exception as e:
+        ai_logger.error("[WS 추천 처리 오류]", extra={"session_id": session_id, "error": str(e)})
     finally:
         await websocket_manager.disconnect(session_id)
