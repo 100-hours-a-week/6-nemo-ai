@@ -33,7 +33,7 @@ async def extract_tags(text: str) -> list[str]:
 
     try:
         ai_logger.info("[AI-v2] [태그 추출 시작]", extra={"text_length": len(text)})
-        response, _ = await call_vllm_api(prompt, max_new_tokens=128)
+        response = await call_vllm_api(prompt, max_tokens=128)
         raw = response.strip()
 
         try:
