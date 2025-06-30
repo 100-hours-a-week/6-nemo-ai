@@ -159,5 +159,5 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     full_reason = full_reason.strip()
     ai_logger.info("[추천 전체 응답 수신 완료]", extra={"groupId": group_id, "reason": full_reason})
-    yield ("__COMPLETE__", group_id, full_reason)
+    yield ("__COMPLETE__", group_id, None)
 

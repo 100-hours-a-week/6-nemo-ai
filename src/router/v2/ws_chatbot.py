@@ -81,7 +81,6 @@ async def stream_recommendation(websocket: WebSocket):
                 "messages": [m.get("text") for m in messages]
             })
 
-            reason_so_far = ""
             group_id = None
 
             async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
@@ -102,13 +101,12 @@ async def stream_recommendation(websocket: WebSocket):
                     else:
                         partial_text = chunk
 
-                    reason_so_far += partial_text
                     await websocket.send_json({
                         "code": 200,
                         "message": "streaming",
                         "data": {
                             "groupId": group_id,
-                            "reason": reason_so_far
+                            "reason": partial_text
                         }
                     })
 
