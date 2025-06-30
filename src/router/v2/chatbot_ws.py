@@ -6,6 +6,7 @@ from src.services.v2.ws_chatbot import stream_question_chunks, stream_recommenda
 router = APIRouter(prefix="/chatbot", tags=["WebSocket"])
 ai_logger = get_ai_logger()
 
+
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):
     session_id = websocket.headers.get("x-session-id")
@@ -39,7 +40,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 async for chunk in stream_question_chunks(answer, user_id, session_id):
                     if isinstance(chunk, str):
-                        # QUESTION_CHUNK (AI → BE)
                         await websocket.send_json({
                             "type": "QUESTION_CHUNK",
                             "payload": {
@@ -74,17 +74,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
 
                 group_id = None
+                group_id_sent = False
 
                 async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
                     if isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
                         _, group_id, final_reason = chunk
-                        await websocket.send_json({
-                            "type": "RECOMMEND_ID",
-                            "payload": {
-                                "sessionId": session_id,
-                                "groupId": group_id
-                            }
-                        })
+                        if not group_id_sent and group_id is not None:
+                            await websocket.send_json({
+                                "type": "RECOMMEND_ID",
+                                "payload": {
+                                    "sessionId": session_id,
+                                    "groupId": group_id
+                                }
+                            })
+                            group_id_sent = True
                         await websocket.send_json({
                             "type": "RECOMMEND_REASON",
                             "payload": {
@@ -98,9 +101,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
 
                     else:
-                        # 중간 청크 RECOMMEND_REASON (AI → BE)
                         if isinstance(chunk, tuple):
                             group_id, partial_text = chunk
+                            if not group_id_sent and group_id is not None:
+                                await websocket.send_json({
+                                    "type": "RECOMMEND_ID",
+                                    "payload": {
+                                        "sessionId": session_id,
+                                        "groupId": group_id
+                                    }
+                                })
+                                group_id_sent = True
                         else:
                             partial_text = chunk
 
