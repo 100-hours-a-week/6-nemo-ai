@@ -12,7 +12,6 @@ from src.router.v1 import health
 from src.router.v1 import group_information as v1_group_information
 # from src.router.v2 import group_information as v2_group_information
 from src.router.v2 import vector_db, chatbot
-from src.router.v2 import ws_chatbot
 # 코어 유틸
 from src.core.ai_logger import get_ai_logger
 from src.core.exception_handler import setup_exception_handlers
@@ -25,7 +24,7 @@ from src.vector_db.sync import (
     sync_user_documents,
 )
 # from src.tests.rate_test import router as rate_test_router
-from src.router.v2.chatbot_ws import router as ws_chatbot_router
+from src.router.v2.ws_chatbot import router as ws_chatbot_router
 
 # 로거 초기화
 ai_logger = get_ai_logger()
