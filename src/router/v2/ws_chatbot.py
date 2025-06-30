@@ -59,7 +59,7 @@ async def stream_question(websocket: WebSocket):
         await websocket_manager.disconnect(session_id)
 
 
-@router.websocket("/recommendations")
+@router.websocket("")
 async def stream_recommendation(websocket: WebSocket):
     session_id = websocket.headers.get("x-session-id")
     if not session_id:
@@ -81,32 +81,34 @@ async def stream_recommendation(websocket: WebSocket):
                 "messages": [m.get("text") for m in messages]
             })
 
+            reason_so_far = ""
             group_id = None
 
             async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
-                if isinstance(chunk, tuple) and chunk[0] == "__START__":
-                    _, group_id = chunk
-                    continue
-
-                elif isinstance(chunk, str):
-                    await websocket.send_json({
-                        "code": 200,
-                        "message": "streaming",
-                        "data": {
-                            "groupId": group_id,
-                            "reason": chunk
-                        }
-                    })
-
-                elif isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
-                    _, final_group_id, _ = chunk
-                    group_id = final_group_id
+                if isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
+                    _, group_id, final_reason = chunk
                     await websocket.send_json({
                         "code": 200,
                         "message": "complete",
                         "data": {
                             "groupId": group_id,
-                            "reason": None
+                            "reason": final_reason
+                        }
+                    })
+                else:
+                    # 일반 문자열 청크
+                    if isinstance(chunk, tuple):
+                        group_id, partial_text = chunk
+                    else:
+                        partial_text = chunk
+
+                    reason_so_far += partial_text
+                    await websocket.send_json({
+                        "code": 200,
+                        "message": "streaming",
+                        "data": {
+                            "groupId": group_id,
+                            "reason": reason_so_far
                         }
                     })
 

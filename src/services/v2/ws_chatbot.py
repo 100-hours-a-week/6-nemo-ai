@@ -100,7 +100,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 
 async def stream_recommendation_chunks(messages: list[dict], user_id: str, session_id: str):
     if not messages:
-        yield (-1, "대화 내용이 부족하여 추천을 생성할 수 없습니다.")
+        yield "대화 내용이 부족하여 추천을 생성할 수 없습니다."
         return
 
     combined_text = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
@@ -119,7 +119,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     ]
 
     if not filtered:
-        yield (-1, "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
+        yield "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
         return
 
     top_result = filtered[0]
@@ -127,7 +127,6 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     group_text = top_result["text"]
 
     prompt = f"""
-당신은 모임 추천 챗봇입니다.
 다음은 사용자와의 대화 내용입니다:
 
 {combined_text}
@@ -135,19 +134,36 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 추천할 모임 정보:
 {group_text.strip()}
 
-[설명 지침 - 사용자에게 직접 보여짐]
-- 설명은 한국어로 150~270자 이내
-- 자연스럽고 부드러운 말투로 작성
-- 핵심만 담고 반복 없이 간결하게 작성
-- "설명:" 같은 접두어 없이 문장만 출력
-    """.strip()
+[작성 지침]
+- 한국어로만 작성하세요. 영어는 절대 포함하지 마세요.
+- 설명은 150~270자 이내로 자연스럽고 말하듯 작성하세요.
+- "설명:" 같은 접두어 없이 문장만 출력하세요.
+- 예시는 참고용이며, 사용자의 대화와 모임 정보를 바탕으로 새롭게 작성하세요.
+""".strip()
+
+    messages_for_vllm = [
+        {
+            "role": "system",
+            "text": "당신은 한국어로 대화하는 친절한 모임 추천 챗봇입니다. 영어를 절대 사용하지 마세요."
+        },
+        {
+            "role": "user",
+            "text": prompt
+        }
+    ]
 
     chunks = []
-    async for chunk in stream_vllm_response([
-        {"role": "system", "text": prompt}
-    ]):
+    first = True
+
+    async for chunk in stream_vllm_response(messages_for_vllm):
+        if first:
+            ai_logger.info("[vLLM 첫 chunk 수신 - 추천]", extra={"chunk": chunk})
+            first = False
+
         chunks.append(chunk)
-        yield (group_id, chunk)
+        yield chunk
 
     full_reason = "".join(chunks).strip()
+    ai_logger.info("[추천 전체 응답 수신 완료]", extra={"groupId": group_id, "reason": full_reason})
+
     yield ("__COMPLETE__", group_id, full_reason)
