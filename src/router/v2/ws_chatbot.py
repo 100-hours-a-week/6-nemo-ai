@@ -9,7 +9,7 @@ ai_logger = get_ai_logger()
 
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):
-    session_id = websocket.headers.get("x-session-id")
+    session_id = websocket.headers.get("X-CHATBOT-KEY")
     if not session_id:
         await websocket.close(code=4400)
         return
