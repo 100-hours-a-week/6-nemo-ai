@@ -5,7 +5,7 @@ from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
-RECOMMENDATION_THRESHOLD = 0.5
+RECOMMENDATION_THRESHOLD = 0.0
 logger = get_ai_logger()
 
 def search_similar_documents(

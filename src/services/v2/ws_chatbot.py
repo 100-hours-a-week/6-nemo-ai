@@ -93,6 +93,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 - AI에 대한 설명 없이, 사용자에게 직접 질문하세요.
 - 질문 내용은 모임의 성격, 분위기, 규모, 목적 등 사용자에게 맞는 '모임 유형'을 파악하는 데 집중하세요.
 - 선택지는 총 4개, 각각 1-3단어로 구성하세요.
+- 이전 질문이랑 겹치지 않게 다르게 작성하세요.
 
 다음 형식의 JSON으로 마무리하세요:
 {{
