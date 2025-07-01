@@ -47,9 +47,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "text": chunk
                             }
                         })
-                        ai_logger.debug("[질문 청크 전송]", extra={
+                        ai_logger.debug(f"[질문 청크 전송] {chunk}", extra={
                             "session_id": session_id,
-                            "chunk": chunk
                         })
 
                     elif isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
@@ -77,6 +76,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 group_id_sent = False
 
                 async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
+                    if isinstance(chunk, tuple) and chunk[0] == "RECOMMEND_DONE":
+                        await websocket.send_json({
+                            "type": "RECOMMEND_DONE",
+                            "payload": {
+                                "sessionId": session_id,
+                                "reason": None
+                            }
+                        })
+                        ai_logger.info("[추천 완료 시그널 전송 및 처리 종료]", extra={"session_id": session_id})
+                        break
+
                     if isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
                         _, group_id, final_reason = chunk
                         if not group_id_sent and group_id is not None:
@@ -99,40 +109,32 @@ async def websocket_endpoint(websocket: WebSocket):
                             "session_id": session_id,
                             "groupId": group_id
                         })
+                        continue
 
+                    if isinstance(chunk, tuple):
+                        group_id, partial_text = chunk
+                        if not group_id_sent and group_id is not None:
+                            await websocket.send_json({
+                                "type": "RECOMMEND_ID",
+                                "payload": {
+                                    "sessionId": session_id,
+                                    "groupId": group_id
+                                }
+                            })
+                            group_id_sent = True
                     else:
-                        if isinstance(chunk, tuple):
-                            group_id, partial_text = chunk
-                            if not group_id_sent and group_id is not None:
-                                await websocket.send_json({
-                                    "type": "RECOMMEND_ID",
-                                    "payload": {
-                                        "sessionId": session_id,
-                                        "groupId": group_id
-                                    }
-                                })
-                                group_id_sent = True
-                        else:
-                            partial_text = chunk
+                        partial_text = chunk
 
-                        await websocket.send_json({
-                            "type": "RECOMMEND_REASON",
-                            "payload": {
-                                "sessionId": session_id,
-                                "reason": partial_text
-                            }
-                        })
-                        ai_logger.debug("[추천 청크 전송]", extra={
-                            "session_id": session_id,
-                            "chunk": partial_text
-                        })
-
-            else:
-                ai_logger.warning("[알 수 없는 type 요청]", extra={
-                    "session_id": session_id,
-                    "type": type_
-                })
-
+                    await websocket.send_json({
+                        "type": "RECOMMEND_REASON",
+                        "payload": {
+                            "sessionId": session_id,
+                            "reason": partial_text
+                        }
+                    })
+                    ai_logger.debug(f"[추천 청크 전송] {chunk}", extra={
+                        "session_id": session_id
+                    })
     except WebSocketDisconnect:
         ai_logger.info("[WS 연결 종료]", extra={"session_id": session_id})
     except Exception as e:
