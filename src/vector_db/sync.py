@@ -64,6 +64,7 @@ def sync_group_documents(group_infos):
     group_docs = []
     for group in group_infos:
         try:
+            group["groupId"] = group.pop("id")
             tags = group["tags"].split(",") if group["tags"] else []
             group["tags"] = [tag.strip() for tag in tags]
             group_docs.append(build_group_document(group))

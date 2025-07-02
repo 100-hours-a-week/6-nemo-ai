@@ -184,9 +184,18 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
     """.strip()
 
     explanation = await call_vllm_api(prompt, max_tokens=400)
+    cleaned = re.sub(
+        r"^\s*(?:설명|추천|AI|\[AI\]|모임\s*이름)\s*[:：-]?\s*",
+        "",
+        explanation.strip(),
+        flags=re.IGNORECASE
+    )
+
     if debug:
-        print("📦 생성된 추천 설명:\n", explanation)
-    return explanation.strip()
+        print("📦 생성된 추천 설명:\n", cleaned)
+
+    return cleaned
+
 
 #removed from prompt:
 """
