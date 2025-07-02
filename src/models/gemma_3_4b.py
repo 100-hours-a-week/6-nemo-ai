@@ -16,25 +16,20 @@ from src.core.rate_limiter import QueuedExecutor
 queued_executor = QueuedExecutor(max_workers=5, qps=1.5)
 ai_logger = get_ai_logger()
 
-VLLM_API_URL = vLLM_URL + "v1/chat/completions"
-
 async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
-    """chat/completions 방식 - 비스트리밍 호출"""
+    VLLM_API_URL = vLLM_URL + "v1/completions"
     async def request():
         payload = {
-            "messages": [
-                {"role": "system", "content": prompt}
-            ],
+            "prompt": prompt,
             "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": False
+            "temperature": temperature
         }
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(VLLM_API_URL, json=payload)
                 response.raise_for_status()
                 result = response.json()
-                return result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                return result.get("choices", [{}])[0].get("text", "").strip()
         except Exception as e:
             raw_text = ""
             try:
@@ -62,12 +57,13 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
             "error": str(e),
             "prompt": prompt
         })
+
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
 
 async def stream_vllm_response(messages: list[dict]):
-    """chat/completions 방식 - 스트리밍 호출"""
-    # 예: [{"role": "user", "text": "안녕"}] → {"role": ..., "content": ...}
+    VLLM_API_URL = vLLM_URL + "v1/chat/completions"
+
     converted_messages = [
         {"role": m["role"], "content": m["text"]} for m in messages
     ]
