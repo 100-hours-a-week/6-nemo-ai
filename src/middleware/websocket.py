@@ -27,16 +27,21 @@ async def validate_session_message(websocket: WebSocket, data: dict, session_id:
         return False
     return True
 
-async def ping_loop(websocket: WebSocket, stop_event: asyncio.Event) -> None:
+async def ping_loop(websocket: WebSocket, stop_event: asyncio.Event, interval: int = 30) -> None:
     try:
         while not stop_event.is_set():
-            await asyncio.sleep(30) # change the interval as needed
+            await asyncio.sleep(interval)
             if websocket.client_state == WebSocketState.CONNECTED:
                 try:
-                    await websocket.send_json({"type": "PING"})
-                    ai_logger.debug("[WebSocket] ping sent")
+                    await websocket.send_ping()
+                    ai_logger.debug("[WebSocket] ping 프레임 전송됨")
                 except Exception as e:
-                    ai_logger.warning("[WebSocket] ping failed", extra={"error": str(e)})
+                    ai_logger.debug("[WebSocket] ping 전송 실패 - 연결 종료 추정", extra={"error": str(e)})
+                    stop_event.set()
                     break
+            else:
+                ai_logger.debug("[WebSocket] 클라이언트 상태가 CONNECTED가 아님 - 종료")
+                stop_event.set()
+                break
     finally:
-        ai_logger.info("[WebSocket] ping loop terminated")
+        ai_logger.info("[WebSocket] ping loop 정상 종료됨")

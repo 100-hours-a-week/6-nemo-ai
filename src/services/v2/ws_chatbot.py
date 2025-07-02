@@ -23,7 +23,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
     chunks = []
     first = True
-    first_chunk_time = None
+    start_time = time.time()
 
 
     async for chunk in stream_vllm_response([
@@ -33,7 +33,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
         if first:
             first_chunk_time = time.time()
             ai_logger.info(
-                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time:.2f} sec"
+                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time} sec"
             )
             first = False
         chunks.append(chunk)
@@ -42,7 +42,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     full_response = "".join(chunks).strip()
     end_time = time.time()
     ai_logger.info(
-        f"[질문 전체 응답 수신 완료] time {end_time} sec, \n full_response: {full_response}"
+        f"[질문 전체 응답 수신 완료] time {end_time-start_time} sec, \n full_response: {full_response}"
     )
 
     try:
@@ -163,13 +163,13 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     full_reason = ""
     first = True
-    first_chunk_time = None
+    start_time = time.time()
 
     async for chunk in stream_vllm_response(messages_for_vllm):
         if first:
             first_chunk_time = time.time()
             ai_logger.info(
-                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time:.2f} sec"
+                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time} sec"
             )
             first = False
 
@@ -179,7 +179,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     full_reason = full_reason.strip()
     end_time = time.time()
     ai_logger.info(
-        f"[질문 전체 응답 수신 완료] time {end_time} sec, \n full_reason: {full_reason}"
+        f"[질문 전체 응답 수신 완료] time {end_time-start_time} sec, \n full_reason: {full_reason}"
     )
     yield ("RECOMMEND_DONE", group_id, None)
 

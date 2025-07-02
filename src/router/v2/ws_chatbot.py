@@ -26,8 +26,6 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_json()
-            if data.get("type") == "PONG":
-                continue
             if not await validate_session_message(websocket, data, session_id):
                 continue
             type_ = data.get("type")
