@@ -10,7 +10,6 @@ __pycache__/
 .env
 
 .venv/
-test/*
 
 # IDE
 .idea/
