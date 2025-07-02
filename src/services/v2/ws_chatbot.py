@@ -8,6 +8,7 @@ from src.vector_db.vector_searcher import (
     RECOMMENDATION_THRESHOLD,
 )
 from src.core.ai_logger import get_ai_logger
+import time
 
 ai_logger = get_ai_logger()
 
@@ -22,19 +23,27 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
     chunks = []
     first = True
+    first_chunk_time = None
+
 
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
         {"role": "user", "text": prompt}
     ]):
         if first:
-            ai_logger.info("[vLLM 첫 chunk 수신]", extra={"chunk": chunk})
+            first_chunk_time = time.time()
+            ai_logger.info(
+                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time:.2f} sec"
+            )
             first = False
         chunks.append(chunk)
         yield chunk  # stream용
 
     full_response = "".join(chunks).strip()
-    ai_logger.info("[질문 전체 응답 수신 완료]", extra={"full_response": full_response})
+    end_time = time.time()
+    ai_logger.info(
+        f"[질문 전체 응답 수신 완료] time {end_time} sec, \n full_response: {full_response}"
+    )
 
     try:
         # JSON 파싱 시도
@@ -154,16 +163,23 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     full_reason = ""
     first = True
+    first_chunk_time = None
 
     async for chunk in stream_vllm_response(messages_for_vllm):
         if first:
-            ai_logger.info("[vLLM 첫 chunk 수신 - 추천]", extra={"chunk": chunk})
+            first_chunk_time = time.time()
+            ai_logger.info(
+                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time:.2f} sec"
+            )
             first = False
 
         full_reason += chunk
         yield (group_id, chunk)
 
     full_reason = full_reason.strip()
-    ai_logger.info("[추천 전체 응답 수신 완료]", extra={"groupId": group_id, "reason": full_reason})
+    end_time = time.time()
+    ai_logger.info(
+        f"[질문 전체 응답 수신 완료] time {end_time} sec, \n full_reason: {full_reason}"
+    )
     yield ("RECOMMEND_DONE", group_id, None)
 

@@ -1,7 +1,12 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from src.core.websocket_manager import websocket_manager
 from src.core.ai_logger import get_ai_logger
-from src.services.v2.ws_chatbot import stream_question_chunks, stream_recommendation_chunks
+from src.middleware import authenticate_websocket, validate_session_message, ping_loop
+from src.services.v2.ws_chatbot import (
+    stream_question_chunks,
+    stream_recommendation_chunks,
+)
+import asyncio
 
 router = APIRouter(prefix="/chatbot", tags=["WebSocket"])
 ai_logger = get_ai_logger()
@@ -9,17 +14,22 @@ ai_logger = get_ai_logger()
 
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):
-    session_id = websocket.headers.get("X-CHATBOT-KEY")
+    session_id = await authenticate_websocket(websocket)
     if not session_id:
-        await websocket.close(code=4400)
         return
 
     await websocket_manager.connect(session_id, websocket)
     ai_logger.info("[WS 연결 수락됨]", extra={"session_id": session_id})
+    stop_event = asyncio.Event()
+    ping_task = asyncio.create_task(ping_loop(websocket, stop_event))
 
     try:
         while True:
             data = await websocket.receive_json()
+            if data.get("type") == "PONG":
+                continue
+            if not await validate_session_message(websocket, data, session_id):
+                continue
             type_ = data.get("type")
             payload = data.get("payload", {})
 
@@ -143,4 +153,6 @@ async def websocket_endpoint(websocket: WebSocket):
             "error": str(e)
         })
     finally:
+        stop_event.set()
+        await ping_task
         await websocket_manager.disconnect(session_id)
