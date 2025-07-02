@@ -14,15 +14,19 @@ def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
     description = group_response.get("description", "")
     plan = group_response.get("plan", "")
     tags = group_response.get("tags", []) or []
+    category = group_response.get("category", "")
+    location = group_response.get("location", "")
 
     tags_text = " ".join(tags)
-    text = "\n".join([
-        f"[모임 이름] {name}",
-        f"[한줄 소개] {summary}",
-        f"[설명] {description}",
-        f"[계획] {plan}",
-        f"[태그] {tags_text}",
-    ])
+
+    text_lines = [
+        f"{name} 모임은 {category} 분야에서 활동하며 {location}에서 주로 모임을 진행합니다.".strip(),
+        summary,
+        description,
+        f"주요 계획: {plan}" if plan else "",
+        f"태그: {tags_text}" if tags_text else "",
+    ]
+    text = "\n".join([t for t in text_lines if t])
 
     metadata = {
         "groupId": group_id,

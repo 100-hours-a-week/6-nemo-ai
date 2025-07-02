@@ -12,7 +12,8 @@ def search_similar_documents(
     query: str,
     top_k: int = 5,
     collection: Literal["group-info", "user-activity"] = "group-info",
-    where: Optional[Dict[str, Any]] = None
+    where: Optional[Dict[str, Any]] = None,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     try:
         client = get_chroma_client()
@@ -21,23 +22,37 @@ def search_similar_documents(
         vector = embed(query)[0]
         results = col.query(
             query_embeddings=[vector],
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"]
+            n_results=top_k * 2,
+            include=["documents", "metadatas", "distances"],
+            where=where,
         )
 
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
         distances = results.get("distances", [[]])[0]
 
-        return [
-            {
+        joined_ids: set[str] = set()
+        if user_id:
+            joined_ids = get_user_joined_group_ids(user_id)
+
+        filtered = []
+        for doc, meta, dist in zip(documents, metadatas, distances):
+            score = 1 - dist
+            group_id = meta.get("groupId")
+            if score < RECOMMENDATION_THRESHOLD:
+                continue
+            if user_id and group_id in joined_ids:
+                continue
+            filtered.append({
                 "id": meta.get("id"),
                 "text": doc,
                 "metadata": meta,
-                "score": 1 - dist
-            }
-            for doc, meta, dist in zip(documents, metadatas, distances)
-        ]
+                "score": score,
+            })
+            if len(filtered) >= top_k:
+                break
+
+        return filtered
     except Exception as e:
         logger.exception(f"[AI] search_similar_documents 실패: {str(e)}")
         return []
@@ -47,16 +62,11 @@ def get_user_joined_group_ids(user_id: str) -> set[str]:
         client = get_chroma_client()
         col = client.get_or_create_collection(name=USER_COLLECTION, embedding_function=embed)
 
-        user_doc_id = f"user-{user_id}"
-        all_ids = col.get().get("ids", [])
-        if user_doc_id not in all_ids:
-            return set()
-
-        result = col.get(ids=[user_doc_id], include=["metadatas"])
+        result = col.get(where={"userId": user_id}, include=["metadatas"])
         return {
-            item.get("group_id")
-            for item in result.get("metadatas", [[]])[0]
-            if "group_id" in item
+            meta.get("groupId")
+            for meta in result.get("metadatas", [])
+            if meta.get("groupId")
         }
     except Exception as e:
         logger.warning(f"[AI] 유저 참여 그룹 조회 실패: {str(e)}")
