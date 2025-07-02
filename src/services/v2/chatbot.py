@@ -17,6 +17,9 @@ async def handle_combined_question(
 ) -> dict:
     history = get_session_history(session_id)
 
+    previous_ai_messages = [m["content"] for m in history.get_messages() if m["role"] == "AI"]
+    previous_question = previous_ai_messages[-1] if previous_ai_messages else None
+
     if debug_mode:
         question = "어떤 활동을 좋아하시나요?"
         history.add_ai_message(question)
@@ -25,7 +28,7 @@ async def handle_combined_question(
             "options": ["운동", "스터디", "봉사활동", "게임"]
         }
 
-    prompt = generate_combined_prompt(answer)
+    prompt = generate_combined_prompt(answer, previous_question)
     ai_logger.info("[Chatbot] 질문 생성 프롬프트", extra={"prompt": prompt})
 
     try:
@@ -73,20 +76,29 @@ async def handle_combined_question(
         }
 
 
-def generate_combined_prompt(previous_answer: str | None) -> str:
+def generate_combined_prompt(previous_answer: str | None, previous_question: str | None = None) -> str:
+    context_lines = []
+
+    if previous_question:
+        context_lines.append(f"이전 질문: \"{previous_question}\"")
     if previous_answer:
-        context = f'"{previous_answer}" 이 답변을 참고해 사용자에게 모임 취향을 묻는 후속 질문을 작성하세요.'
+        context_lines.append(f"사용자 답변: \"{previous_answer}\"")
+
+    if context_lines:
+        context = "\n".join(context_lines) + "\n이 정보를 참고해 다음 질문을 생성하세요."
     else:
-        context = "모임 취향을 파악하기 위한 첫 질문을 작성하세요."
+        context = "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
     return f"""
 {context}
 
-- 질문은 100~200자 이내로 자연스럽게 묻는 말투로 작성
-- AI 자신에 대한 설명 없이, 사용자에게 직접 질문
-- 선택지는 1~3단어 이내로 4개 작성
+- 질문은 75~120자 이내의 자연스럽고 대화체 말투로 작성하세요.
+- AI에 대한 설명 없이, 사용자에게 직접 질문하세요.
+- 질문 내용은 모임의 성격, 분위기, 규모, 목적 등 사용자에게 맞는 '모임 유형'을 파악하는 데 집중하세요.
+- 선택지는 4개 작성하세요.
+- 각 선택지는 1-3개 단어로 구성하세요.
 
-다음 형식의 JSON으로만 출력:
+다음 형식의 JSON으로만 출력하세요:
 {{
   "question": "...",
   "options": ["...", "...", "...", "..."]
@@ -162,19 +174,33 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
 
     이 모임이 사용자에게 적합한 이유를 **마크다운 형식**으로 작성하세요. 아래 조건을 지키세요:
 
-    - 최대 300자
-    - 제목 스타일(예: `###`, `**`)을 활용해 **모임 이름**을 강조하세요
-    - 줄바꿈(`\\n` 또는 빈 줄)을 활용해 시각적으로 구분하세요
-    - 리스트(`-`) 또는 하이라이트(`**`)를 적절히 사용하세요
-    - 설명은 300자 이내로, 핵심만 간결하게    
+    - 설명은 150~270자 이내로, 핵심만 간결하게    
     - 텍스트 설명만 출력 (JSON, 따옴표, 리스트 등 X)
     - 문장은 하나로 자연스럽게 이어지며, 반복 없이 핵심만 담을 것
+    - 설명 말투는 딱딱하지 않고, 부드럽고 말하듯 친근하게 작성 (예: '~인 거예요~', '~하신 거죠~', '~좋은 거예요~' 등)
     - "AI:", "설명:", "- " 같은 포맷은 절대 사용하지 마세요
 
     바로 아래에 설명을 작성하세요.
     """.strip()
 
     explanation = await call_vllm_api(prompt, max_tokens=400)
+    cleaned = re.sub(
+        r"^\s*(?:설명|추천|AI|\[AI\]|모임\s*이름)\s*[:：-]?\s*",
+        "",
+        explanation.strip(),
+        flags=re.IGNORECASE
+    )
+
     if debug:
-        print("📦 생성된 추천 설명:\n", explanation)
-    return explanation.strip()
+        print("📦 생성된 추천 설명:\n", cleaned)
+
+    return cleaned
+
+
+#removed from prompt:
+"""
+- 최대 300자
+- 제목 스타일(예: `###`, `**`)을 활용해 **모임 이름**을 강조하세요
+- 줄바꿈(`\\n` 또는 빈 줄)을 활용해 시각적으로 구분하세요
+- 리스트(`-`) 또는 하이라이트(`**`)를 적절히 사용하세요
+"""
