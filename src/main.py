@@ -26,6 +26,7 @@ from src.vector_db.sync import (
 # from src.tests.rate_test import router as rate_test_router
 from src.router.v2.ws_chatbot import router as ws_chatbot_router
 
+
 # 로거 초기화
 ai_logger = get_ai_logger()
 ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
