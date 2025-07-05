@@ -1,0 +1,38 @@
+# Python 캐시 및 컴파일 파일
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+
+# 가상환경 폴더
+.venv/
+venv/
+
+# 환경 설정 파일
+.env
+.env.*
+
+# IDE 관련 파일 및 폴더
+.vscode/
+.idea/
+*.iml
+
+# OS에서 생성한 불필요한 파일
+.DS_Store
+
+# 로그 및 DB 파일
+*.log
+logs/
+src/data/chroma/chroma.sqlite3
+
+# 민감한 키 파일 (GCP 서비스 계정 등)
+nemo-v2-ai.json
+naemo-project-admin-key.json
+
+# 기타 프로젝트 외 폴더 (확실히 사용 안 할 경우만)
+xlm-roberta-flash-implementation/
+database/
+
+# Git 폴더 (ignore 파일은 유지)
+.git/

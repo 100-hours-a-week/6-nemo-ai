@@ -53,12 +53,14 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
         return generated
 
     except Exception as e:
+
         ai_logger.warning("[vLLM] 응답 실패", extra={
             "error": str(e),
             "prompt": prompt
         })
 
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
+
 
 
 async def stream_vllm_response(messages: list[dict]):

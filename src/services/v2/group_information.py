@@ -24,9 +24,13 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
     )
 
     try:
-        summary, description = await generate_description(group_data)
+        description_task = asyncio.create_task(generate_description(group_data))
+        plan_task = asyncio.create_task(generate_plan(group_data)) if input.isPlanCreated else None
+
+        summary, description = await description_task
         tags = await extract_tags(description)
-        plan = await generate_plan(group_data) if input.isPlanCreated else None
+
+        plan = await plan_task if plan_task else None
 
         ai_logger.info("[AI-v2] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 
