@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict, Any, Optional
 
-from .vector_searcher import search_similar_documents
+from .vector_searcher import search_similar_documents, keyword_search_documents
 
 
 def _rerank(results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
@@ -18,11 +18,14 @@ def _rerank(results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
 
 
 def hybrid_group_search(query: str, top_k: int = 5, where: Optional[Dict[str, Any]] = None, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    info_results = search_similar_documents(query, top_k=top_k, collection="group-info", where=where, user_id=user_id)
-    syn_results = search_similar_documents(query, top_k=top_k, collection="group-synthetic", where=where, user_id=user_id)
+    info_dense = search_similar_documents(query, top_k=top_k, collection="group-info", where=where, user_id=user_id)
+    syn_dense = search_similar_documents(query, top_k=top_k, collection="group-synthetic", where=where, user_id=user_id)
+
+    info_sparse = keyword_search_documents(query, top_k=top_k, collection="group-info", where=where, user_id=user_id)
+    syn_sparse = keyword_search_documents(query, top_k=top_k, collection="group-synthetic", where=where, user_id=user_id)
 
     combined: Dict[str, Dict[str, Any]] = {}
-    for item in info_results + syn_results:
+    for item in info_dense + syn_dense + info_sparse + syn_sparse:
         gid = item.get("metadata", {}).get("groupId")
         if not gid:
             continue
