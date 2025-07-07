@@ -22,54 +22,54 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     ai_logger.info("[Prompt 생성 완료]", extra={"prompt": prompt})
 
     streamed_text = ""
+    full_question = ""
+    options_text = ""
+    capturing_options = False
     first = True
     start_time = time.time()
 
-    # 1. 질문 부분 스트리밍 전송
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
         {"role": "user", "text": prompt}
     ]):
         if first:
-            first_chunk_time = time.time()
-            ai_logger.info(
-                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time} sec"
-            )
+            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: {chunk} time {time.time() - start_time} sec")
             first = False
+
         streamed_text += chunk
-        yield chunk  # 스트리밍 전송 (QUESTION_CHUNK)
+
+        # options가 시작되는 시점 파악
+        if not capturing_options and "options" in chunk:
+            capturing_options = True
+            idx = chunk.index("options")
+            full_question += chunk[:idx].strip()
+            options_text += chunk[idx:]
+            continue
+
+        if capturing_options:
+            options_text += chunk  # stream은 멈추고 내부에서 buffer에 저장
+        else:
+            full_question += chunk
+            yield chunk  # QUESTION_CHUNK stream
 
     full_response = streamed_text.strip()
     end_time = time.time()
-    ai_logger.info(
-        f"[질문 전체 응답 수신 완료] time {end_time-start_time} sec, \n full_response: {full_response}"
-    )
+    ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec,\nfull_response: {full_response}")
 
     try:
-        start = full_response.find("{")
-        end = full_response.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise ValueError("JSON 부분 추출 실패")
+        # options 부분만 파싱 시도
+        start_idx = options_text.find("[")
+        end_idx = options_text.find("]", start_idx)
+        if start_idx == -1 or end_idx == -1:
+            raise ValueError("options 배열을 찾을 수 없습니다")
 
-        json_str = full_response[start:end + 1]
-        parsed = json.loads(json_str)
+        options_str = options_text[start_idx:end_idx+1]
+        options = json.loads(options_str)
 
-        question = parsed.get("question", "").strip()
-        options = parsed.get("options", [])
+        if not isinstance(options, list) or len(options) < 2:
+            raise ValueError("options 파싱 실패 또는 항목 부족")
 
-        if not question or not isinstance(options, list) or len(options) < 2:
-            raise ValueError("질문 또는 보기 생성 실패")
-
-        if is_similar_to_any(question, previous_ai_messages):
-            ai_logger.info("[유사 질문 감지 → fallback 필요]")
-            fallback = {
-                "question": "다른 사람과 함께 하고 싶은 활동은 무엇인가요?",
-                "options": ["문화 체험", "운동", "스터디", "봉사"]
-            }
-            yield ("__COMPLETE__", fallback)
-            return
-
-        history.add_ai_message(question)
+        history.add_ai_message(full_question.strip())
 
         yield ("__COMPLETE__", {
             "question": None,
@@ -77,7 +77,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
         })
 
     except Exception as e:
-        ai_logger.warning("[질문 응답 파싱 실패]", extra={"error": str(e), "raw": full_response})
+        ai_logger.warning("[질문 옵션 파싱 실패]", extra={"error": str(e), "raw": options_text})
         fallback = {
             "question": "다른 사람과 함께 하고 싶은 활동은 무엇인가요?",
             "options": ["문화 체험", "운동", "스터디", "봉사"]
@@ -95,20 +95,27 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
     context = "\n".join(context_lines) + "\n이 정보를 참고해 다음 질문을 생성하세요." if context_lines else \
         "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
+    connect_instruction = (
+        "- 질문은 이전 응답을 반영하여 **연결된 말투**로 시작하세요. (예: \"그렇군요, 그러면...\", \"아, 그런 스타일 좋아하시네요. 그렇다면...\")"
+        if previous_question and previous_answer else
+        "- 자연스럽고 중립적인 말투로 질문을 시작하세요. (예: \"모임에 참여하신다면 어떤 분위기를 선호하시나요?\")"
+    )
+
     return f"""
 {context}
+당신은 모임 추천을 위한 챗봇이지만, 이 단계에서는 추천하지 마세요.  
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
 질문은 일반 문장 형태로 먼저 출력되고, 옵션은 JSON 형태로 나중에 함께 출력됩니다.
 
-- "네, 알겠습니다", "질문을 만들어보겠습니다" 같은 서론을 절대 포함하지 마세요
+- "**질문:**", "**options:**" 같은 마크다운 접두어는 절대 쓰지 마세요. 그냥 질문 문장과 JSON만 출력하세요.
+- "네, 알겠습니다", "질문을 만들어보겠습니다", "아", "질문:" 같은 서론을 절대 포함하지 마세요
 - 서론 없이 질문은 **하나의 문장**으로, **75~120자** 길이의 **친근하고 자연스러운 말투**로 작성하세요.
-- 질문은 이전 응답을 반영하여 **연결된 말투**로 시작하세요. (예: "그렇군요, 그러면...", "아, 그런 스타일 좋아하시네요. 그렇다면...")
+{connect_instruction}
 - 질문의 주제는 모임의 성격, 분위기, 활동 목적, 인원 수, 대화 스타일, 모임 빈도 등 다양하게 설정하세요.
 - 반드시 **이전 질문과는 다른 주제나 방향**의 질문을 작성하세요.
 - 문장 앞뒤가 매끄럽게 이어지도록 하며, **반말이나 명령형은 피하고**, 정중하고 부드러운 말투를 사용하세요.
 - 선택지는 총 4개이며, **각각 1~3단어 이내의 표현으로 구성**하세요.
 형식: 
-  "question": "...",
   "options": ["...", "...", "...", "..."]
 """.strip()
 
