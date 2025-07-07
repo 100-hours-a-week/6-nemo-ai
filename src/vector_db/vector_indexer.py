@@ -5,10 +5,11 @@ from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"
 USER_COLLECTION = "user-activity"
+SYN_COLLECTION = "group-synthetic"
 
 ai_logger = get_ai_logger()
 
-def add_documents_to_vector_db(docs: List[dict], collection: Literal["group-info", "user-activity"]) -> None:
+def add_documents_to_vector_db(docs: List[dict], collection: Literal["group-info", "user-activity", "group-synthetic"]) -> None:
     if not docs:
         ai_logger.warning("[AI] 빈 문서 리스트로 인해 벡터DB 추가를 건너뜁니다.")
         return

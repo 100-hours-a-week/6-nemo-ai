@@ -21,11 +21,11 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     prompt = generate_combined_prompt(answer, previous_question)
     ai_logger.info("[Prompt 생성 완료]", extra={"prompt": prompt})
 
-    chunks = []
+    streamed_text = ""
     first = True
     start_time = time.time()
 
-
+    # 1. 질문 부분 스트리밍 전송
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
         {"role": "user", "text": prompt}
@@ -36,17 +36,16 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
                 f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time} sec"
             )
             first = False
-        chunks.append(chunk)
-        yield chunk  # stream용
+        streamed_text += chunk
+        yield chunk  # 스트리밍 전송 (QUESTION_CHUNK)
 
-    full_response = "".join(chunks).strip()
+    full_response = streamed_text.strip()
     end_time = time.time()
     ai_logger.info(
         f"[질문 전체 응답 수신 완료] time {end_time-start_time} sec, \n full_response: {full_response}"
     )
 
     try:
-        # JSON 파싱 시도
         start = full_response.find("{")
         end = full_response.rfind("}")
         if start == -1 or end == -1 or end <= start:
@@ -72,7 +71,10 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
         history.add_ai_message(question)
 
-        yield ("__COMPLETE__", {"question": None, "options": options})
+        yield ("__COMPLETE__", {
+            "question": None,
+            "options": options
+        })
 
     except Exception as e:
         ai_logger.warning("[질문 응답 파싱 실패]", extra={"error": str(e), "raw": full_response})
@@ -98,18 +100,16 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
 질문은 일반 문장 형태로 먼저 출력되고, 옵션은 JSON 형태로 나중에 함께 출력됩니다.
 
-- 질문은 **하나의 문장**으로, **75~120자** 길이의 **친근하고 자연스러운 말투**로 작성하세요.
+- "네, 알겠습니다", "질문을 만들어보겠습니다" 같은 서론을 절대 포함하지 마세요
+- 서론 없이 질문은 **하나의 문장**으로, **75~120자** 길이의 **친근하고 자연스러운 말투**로 작성하세요.
 - 질문은 이전 응답을 반영하여 **연결된 말투**로 시작하세요. (예: "그렇군요, 그러면...", "아, 그런 스타일 좋아하시네요. 그렇다면...")
 - 질문의 주제는 모임의 성격, 분위기, 활동 목적, 인원 수, 대화 스타일, 모임 빈도 등 다양하게 설정하세요.
 - 반드시 **이전 질문과는 다른 주제나 방향**의 질문을 작성하세요.
 - 문장 앞뒤가 매끄럽게 이어지도록 하며, **반말이나 명령형은 피하고**, 정중하고 부드러운 말투를 사용하세요.
 - 선택지는 총 4개이며, **각각 1~3단어 이내의 표현으로 구성**하세요.
-
-다음 형식의 JSON으로 마무리하세요:
-{{
+형식: 
   "question": "...",
   "options": ["...", "...", "...", "..."]
-}}
 """.strip()
 
 

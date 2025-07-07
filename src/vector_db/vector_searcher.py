@@ -4,6 +4,7 @@ from src.models.jina_embeddings_v3 import embed
 from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"
+SYN_COLLECTION = "group-synthetic"
 USER_COLLECTION = "user-activity"
 RECOMMENDATION_THRESHOLD = 0.0
 logger = get_ai_logger()
@@ -11,7 +12,7 @@ logger = get_ai_logger()
 def search_similar_documents(
     query: str,
     top_k: int = 5,
-    collection: Literal["group-info", "user-activity"] = "group-info",
+    collection: Literal["group-info", "user-activity", "group-synthetic"] = "group-info",
     where: Optional[Dict[str, Any]] = None,
     user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
