@@ -50,20 +50,31 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
             options_text += chunk  # stream은 멈추고 내부에서 buffer에 저장
         else:
             full_question += chunk
-            yield chunk  # QUESTION_CHUNK stream
+            cleaned_chunk = chunk.replace("**", "").replace("*", "").replace("\n", "").replace("\r", "").strip()
+            if cleaned_chunk:
+                yield cleaned_chunk
 
     full_response = streamed_text.strip()
     end_time = time.time()
     ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec,\nfull_response: {full_response}")
 
+    import re
+
     try:
-        # options 부분만 파싱 시도
-        start_idx = options_text.find("[")
-        end_idx = options_text.find("]", start_idx)
-        if start_idx == -1 or end_idx == -1:
+        json_match = re.search(r'"options"\s*:\s*(\[[^\]]+\])', options_text)
+        options_str = None
+
+        if json_match:
+            options_str = json_match.group(1)
+
+        if not options_str:
+            fallback_match = re.search(r'\[\s*"(.*?)"(?:\s*,\s*"(.*?)")+\s*\]', options_text, re.DOTALL)
+            if fallback_match:
+                options_str = fallback_match.group(0)
+
+        if not options_str:
             raise ValueError("options 배열을 찾을 수 없습니다")
 
-        options_str = options_text[start_idx:end_idx+1]
         options = json.loads(options_str)
 
         if not isinstance(options, list) or len(options) < 2:
