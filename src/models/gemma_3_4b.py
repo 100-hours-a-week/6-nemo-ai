@@ -2,7 +2,7 @@ import httpx, json
 from src.core.ai_logger import get_ai_logger
 from src.config import vLLM_URL
 from src.core.rate_limiter import QueuedExecutor
-
+from typing import Union, List
 
 # model_id = "google/gemma-3-4b-it"
 #
@@ -15,9 +15,6 @@ from src.core.rate_limiter import QueuedExecutor
 
 queued_executor = QueuedExecutor(max_workers=5, qps=1.5)
 ai_logger = get_ai_logger()
-
-from typing import Union, List
-
 
 async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, temperature: float = 0.7) -> Union[str, List[str]]:
     VLLM_API_URL = vLLM_URL + "v1/completions"
@@ -66,6 +63,7 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         return generated
 
     except Exception as e:
+
         ai_logger.warning("[vLLM] 응답 실패", extra={
             "error": str(e),
             "prompt": prompt

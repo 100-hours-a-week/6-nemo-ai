@@ -1,7 +1,7 @@
 import json
 import re
 # from src.core.cloud_logging import logger
-from src.models.gemma_3_4b import local_model_generate   # 로컬 모델로 교체
+from src.models.gemma_3_4b import call_vllm_api   # 로컬 모델로 교체
 from src.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
@@ -33,7 +33,7 @@ async def extract_tags(text: str) -> list[str]:
 
     try:
         ai_logger.info("[AI-v2] [태그 추출 시작]", extra={"text_length": len(text)})
-        response, _ = await local_model_generate(prompt, max_new_tokens=128)
+        response = await call_vllm_api(prompt, max_tokens=128)
         raw = response.strip()
 
         try:

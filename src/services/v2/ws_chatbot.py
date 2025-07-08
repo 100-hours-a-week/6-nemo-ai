@@ -73,6 +73,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
     except Exception as e:
         ai_logger.warning("[질문 옵션 파싱 실패]", extra={"error": str(e), "raw": options_text})
+
         fallback = {
             "question": "다른 사람과 함께 하고 싶은 활동은 무엇인가요?",
             "options": ["문화 체험", "운동", "스터디", "봉사"]
@@ -216,3 +217,4 @@ def extract_options_from_stream(raw: str) -> list[str] | None:
         return None
 
     return None
+
