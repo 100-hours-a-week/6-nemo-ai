@@ -4,9 +4,9 @@ from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any
 from src.vector_db.vector_searcher import (
     search_similar_documents,
-    get_user_joined_group_ids,
     RECOMMENDATION_THRESHOLD,
 )
+from src.vector_db.hybrid_search import hybrid_group_search
 from src.core.ai_logger import get_ai_logger
 import time
 
@@ -124,24 +124,20 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     combined_text = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
-    try:
-        joined_ids = get_user_joined_group_ids(user_id)
-    except Exception:
-        joined_ids = set()
-        ai_logger.warning("[추천] 참여 그룹 조회 실패", extra={"session_id": session_id})
+    results = hybrid_group_search(combined_text, top_k=10, user_id=user_id)
+    if not results:
+        results = search_similar_documents(
+            "",
+            top_k=10,
+            collection="group-info",
+            user_id=user_id,
+        )
 
-    results = search_similar_documents(combined_text, top_k=10)
-    filtered = [
-        r for r in results
-        if r.get("metadata", {}).get("groupId") not in joined_ids
-        and r.get("metadata", {}).get("groupId") is not None
-    ]
-
-    if not filtered or filtered[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
+    if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
         yield (-1, "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
         return
 
-    top_result = filtered[0]
+    top_result = results[0]
     group_id = int(top_result["metadata"]["groupId"])
     group_text = top_result["text"]
 

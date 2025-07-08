@@ -39,6 +39,7 @@ def search_similar_documents(
             joined_ids = get_user_joined_group_ids(user_id)
 
         filtered = []
+        origin = "real" if collection == GROUP_COLLECTION else "synthetic"
         for doc, meta, dist in zip(documents, metadatas, distances):
             score = 1 - dist
             group_id = meta.get("groupId")
@@ -51,6 +52,7 @@ def search_similar_documents(
                 "text": doc,
                 "metadata": meta,
                 "score": score,
+                "origin": origin,
             })
             if len(filtered) >= top_k:
                 break
@@ -92,6 +94,7 @@ def keyword_search_documents(
 
         order = list(np.argsort(scores)[::-1])
         results: List[Dict[str, Any]] = []
+        origin = "real" if collection == GROUP_COLLECTION else "synthetic"
         for idx in order:
             meta = metadatas[idx]
             group_id = meta.get("groupId")
@@ -102,6 +105,7 @@ def keyword_search_documents(
                 "text": documents[idx],
                 "metadata": meta,
                 "score": float(scores[idx]),
+                "origin": origin,
             })
             if len(results) >= top_k:
                 break

@@ -79,6 +79,7 @@ app.include_router(health.router)
 # app.include_router(rate_test_router)
 app.include_router(vector_db.router, prefix="/ai/v2")
 app.include_router(chatbot.router, prefix="/ai/v2")
+# 추천 API 라우터
 # app.include_router(ws_chatbot.router)
 app.include_router(ws_chatbot_router, prefix="/ai/v2")
 

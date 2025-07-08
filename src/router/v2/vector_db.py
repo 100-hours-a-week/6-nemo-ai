@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Query, HTTPException
+from fastapi import APIRouter, Body, Query, HTTPException, BackgroundTasks
 from typing import Literal, Optional
 
 from src.vector_db.group_document_builder import build_group_document
@@ -16,10 +16,17 @@ router = APIRouter(prefix="/groups", tags=["Vector DB"])
 
 
 @router.post("")
-def save_group_to_chroma_route(payload: GroupSaveRequest):
+async def save_group_to_chroma_route(payload: GroupSaveRequest, background_tasks: BackgroundTasks):
     try:
         doc = build_group_document(payload.dict())
         add_documents_to_vector_db([doc], collection="group-info")
+
+        async def generate_and_save(data: dict):
+            docs = await build_synthetic_documents(data)
+            add_documents_to_vector_db(docs, collection="group-synthetic")
+
+        background_tasks.add_task(generate_and_save, payload.dict())
+
         return {
             "code": 200,
             "message": "모임 정보 저장 완료",

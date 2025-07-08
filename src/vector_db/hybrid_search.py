@@ -25,12 +25,21 @@ def hybrid_group_search(query: str, top_k: int = 5, where: Optional[Dict[str, An
     syn_sparse = keyword_search_documents(query, top_k=top_k, collection="group-synthetic", where=where, user_id=user_id)
 
     combined: Dict[str, Dict[str, Any]] = {}
-    for item in info_dense + syn_dense + info_sparse + syn_sparse:
+    for item in info_dense + info_sparse + syn_dense + syn_sparse:
         gid = item.get("metadata", {}).get("groupId")
         if not gid:
             continue
         prev = combined.get(gid)
-        if not prev or item["score"] > prev["score"]:
+        if not prev:
+            combined[gid] = item
+            continue
+
+        if prev.get("origin") == "real" and item.get("origin") == "synthetic":
+            continue
+        if prev.get("origin") == "synthetic" and item.get("origin") == "real":
+            combined[gid] = item
+            continue
+        if item["score"] > prev.get("score", 0):
             combined[gid] = item
 
     reranked = _rerank(list(combined.values()), query)
