@@ -29,17 +29,27 @@ def hybrid_group_search(query: str, top_k: int = 5, where: Optional[Dict[str, An
         gid = item.get("metadata", {}).get("groupId")
         if not gid:
             continue
+
         prev = combined.get(gid)
         if not prev:
             combined[gid] = item
             continue
 
-        if prev.get("origin") == "real" and item.get("origin") == "synthetic":
+        prev_origin = prev.get("origin")
+        curr_origin = item.get("origin")
+        prev_score = prev.get("score", 0)
+        curr_score = item.get("score", 0)
+
+        if prev_origin == "real" and curr_origin == "synthetic":
+            if curr_score > prev_score:
+                combined[gid] = item
             continue
-        if prev.get("origin") == "synthetic" and item.get("origin") == "real":
+
+        if prev_origin == "synthetic" and curr_origin == "real":
             combined[gid] = item
             continue
-        if item["score"] > prev.get("score", 0):
+
+        if curr_score > prev_score:
             combined[gid] = item
 
     reranked = _rerank(list(combined.values()), query)
