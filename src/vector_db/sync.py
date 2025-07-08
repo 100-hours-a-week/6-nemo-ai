@@ -1,6 +1,8 @@
 import pymysql
+import asyncio
 from src.vector_db.user_document_builder import build_user_document
 from src.vector_db.group_document_builder import build_group_document
+from src.vector_db.synthetic_document_builder import build_synthetic_documents
 from src.vector_db.vector_indexer import add_documents_to_vector_db
 from src.config import HOST, PORT, DB_USER, PASSWORD, DATABASE
 
@@ -60,17 +62,27 @@ def sync_user_documents(user_participation):
     add_documents_to_vector_db(user_docs, collection="user-activity")
 
 
-def sync_group_documents(group_infos):
+async def sync_group_documents(group_infos):
     group_docs = []
+    synthetic_docs = []
     for group in group_infos:
         try:
             group["groupId"] = group.pop("id")
             tags = group["tags"].split(",") if group["tags"] else []
             group["tags"] = [tag.strip() for tag in tags]
             group_docs.append(build_group_document(group))
+
+            try:
+                syn = await build_synthetic_documents(group)
+                synthetic_docs.extend(syn)
+            except Exception as se:
+                print(f"synthetic 문서 생성 실패: {group['groupId']} - {se}")
         except Exception as e:
-            print(f"❌ 그룹 문서 생성 실패: {group.get('id')} - {e}")
+            print(f"그룹 문서 생성 실패: {group.get('id')} - {e}")
+
     add_documents_to_vector_db(group_docs, collection="group-info")
+    if synthetic_docs:
+        add_documents_to_vector_db(synthetic_docs, collection="group-synthetic")
 
 
 if __name__ == "__main__":

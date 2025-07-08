@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 
         if should_sync_group:
             ai_logger.info(f"[Chroma] 그룹 문서 {len(group_infos)}건 동기화 중")
-            sync_group_documents(group_infos)
+            await sync_group_documents(group_infos)
 
         ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
     clean_idle_sessions()

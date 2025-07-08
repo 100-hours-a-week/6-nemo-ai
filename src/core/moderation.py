@@ -80,7 +80,7 @@ async def analyze_queued(text: str) -> dict:
             }
 
 if __name__ == "__main__":
-    test_text = "이 모임은 멍청한 사람들 모아놓고 얼마나 비효율적인지 관찰하려고 만든 겁니다."
+    test_text = "못된 송아지 뿔."
 
     print(f"입력 텍스트:\n{test_text}\n")
 
