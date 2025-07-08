@@ -16,7 +16,10 @@ from src.core.rate_limiter import QueuedExecutor
 queued_executor = QueuedExecutor(max_workers=5, qps=1.5)
 ai_logger = get_ai_logger()
 
-async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float = 0.7) -> str:
+from typing import Union, List
+
+
+async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, temperature: float = 0.7) -> Union[str, List[str]]:
     VLLM_API_URL = vLLM_URL + "v1/completions"
     async def request():
         payload = {
@@ -24,18 +27,23 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
             "max_tokens": max_tokens,
             "temperature": temperature
         }
+        response = None
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(VLLM_API_URL, json=payload)
                 response.raise_for_status()
                 result = response.json()
-                return result.get("choices", [{}])[0].get("text", "").strip()
+                if isinstance(prompt, list):
+                    return [c.get("text", "").strip() for c in result.get("choices", [])]
+                else:
+                    return result.get("choices", [{}])[0].get("text", "").strip()
         except Exception as e:
             raw_text = ""
-            try:
-                raw_text = (await response.aread()).decode("utf-8", errors="ignore")
-            except:
-                pass
+            if response is not None:
+                try:
+                    raw_text = (await response.aread()).decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
             raise RuntimeError(f"vLLM 요청 실패: {e}\n원시 응답: {raw_text}")
 
     try:
@@ -43,12 +51,17 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
 
         if not generated:
             ai_logger.warning("[vLLM] 응답이 비어 있습니다.")
+            if isinstance(prompt, list):
+                return ["" for _ in prompt]
             return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
-        ai_logger.info("[vLLM] 응답 수신 성공", extra={
-            "length": len(generated),
-            "preview": generated[:100]
-        })
+        if isinstance(generated, list):
+            ai_logger.info("[vLLM] 배치 응답 수신 성공", extra={"count": len(generated)})
+        else:
+            ai_logger.info("[vLLM] 응답 수신 성공", extra={
+                "length": len(generated),
+                "preview": generated[:100]
+            })
 
         return generated
 
@@ -58,6 +71,8 @@ async def call_vllm_api(prompt: str, max_tokens: int = 512, temperature: float =
             "prompt": prompt
         })
 
+        if isinstance(prompt, list):
+            return ["" for _ in prompt]
         return "```json\n{\"question\": \"질문 생성 실패\", \"options\": []}\n```"
 
 
