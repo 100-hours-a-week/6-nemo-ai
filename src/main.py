@@ -25,6 +25,7 @@ from src.vector_db.sync import (
 )
 # from src.tests.rate_test import router as rate_test_router
 from src.router.v2.ws_chatbot import router as ws_chatbot_router
+from src.kafka.kafka_connection import test_kafka_round_trip
 
 
 # 로거 초기화
@@ -57,6 +58,14 @@ async def lifespan(app: FastAPI):
 
         ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
     clean_idle_sessions()
+    # Kafka Connectivity Check
+    try:
+        ai_logger.info("[Kafka] 연결 테스트 시작")
+        await test_kafka_round_trip()
+        ai_logger.info("[Kafka] 연결 테스트 성공")
+    except Exception as e:
+        ai_logger.error("[Kafka] 연결 실패: Kafka round-trip 테스트 실패", exc_info=True)
+
     yield
     ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
 app = FastAPI(
