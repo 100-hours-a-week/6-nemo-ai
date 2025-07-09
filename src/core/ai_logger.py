@@ -59,7 +59,7 @@ def get_ai_logger() -> logging.Logger:
     if not logger.handlers:
         # 콘솔 핸들러 (INFO 이상)
         stream_handler = logging.StreamHandler()
-        stream_handler.setLevel(logging.WARNING) #Change to Debug if you want to see more logs in the console.
+        stream_handler.setLevel(logging.DEBUG) #Change to Debug if you want to see more logs in the console.
         stream_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
         logger.addHandler(stream_handler)
 
