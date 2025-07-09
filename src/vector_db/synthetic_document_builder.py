@@ -10,7 +10,7 @@ ai_logger = get_ai_logger()
 from src.models.gemma_3_4b import call_vllm_api
 
 async def build_synthetic_documents(
-    group: Dict[str, Any], num_docs: int = 3, max_retries: int = 2
+    group: Dict[str, Any], num_docs: int =2, max_retries: int = 2
 ) -> List[dict]:
     """Generate synthetic review-style documents for a group with retries."""
     group_id = str(group.get("groupId"))
