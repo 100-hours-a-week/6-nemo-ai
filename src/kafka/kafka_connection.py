@@ -16,16 +16,15 @@ async def test_kafka_round_trip():
 
     try:
         test_message = {"ping": "pong"}
-        encoded_message = json.dumps(test_message).encode("utf-8")
 
-        await producer.send_and_wait(topic, encoded_message)
+        await producer.send_and_wait(topic, test_message)
 
         try:
             msg = await asyncio.wait_for(consumer.getone(), timeout=5)
         except asyncio.TimeoutError:
             assert False, "Kafka consumer timed out after 5 seconds"
 
-        received_value = json.loads(msg.value.decode("utf-8"))
+        received_value = msg.value
         assert received_value == test_message, f"Expected {test_message}, got {received_value}"
 
     finally:
