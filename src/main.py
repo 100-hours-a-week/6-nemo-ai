@@ -26,8 +26,7 @@ from src.vector_db.sync import (
 )
 # from src.tests.rate_test import router as rate_test_router
 from src.router.v2.ws_chatbot import router as ws_chatbot_router
-from src.kafka.kafka_connection import test_kafka_round_trip
-
+from src.kafka.kafka_consumer_manager import KafkaConsumerManager
 
 # 로거 초기화
 ai_logger = get_ai_logger()
@@ -35,6 +34,7 @@ ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging �
 
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,54 +59,20 @@ async def lifespan(app: FastAPI):
 
         ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
     clean_idle_sessions()
-    
-    # Kafka Connectivity Check
-    try:
-        ai_logger.info("[Kafka] 연결 테스트 시작")
-        await test_kafka_round_trip()
-        ai_logger.info("[Kafka] 연결 테스트 성공")
-    except Exception as e:
-        ai_logger.error("[Kafka] 연결 실패: Kafka round-trip 테스트 실패", exc_info=True)
 
-    # Start Kafka consumers as background tasks
-    kafka_tasks = []
-    try:
-        from src.kafka.kafka_chatbot import (
-            process_group_events, 
-            process_group_generation_requests,
-            process_question_generation_requests,
-            process_group_recommendations,
-            monitor_dlq
-        )
-        
-        ai_logger.info("[Kafka] Starting Kafka consumers...")
-        
-        kafka_tasks = [
-            asyncio.create_task(process_group_events()),
-            asyncio.create_task(process_group_generation_requests()),
-            asyncio.create_task(process_question_generation_requests()),
-            asyncio.create_task(process_group_recommendations()),
-            asyncio.create_task(monitor_dlq())
-        ]
-        
-        ai_logger.info(f"[Kafka] Started {len(kafka_tasks)} Kafka consumers")
-        
-    except Exception as e:
-        ai_logger.error("[Kafka] Failed to start consumers", exc_info=True)
+    # Initialize Kafka Consumer Manager (Consumer-Only Approach)
+    kafka_manager = KafkaConsumerManager()
+
+    # Start Kafka consumers - gracefully handles missing topics
+    await kafka_manager.start_consumers()
 
     yield
-    
+
     # Clean shutdown of Kafka consumers
-    ai_logger.info("[Kafka] Shutting down Kafka consumers...")
-    for task in kafka_tasks:
-        if not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-    ai_logger.info("[Kafka] All Kafka consumers stopped")
+    await kafka_manager.stop_consumers()
     ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
+
+
 app = FastAPI(
     title="NE:MO AI API",
     description="네가 찾는 모임: 네모",
@@ -120,9 +86,13 @@ setup_exception_handlers(app)
 app.add_middleware(AILoggingMiddleware)
 app.middleware("http")(log_requests)
 app.add_middleware(LogRequestsMiddleware)
+
+
 @app.get("/")
 def root():
     return {"message": "Ne:Mo AI Server Running!"}
+
+
 app.include_router(health.router)
 # app.include_router(rate_test_router)
 app.include_router(vector_db.router, prefix="/ai/v2")
