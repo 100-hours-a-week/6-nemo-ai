@@ -1,11 +1,3 @@
-"""
-Kafka Consumer Manager - Clean Consumer-Only Implementation
-This module provides a resilient Kafka consumer that:
-1. Only consumes messages (no production)
-2. Gracefully handles missing topics
-3. Logs appropriately when no tasks are available
-4. Never crashes due to missing topics/messages
-"""
 import asyncio
 from typing import List, Optional, Dict, Any
 
@@ -15,10 +7,6 @@ from src.core.ai_logger import get_ai_logger
 logger = get_ai_logger()
 
 class KafkaConsumerManager:
-    """
-    Manages Kafka consumers for the AI server.
-    This is a pure consumer implementation - no message production.
-    """
     
     def __init__(self):
         self.consumers = []
@@ -195,9 +183,7 @@ class KafkaConsumerManager:
                     )
                     
                     result = await build_meeting_data(meeting_input)
-                    
-                    # Note: In pure consumer mode, we don't send responses back
-                    # The backend will handle response collection through other means
+
                     logger.info("[Kafka] Group generation completed successfully")
                     await consumer.commit()
                     
@@ -261,7 +247,6 @@ class KafkaConsumerManager:
             await consumer.stop()
     
     async def _process_group_recommendations(self, topic: str):
-        """Process final group recommendation requests"""
         consumer = get_consumer(topic, "group-recommend-consumer")
         self.consumers.append(consumer)
         
@@ -312,7 +297,6 @@ class KafkaConsumerManager:
             await consumer.stop()
     
     async def _monitor_dlq(self):
-        """Monitor DLQ topics for failed messages (read-only monitoring)"""
         dlq_consumers = []
         
         try:

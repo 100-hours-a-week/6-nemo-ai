@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Comprehensive Kafka implementation test - validates everything in one file
-Tests: connectivity, schemas, consumers, DLQ, and tech spec compliance
-"""
 import asyncio
 import sys
 from pathlib import Path

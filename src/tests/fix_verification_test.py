@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Verification test for the reported issues:
-1. GroupGenerateRequest missing fields
-2. Empty vLLM responses 
-3. User ID type checking
-"""
 import asyncio
 import sys
 from pathlib import Path
@@ -20,8 +13,7 @@ from src.core.ai_logger import get_ai_logger
 logger = get_ai_logger()
 
 class FixVerificationTest:
-    """Test suite to verify all reported issues are fixed"""
-    
+
     def __init__(self):
         self.test_results = []
     

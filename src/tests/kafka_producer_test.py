@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-"""
-Kafka Producer Test Script - FOR TESTING ONLY
-This script is SEPARATE from main.py and should be used for local testing only.
-It produces test messages to Kafka topics to validate consumer functionality.
-
-Usage:
-    python kafka_producer_test.py
-
-This script should NOT be imported or used in main.py.
-"""
 import asyncio
 import json
 import sys

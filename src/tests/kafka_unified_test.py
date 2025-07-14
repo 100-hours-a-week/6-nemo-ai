@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-"""
-Unified Kafka Test Suite
-This comprehensive test file combines all Kafka testing functionality:
-1. Topic management (reset/create)
-2. Connectivity testing
-3. Producer testing
-4. Consumer testing
-5. Integration testing
-"""
 import asyncio
 import json
 import sys
@@ -18,7 +8,6 @@ import signal
 from pathlib import Path
 from datetime import datetime
 
-# Add project root to Python path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
