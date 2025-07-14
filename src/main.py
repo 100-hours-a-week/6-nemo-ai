@@ -1,4 +1,5 @@
 # 표준 라이브러리
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 # 외부 라이브러리
@@ -58,6 +59,7 @@ async def lifespan(app: FastAPI):
 
         ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
     clean_idle_sessions()
+    
     # Kafka Connectivity Check
     try:
         ai_logger.info("[Kafka] 연결 테스트 시작")
@@ -66,7 +68,44 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         ai_logger.error("[Kafka] 연결 실패: Kafka round-trip 테스트 실패", exc_info=True)
 
+    # Start Kafka consumers as background tasks
+    kafka_tasks = []
+    try:
+        from src.kafka.kafka_chatbot import (
+            process_group_events, 
+            process_group_generation_requests,
+            process_question_generation_requests,
+            process_group_recommendations,
+            monitor_dlq
+        )
+        
+        ai_logger.info("[Kafka] Starting Kafka consumers...")
+        
+        kafka_tasks = [
+            asyncio.create_task(process_group_events()),
+            asyncio.create_task(process_group_generation_requests()),
+            asyncio.create_task(process_question_generation_requests()),
+            asyncio.create_task(process_group_recommendations()),
+            asyncio.create_task(monitor_dlq())
+        ]
+        
+        ai_logger.info(f"[Kafka] Started {len(kafka_tasks)} Kafka consumers")
+        
+    except Exception as e:
+        ai_logger.error("[Kafka] Failed to start consumers", exc_info=True)
+
     yield
+    
+    # Clean shutdown of Kafka consumers
+    ai_logger.info("[Kafka] Shutting down Kafka consumers...")
+    for task in kafka_tasks:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+    ai_logger.info("[Kafka] All Kafka consumers stopped")
     ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
 app = FastAPI(
     title="NE:MO AI API",
