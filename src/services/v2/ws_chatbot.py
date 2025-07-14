@@ -1,5 +1,5 @@
 import json
-from src.models.gemma_3_4b import stream_vllm_response
+from src.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any
 from src.vector_db.vector_searcher import (
@@ -9,6 +9,7 @@ from src.vector_db.vector_searcher import (
 from src.vector_db.hybrid_search import hybrid_group_search
 from src.core.ai_logger import get_ai_logger
 import time
+import asyncio
 
 ai_logger = get_ai_logger()
 
@@ -125,6 +126,13 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     combined_text = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
+    # Log health metrics before recommendation
+    try:
+        health_metrics = await get_vllm_health_metrics()
+        ai_logger.info("[추천 시작 전 vLLM 상태]", extra={"metrics": health_metrics})
+    except Exception as e:
+        ai_logger.warning(f"[vLLM 상태 확인 실패]: {e}")
+
     results = hybrid_group_search(combined_text, top_k=10, user_id=user_id)
     if not results:
         results = search_similar_documents(
@@ -165,24 +173,43 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     full_reason = ""
     first = True
     start_time = time.time()
+    token_count = 0
 
-    async for chunk in stream_vllm_response(messages_for_vllm):
-        if first:
-            first_chunk_time = time.time()
-            ai_logger.info(
-                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time} sec"
-            )
-            first = False
+    try:
+        async for chunk in stream_vllm_response(messages_for_vllm):
+            if first:
+                first_chunk_time = time.time()
+                ai_logger.info(
+                    f"[추천 vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time:.3f} sec"
+                )
+                first = False
 
-        full_reason += chunk
-        yield (group_id, chunk)
+            full_reason += chunk
+            token_count += 1
+            yield (group_id, chunk)
 
-    full_reason = full_reason.strip()
-    end_time = time.time()
-    ai_logger.info(
-        f"[질문 전체 응답 수신 완료] time {end_time-start_time} sec, \n full_reason: {full_reason}"
-    )
-    yield ("RECOMMEND_DONE", group_id, None)
+        full_reason = full_reason.strip()
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        ai_logger.info(
+            f"[추천 응답 수신 완료] time {total_time:.3f} sec, tokens: {token_count}, "
+            f"tokens/sec: {token_count/total_time:.2f}",
+            extra={"full_reason": full_reason}
+        )
+        yield ("RECOMMEND_DONE", group_id, None)
+
+    except Exception as e:
+        ai_logger.error("[추천 스트리밍 중 오류]", extra={
+            "error": str(e), 
+            "session_id": session_id,
+            "group_id": group_id
+        })
+        
+        # Provide fallback recommendation text
+        fallback_reason = "선택하신 관심사와 취향을 바탕으로 이 모임을 추천드립니다. 비슷한 관심사를 가진 분들과 함께 즐거운 시간을 보내실 수 있을 것 같아요!"
+        yield (group_id, fallback_reason)
+        yield ("RECOMMEND_DONE", group_id, None)
 
 def extract_options_from_stream(raw: str) -> list[str] | None:
     import re

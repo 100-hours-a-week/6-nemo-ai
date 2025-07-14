@@ -1,4 +1,5 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import JSONResponse
 from src.core.websocket_manager import websocket_manager
 from src.core.ai_logger import get_ai_logger
 from src.middleware import authenticate_websocket, validate_session_message, ping_loop
@@ -6,10 +7,26 @@ from src.services.v2.ws_chatbot import (
     stream_question_chunks,
     stream_recommendation_chunks,
 )
+from src.models.gemma_3_4b import get_vllm_health_metrics
 import asyncio
 
 router = APIRouter(prefix="/chatbot", tags=["WebSocket"])
 ai_logger = get_ai_logger()
+
+
+@router.get("/health")
+async def get_health_status():
+    """Get vLLM service health status and metrics"""
+    try:
+        metrics = await get_vllm_health_metrics()
+        return JSONResponse(content={
+            "status": "healthy" if metrics["health"]["is_healthy"] else "unhealthy",
+            "metrics": metrics,
+            "timestamp": metrics["timestamp"]
+        })
+    except Exception as e:
+        ai_logger.error(f"[Health Check] 상태 확인 실패: {e}")
+        raise HTTPException(status_code=500, detail="Health check failed")
 
 
 @router.websocket("")
@@ -150,6 +167,14 @@ async def websocket_endpoint(websocket: WebSocket):
             "session_id": session_id,
             "error": str(e)
         })
+        
+        # Log health metrics on error for debugging
+        try:
+            health_metrics = await get_vllm_health_metrics()
+            ai_logger.error("[오류 발생 시 vLLM 상태]", extra={"metrics": health_metrics})
+        except Exception as health_error:
+            ai_logger.warning(f"[Health check 실패]: {health_error}")
+            
     finally:
         stop_event.set()
         await ping_task
