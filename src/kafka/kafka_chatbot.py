@@ -3,6 +3,7 @@ from typing import Any
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from src.kafka.kafka_client import get_consumer, get_producer
 from src.core.ai_logger import get_ai_logger
+from src.core.websocket_manager import websocket_manager
 from src.services.v2.chatbot import handle_answer_analysis, handle_combined_question
 from src.services.v2.group_information import build_meeting_data
 from src.vector_db.group_document_builder import build_group_document
@@ -120,6 +121,21 @@ async def process_question_generation_requests() -> None:
                     payload.get("sessionId"),
                 )
                 await _safe_send(producer, "GROUP_RECOMMEND_QUESTION_RESPONSE", result)
+                
+                # Send directly to WebSocket for real-time delivery
+                session_id = payload.get("sessionId")
+                if session_id and websocket_manager.is_connected(session_id):
+                    ws_message = {
+                        "type": "QUESTION_GENERATED",
+                        "payload": {
+                            "sessionId": session_id,
+                            "questions": result.get("questions", []),
+                            "options": result.get("options", [])
+                        }
+                    }
+                    await websocket_manager.send(session_id, ws_message)
+                    logger.info("[Kafka→WS] Questions sent to WebSocket", extra={"sessionId": session_id})
+                
                 await consumer.commit()
             except Exception as e:
                 logger.warning("[Kafka] question generation failed", extra={"error": str(e)})
@@ -148,6 +164,22 @@ async def process_group_recommendations() -> None:
                     "GROUP_RECOMMEND_RESPONSE",
                     result,
                 )
+                
+                # Send directly to WebSocket for real-time delivery
+                session_id = payload.get("sessionId")
+                if session_id and websocket_manager.is_connected(session_id):
+                    ws_message = {
+                        "type": "GROUP_RECOMMENDATIONS",
+                        "payload": {
+                            "sessionId": session_id,
+                            "recommendations": result.get("recommendations", []),
+                            "reasoning": result.get("reasoning", ""),
+                            "confidence": result.get("confidence", 0.8)
+                        }
+                    }
+                    await websocket_manager.send(session_id, ws_message)
+                    logger.info("[Kafka→WS] Recommendations sent to WebSocket", extra={"sessionId": session_id})
+                
                 await consumer.commit()
             except Exception as e:
                 logger.warning("[Kafka] group recommend failed", extra={"error": str(e)})
