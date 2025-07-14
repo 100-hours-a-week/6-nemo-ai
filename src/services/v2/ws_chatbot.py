@@ -143,7 +143,12 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         )
 
     if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
-        yield (-1, "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
+        # Send the message as question chunks first
+        message = "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
+        for char in message:
+            yield (-1, char)
+        # Then send Recommend done
+        yield ("RECOMMEND_DONE", -1, None)
         return
 
     top_result = results[0]

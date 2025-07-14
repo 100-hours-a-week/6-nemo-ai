@@ -124,14 +124,44 @@ class VLLMHealthMonitor:
     async def health_check(self, vllm_url: str) -> bool:
         """Simple health check to vLLM endpoint"""
         try:
-            health_url = f"{vllm_url}health"
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(health_url)
-                self.is_healthy = response.status_code == 200
+            # Skip health check if URL is not properly configured
+            if not vllm_url or vllm_url.strip() == "":
+                ai_logger.debug("[Health Check] vLLM URL이 설정되지 않았습니다.")
+                self.is_healthy = False
                 self.last_health_check = time.time()
-                return self.is_healthy
+                return False
+            
+            # Try vLLM specific endpoints that should work
+            health_endpoints = [
+                f"{vllm_url.rstrip('/')}/v1/models",  # This should work for vLLM
+                f"{vllm_url.rstrip('/')}/health",     # Standard health endpoint
+                f"{vllm_url.rstrip('/')}/",           # Root endpoint
+            ]
+            
+            for health_url in health_endpoints:
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        response = await client.get(health_url)
+                        if response.status_code in [200, 404]:  # 404 is also OK, means server is responding
+                            self.is_healthy = True
+                            self.last_health_check = time.time()
+                            ai_logger.debug(f"[Health Check] vLLM 응답 확인됨: {health_url} (status: {response.status_code})")
+                            return True
+                except httpx.TimeoutException:
+                    ai_logger.debug(f"[Health Check] 타임아웃: {health_url}")
+                    continue
+                except Exception as e:
+                    ai_logger.debug(f"[Health Check] 실패: {health_url} - {e}")
+                    continue
+            
+            # All endpoints failed
+            self.is_healthy = False
+            self.last_health_check = time.time()
+            ai_logger.debug(f"[Health Check] 모든 엔드포인트 실패: {vllm_url}")
+            return False
+            
         except Exception as e:
-            ai_logger.warning(f"[Health Check] vLLM 건강 상태 확인 실패: {e}")
+            ai_logger.debug(f"[Health Check] 예외 발생: {e}")
             self.is_healthy = False
             self.last_health_check = time.time()
             return False
@@ -235,7 +265,7 @@ class VLLMManager:
         while True:
             try:
                 await self.health_monitor.health_check(self.vllm_url)
-                await asyncio.sleep(30)  # Check every 30 seconds
+                await asyncio.sleep(300)  # Check every 5 minutes instead of 30 seconds
             except Exception as e:
                 ai_logger.error(f"[Health Check] 정기 건강 상태 확인 중 오류: {e}")
-                await asyncio.sleep(60)  # Wait longer on error
+                await asyncio.sleep(600)  # Wait 10 minutes on error

@@ -10,7 +10,7 @@ from collections import defaultdict, Counter
 GROUP_COLLECTION = "group-info"
 SYN_COLLECTION = "group-synthetic"
 USER_COLLECTION = "user-activity"
-RECOMMENDATION_THRESHOLD = 0.0
+RECOMMENDATION_THRESHOLD = 0.25
 logger = get_ai_logger()
 
 class SemanticBooster:
