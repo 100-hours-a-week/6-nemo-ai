@@ -28,32 +28,83 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     capturing_options = False
     first = True
     start_time = time.time()
+    
+    # Prefix parsing state
+    buffer = ""
+    prefix_processed = False
+    POSSIBLE_PREFIXES = ["**질문:**", "질문:", "**Question:**", "Question:"]
 
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
         {"role": "user", "text": prompt}
     ]):
         if first:
-            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: {chunk} time {time.time() - start_time} sec")
+            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: '{chunk}' (len={len(chunk)}) time {time.time() - start_time} sec")
             first = False
 
         streamed_text += chunk
 
+        # Handle prefix removal for the first chunks
+        if not prefix_processed:
+            buffer += chunk
+            
+            # Check for complete prefix match
+            prefix_found = False
+            prefix_length = 0
+            
+            for prefix in POSSIBLE_PREFIXES:
+                if buffer.startswith(prefix):
+                    prefix_found = True
+                    prefix_length = len(prefix)
+                    break
+            
+            if prefix_found:
+                # Remove prefix and any following spaces
+                remaining_text = buffer[prefix_length:].lstrip()
+                prefix_processed = True
+                ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {buffer[:prefix_length]}")
+                
+                # Process the remaining text after prefix removal
+                if remaining_text:
+                    chunk = remaining_text
+                else:
+                    continue  # No remaining text to process
+            else:
+                # Check if buffer could be building up to a prefix
+                could_be_prefix = any(
+                    prefix.startswith(buffer) or buffer.startswith(prefix[:len(buffer)])
+                    for prefix in POSSIBLE_PREFIXES
+                )
+                
+                if could_be_prefix and len(buffer) < 10:
+                    # Might be partial prefix, wait for more chunks
+                    continue
+                else:
+                    # Not a prefix, start normal streaming with accumulated buffer
+                    prefix_processed = True
+                    chunk = buffer
+        
         # options가 시작되는 시점 파악
         if not capturing_options and "options" in chunk:
             capturing_options = True
-            idx = chunk.index("options")
-            full_question += chunk[:idx].strip()
+            idx = chunk.find("options")
+            # Add the part before options to full_question
+            question_part = chunk[:idx]
+            full_question += question_part
             options_text += chunk[idx:]
+
+            # Send the question part if it's not empty
+            if question_part:
+                yield question_part
             continue
 
         if capturing_options:
             options_text += chunk  # stream은 멈추고 내부에서 buffer에 저장
         else:
             full_question += chunk
-            cleaned_chunk = chunk.replace("**", "").replace("*", "").replace("\n", "").replace("\r", "").strip()
-            if cleaned_chunk:
-                yield cleaned_chunk
+            # Send chunks only after prefix is processed
+            if prefix_processed and chunk:  # Send any non-empty chunk including spaces
+                yield chunk
 
     full_response = streamed_text.strip()
     end_time = time.time()
