@@ -14,6 +14,56 @@ import asyncio
 ai_logger = get_ai_logger()
 
 
+class PrefixParser:
+    """Helper class to handle prefix removal in streaming responses"""
+    
+    def __init__(self, prefixes: list[str], max_prefix_length: int = 12):
+        self.prefixes = prefixes
+        self.max_prefix_length = max_prefix_length
+        self.buffer = ""
+        self.prefix_processed = False
+    
+    def process_chunk(self, chunk: str) -> str | None:
+        """Process a chunk and return the cleaned text or None if still waiting for prefix"""
+        if self.prefix_processed:
+            return chunk
+        
+        self.buffer += chunk
+        
+        # Check for complete prefix match
+        prefix_found = False
+        prefix_length = 0
+        
+        for prefix in self.prefixes:
+            if self.buffer.startswith(prefix):
+                prefix_found = True
+                prefix_length = len(prefix)
+                break
+        
+        if prefix_found:
+            # Remove prefix and any following spaces
+            remaining_text = self.buffer[prefix_length:].lstrip()
+            self.prefix_processed = True
+            ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {self.buffer[:prefix_length]}")
+            
+            # Return the remaining text after prefix removal
+            return remaining_text if remaining_text else None
+        else:
+            # Check if buffer could be building up to a prefix
+            could_be_prefix = any(
+                prefix.startswith(self.buffer) or self.buffer.startswith(prefix[:len(self.buffer)])
+                for prefix in self.prefixes
+            )
+            
+            if could_be_prefix and len(self.buffer) < self.max_prefix_length:
+                # Might be partial prefix, wait for more chunks
+                return None
+            else:
+                # Not a prefix, start normal streaming with accumulated buffer
+                self.prefix_processed = True
+                return self.buffer
+
+
 async def stream_question_chunks(answer: str | None, user_id: str, session_id: str):
     history = get_session_history(session_id)
     previous_ai_messages = [m["content"] for m in history.get_messages() if m["role"] == "AI"]
@@ -22,17 +72,16 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     prompt = generate_combined_prompt(answer, previous_question)
     ai_logger.info("[Prompt 생성 완료]", extra={"prompt": prompt})
 
-    streamed_text = ""
+    streamed_text = ""  # Original text with prefixes (for logging)
+    cleaned_text = ""   # Cleaned text without prefixes (for processing)
     full_question = ""
     options_text = ""
     capturing_options = False
     first = True
     start_time = time.time()
     
-    # Prefix parsing state
-    buffer = ""
-    prefix_processed = False
-    POSSIBLE_PREFIXES = ["**질문:**", "질문:", "**Question:**", "Question:"]
+    # Initialize prefix parser
+    prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
 
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
@@ -42,47 +91,15 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
             ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: '{chunk}' (len={len(chunk)}) time {time.time() - start_time} sec")
             first = False
 
-        streamed_text += chunk
+        streamed_text += chunk  # Keep original for logging
 
-        # Handle prefix removal for the first chunks
-        if not prefix_processed:
-            buffer += chunk
-            
-            # Check for complete prefix match
-            prefix_found = False
-            prefix_length = 0
-            
-            for prefix in POSSIBLE_PREFIXES:
-                if buffer.startswith(prefix):
-                    prefix_found = True
-                    prefix_length = len(prefix)
-                    break
-            
-            if prefix_found:
-                # Remove prefix and any following spaces
-                remaining_text = buffer[prefix_length:].lstrip()
-                prefix_processed = True
-                ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {buffer[:prefix_length]}")
-                
-                # Process the remaining text after prefix removal
-                if remaining_text:
-                    chunk = remaining_text
-                else:
-                    continue  # No remaining text to process
-            else:
-                # Check if buffer could be building up to a prefix
-                could_be_prefix = any(
-                    prefix.startswith(buffer) or buffer.startswith(prefix[:len(buffer)])
-                    for prefix in POSSIBLE_PREFIXES
-                )
-                
-                if could_be_prefix and len(buffer) < 10:
-                    # Might be partial prefix, wait for more chunks
-                    continue
-                else:
-                    # Not a prefix, start normal streaming with accumulated buffer
-                    prefix_processed = True
-                    chunk = buffer
+        # Process chunk through prefix parser
+        processed_chunk = prefix_parser.process_chunk(chunk)
+        if processed_chunk is None:
+            continue  # Still waiting for complete prefix
+        
+        cleaned_text += processed_chunk  # Accumulate cleaned text
+        chunk = processed_chunk  # Use the cleaned chunk
         
         # options가 시작되는 시점 파악
         if not capturing_options and "options" in chunk:
@@ -102,13 +119,14 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
             options_text += chunk  # stream은 멈추고 내부에서 buffer에 저장
         else:
             full_question += chunk
-            # Send chunks only after prefix is processed
-            if prefix_processed and chunk:  # Send any non-empty chunk including spaces
+            # Send chunks
+            if chunk:  # Send any non-empty chunk including spaces
                 yield chunk
 
-    full_response = streamed_text.strip()
     end_time = time.time()
-    ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec,\nfull_response: {full_response}")
+    ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec")
+    ai_logger.info(f"[원본 응답]: {streamed_text.strip()}")
+    ai_logger.info(f"[정리된 응답]: {cleaned_text.strip()}")
 
     try:
         options = extract_options_from_stream(options_text)
@@ -155,8 +173,9 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
 질문은 일반 문장 형태로 먼저 출력되고, 옵션은 JSON 형태로 나중에 함께 출력됩니다.
 
-- "**질문:**", "**options:**" 같은 마크다운 접두어는 절대 쓰지 마세요. 그냥 질문 문장과 JSON만 출력하세요.
+- "**질문:**", "**options:**" 같은 접두어는 절대 쓰지 마세요. 그냥 질문 문장과 JSON만 출력하세요.
 - "네, 알겠습니다", "질문을 만들어보겠습니다", "아", "**질문:**" 같은 서론을 절대 포함하지 마세요
+- 절대로 "질문:" 또는 "**질문:**" 접두어로 시작하지 마세요. 바로 질문 문장으로 시작하세요.
 - 질문은 반드시 **AI가 사용자에게 묻는 문장**이어야 합니다. 질문의 주어는 항상 '당신' 또는 생략된 2인칭 사용자입니다.
 - 문장은 항상 **2인칭 대상에게 질문하는 형태**여야 하며, **AI는 조력자 역할**입니다.
 - 서론 없이 질문은 **하나의 문장**으로, **75~120자** 길이의 **친근하고 자연스러운 말투**로 작성하세요.
@@ -231,6 +250,9 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     start_time = time.time()
     token_count = 0
 
+    # Initialize prefix parser for recommendations
+    prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:"])
+
     try:
         async for chunk in stream_vllm_response(messages_for_vllm):
             if first:
@@ -240,9 +262,20 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
                 )
                 first = False
 
+            # Process chunk through prefix parser
+            processed_chunk = prefix_parser.process_chunk(chunk)
+            if processed_chunk is None:
+                continue  # Still waiting for complete prefix
+            
+            chunk = processed_chunk  # Use the cleaned chunk
+
             full_reason += chunk
             token_count += 1
-            yield (group_id, chunk)
+            
+            # Send the cleaned chunk
+            if chunk:
+                yield (group_id, chunk)
+
 
         full_reason = full_reason.strip()
         end_time = time.time()
