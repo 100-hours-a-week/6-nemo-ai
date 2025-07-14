@@ -1,4 +1,5 @@
 # 표준 라이브러리
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 import asyncio
@@ -26,7 +27,7 @@ from src.vector_db.sync import (
 )
 # from src.tests.rate_test import router as rate_test_router
 from src.router.v2.ws_chatbot import router as ws_chatbot_router
-
+from src.kafka.kafka_consumer_manager import KafkaConsumerManager
 
 # 로거 초기화
 ai_logger = get_ai_logger()
@@ -34,6 +35,7 @@ ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging �
 
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,8 +60,20 @@ async def lifespan(app: FastAPI):
 
         ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
     clean_idle_sessions()
+
+    # Initialize Kafka Consumer Manager (Consumer-Only Approach)
+    kafka_manager = KafkaConsumerManager()
+
+    # Start Kafka consumers - gracefully handles missing topics
+    await kafka_manager.start_consumers()
+
     yield
+
+    # Clean shutdown of Kafka consumers
+    await kafka_manager.stop_consumers()
     ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
+
+
 app = FastAPI(
     title="NE:MO AI API",
     description="네가 찾는 모임: 네모",
@@ -73,9 +87,13 @@ setup_exception_handlers(app)
 app.add_middleware(AILoggingMiddleware)
 app.middleware("http")(log_requests)
 app.add_middleware(LogRequestsMiddleware)
+
+
 @app.get("/")
 def root():
     return {"message": "Ne:Mo AI Server Running!"}
+
+
 app.include_router(health.router)
 # app.include_router(rate_test_router)
 app.include_router(vector_db.router, prefix="/ai/v2")

@@ -1,5 +1,5 @@
 import json
-from src.models.gemma_3_4b import stream_vllm_response
+from src.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any
 from src.vector_db.vector_searcher import (
@@ -9,8 +9,59 @@ from src.vector_db.vector_searcher import (
 from src.vector_db.hybrid_search import hybrid_group_search
 from src.core.ai_logger import get_ai_logger
 import time
+import asyncio
 
 ai_logger = get_ai_logger()
+
+
+class PrefixParser:
+    """Helper class to handle prefix removal in streaming responses"""
+    
+    def __init__(self, prefixes: list[str], max_prefix_length: int = 12):
+        self.prefixes = prefixes
+        self.max_prefix_length = max_prefix_length
+        self.buffer = ""
+        self.prefix_processed = False
+    
+    def process_chunk(self, chunk: str) -> str | None:
+        """Process a chunk and return the cleaned text or None if still waiting for prefix"""
+        if self.prefix_processed:
+            return chunk
+        
+        self.buffer += chunk
+        
+        # Check for complete prefix match
+        prefix_found = False
+        prefix_length = 0
+        
+        for prefix in self.prefixes:
+            if self.buffer.startswith(prefix):
+                prefix_found = True
+                prefix_length = len(prefix)
+                break
+        
+        if prefix_found:
+            # Remove prefix and any following spaces
+            remaining_text = self.buffer[prefix_length:].lstrip()
+            self.prefix_processed = True
+            ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {self.buffer[:prefix_length]}")
+            
+            # Return the remaining text after prefix removal
+            return remaining_text if remaining_text else None
+        else:
+            # Check if buffer could be building up to a prefix
+            could_be_prefix = any(
+                prefix.startswith(self.buffer) or self.buffer.startswith(prefix[:len(self.buffer)])
+                for prefix in self.prefixes
+            )
+            
+            if could_be_prefix and len(self.buffer) < self.max_prefix_length:
+                # Might be partial prefix, wait for more chunks
+                return None
+            else:
+                # Not a prefix, start normal streaming with accumulated buffer
+                self.prefix_processed = True
+                return self.buffer
 
 
 async def stream_question_chunks(answer: str | None, user_id: str, session_id: str):
@@ -21,42 +72,61 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     prompt = generate_combined_prompt(answer, previous_question)
     ai_logger.info("[Prompt 생성 완료]", extra={"prompt": prompt})
 
-    streamed_text = ""
+    streamed_text = ""  # Original text with prefixes (for logging)
+    cleaned_text = ""   # Cleaned text without prefixes (for processing)
     full_question = ""
     options_text = ""
     capturing_options = False
     first = True
     start_time = time.time()
+    
+    # Initialize prefix parser
+    prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
 
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
         {"role": "user", "text": prompt}
     ]):
         if first:
-            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: {chunk} time {time.time() - start_time} sec")
+            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: '{chunk}' (len={len(chunk)}) time {time.time() - start_time} sec")
             first = False
 
-        streamed_text += chunk
+        streamed_text += chunk  # Keep original for logging
 
+        # Process chunk through prefix parser
+        processed_chunk = prefix_parser.process_chunk(chunk)
+        if processed_chunk is None:
+            continue  # Still waiting for complete prefix
+        
+        cleaned_text += processed_chunk  # Accumulate cleaned text
+        chunk = processed_chunk  # Use the cleaned chunk
+        
         # options가 시작되는 시점 파악
         if not capturing_options and "options" in chunk:
             capturing_options = True
-            idx = chunk.index("options")
-            full_question += chunk[:idx].strip()
+            idx = chunk.find("options")
+            # Add the part before options to full_question
+            question_part = chunk[:idx]
+            full_question += question_part
             options_text += chunk[idx:]
+
+            # Send the question part if it's not empty
+            if question_part:
+                yield question_part
             continue
 
         if capturing_options:
             options_text += chunk  # stream은 멈추고 내부에서 buffer에 저장
         else:
             full_question += chunk
-            cleaned_chunk = chunk.replace("**", "").replace("*", "").replace("\n", "").replace("\r", "").strip()
-            if cleaned_chunk:
-                yield cleaned_chunk
+            # Send chunks
+            if chunk:  # Send any non-empty chunk including spaces
+                yield chunk
 
-    full_response = streamed_text.strip()
     end_time = time.time()
-    ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec,\nfull_response: {full_response}")
+    ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec")
+    ai_logger.info(f"[원본 응답]: {streamed_text.strip()}")
+    ai_logger.info(f"[정리된 응답]: {cleaned_text.strip()}")
 
     try:
         options = extract_options_from_stream(options_text)
@@ -103,8 +173,9 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
 질문은 일반 문장 형태로 먼저 출력되고, 옵션은 JSON 형태로 나중에 함께 출력됩니다.
 
-- "**질문:**", "**options:**" 같은 마크다운 접두어는 절대 쓰지 마세요. 그냥 질문 문장과 JSON만 출력하세요.
+- "**질문:**", "**options:**" 같은 접두어는 절대 쓰지 마세요. 그냥 질문 문장과 JSON만 출력하세요.
 - "네, 알겠습니다", "질문을 만들어보겠습니다", "아", "**질문:**" 같은 서론을 절대 포함하지 마세요
+- 절대로 "질문:" 또는 "**질문:**" 접두어로 시작하지 마세요. 바로 질문 문장으로 시작하세요.
 - 질문은 반드시 **AI가 사용자에게 묻는 문장**이어야 합니다. 질문의 주어는 항상 '당신' 또는 생략된 2인칭 사용자입니다.
 - 문장은 항상 **2인칭 대상에게 질문하는 형태**여야 하며, **AI는 조력자 역할**입니다.
 - 서론 없이 질문은 **하나의 문장**으로, **75~120자** 길이의 **친근하고 자연스러운 말투**로 작성하세요.
@@ -125,6 +196,13 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     combined_text = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
+    # Log health metrics before recommendation
+    try:
+        health_metrics = await get_vllm_health_metrics()
+        ai_logger.info("[추천 시작 전 vLLM 상태]", extra={"metrics": health_metrics})
+    except Exception as e:
+        ai_logger.warning(f"[vLLM 상태 확인 실패]: {e}")
+
     results = hybrid_group_search(combined_text, top_k=10, user_id=user_id)
     if not results:
         results = search_similar_documents(
@@ -135,7 +213,12 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         )
 
     if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
-        yield (-1, "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?")
+        # Send the message as question chunks first
+        message = "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
+        for char in message:
+            yield (-1, char)
+        # Then send Recommend done
+        yield ("RECOMMEND_DONE", -1, None)
         return
 
     top_result = results[0]
@@ -165,24 +248,57 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     full_reason = ""
     first = True
     start_time = time.time()
+    token_count = 0
 
-    async for chunk in stream_vllm_response(messages_for_vllm):
-        if first:
-            first_chunk_time = time.time()
-            ai_logger.info(
-                f"[vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time} sec"
-            )
-            first = False
+    # Initialize prefix parser for recommendations
+    prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:"])
 
-        full_reason += chunk
-        yield (group_id, chunk)
+    try:
+        async for chunk in stream_vllm_response(messages_for_vllm):
+            if first:
+                first_chunk_time = time.time()
+                ai_logger.info(
+                    f"[추천 vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time:.3f} sec"
+                )
+                first = False
 
-    full_reason = full_reason.strip()
-    end_time = time.time()
-    ai_logger.info(
-        f"[질문 전체 응답 수신 완료] time {end_time-start_time} sec, \n full_reason: {full_reason}"
-    )
-    yield ("RECOMMEND_DONE", group_id, None)
+            # Process chunk through prefix parser
+            processed_chunk = prefix_parser.process_chunk(chunk)
+            if processed_chunk is None:
+                continue  # Still waiting for complete prefix
+            
+            chunk = processed_chunk  # Use the cleaned chunk
+
+            full_reason += chunk
+            token_count += 1
+            
+            # Send the cleaned chunk
+            if chunk:
+                yield (group_id, chunk)
+
+
+        full_reason = full_reason.strip()
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        ai_logger.info(
+            f"[추천 응답 수신 완료] time {total_time:.3f} sec, tokens: {token_count}, "
+            f"tokens/sec: {token_count/total_time:.2f}",
+            extra={"full_reason": full_reason}
+        )
+        yield ("RECOMMEND_DONE", group_id, None)
+
+    except Exception as e:
+        ai_logger.error("[추천 스트리밍 중 오류]", extra={
+            "error": str(e), 
+            "session_id": session_id,
+            "group_id": group_id
+        })
+        
+        # Provide fallback recommendation text
+        fallback_reason = "선택하신 관심사와 취향을 바탕으로 이 모임을 추천드립니다. 비슷한 관심사를 가진 분들과 함께 즐거운 시간을 보내실 수 있을 것 같아요!"
+        yield (group_id, fallback_reason)
+        yield ("RECOMMEND_DONE", group_id, None)
 
 def extract_options_from_stream(raw: str) -> list[str] | None:
     import re

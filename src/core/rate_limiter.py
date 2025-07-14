@@ -64,6 +64,20 @@ class QueuedExecutor:
                         asyncio.to_thread(func, *args, **kwargs),
                         timeout=timeout,
                     )
+            except asyncio.TimeoutError:
+                raise RuntimeError(f"요청이 {timeout}초 내에 완료되지 않았습니다.")
             finally:
-                self.queue.get_nowait()
-                self.queue.task_done()
+                try:
+                    self.queue.get_nowait()
+                    self.queue.task_done()
+                except:
+                    pass  # Queue might be empty in error cases
+    
+    def get_queue_status(self) -> dict:
+        """Get current queue status for monitoring"""
+        return {
+            "queue_size": self.queue.qsize(),
+            "max_queue_size": self.queue.maxsize,
+            "available_workers": self.semaphore._value,
+            "qps_limit": self.qps
+        }

@@ -1,6 +1,6 @@
 from typing import List, Literal
 from src.vector_db.chroma_client import get_chroma_client
-from src.models.jina_embeddings_v3 import embed
+from src.models.e5_embeddings import embed
 from src.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"

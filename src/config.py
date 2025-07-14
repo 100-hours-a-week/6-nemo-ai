@@ -33,6 +33,13 @@ DATABASE = os.getenv("DATABASE")
 
 vLLM_URL = os.getenv("VLLM_API_URL")
 
+# vLLM Configuration
+VLLM_TIMEOUT = int(os.getenv("VLLM_TIMEOUT", "30"))
+VLLM_STREAM_TIMEOUT = int(os.getenv("VLLM_STREAM_TIMEOUT", "120"))
+VLLM_READ_TIMEOUT = int(os.getenv("VLLM_READ_TIMEOUT", "60"))
+VLLM_MAX_RETRIES = int(os.getenv("VLLM_MAX_RETRIES", "3"))
+
+KAFKA_BOOTSTRAP_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVER", "localhost:9092")
 
 if not PERSPECTIVE_API_KEY:
     raise ValueError("PERSPECTIVE_API_KEY가 .env에 설정되어 있지 않습니다.")
