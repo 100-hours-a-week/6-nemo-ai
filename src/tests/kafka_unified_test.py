@@ -221,7 +221,9 @@ class KafkaUnifiedTest:
             "name": "Unified Test AI Group",
             "goal": "Test unified consumer architecture with AI",
             "category": "Technology",
+            "location": "Seoul, Korea",
             "period": "2 weeks",
+            "maxUserCount": 25,
             "isPlanCreated": True
         }
         try:

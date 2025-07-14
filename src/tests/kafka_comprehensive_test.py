@@ -105,10 +105,12 @@ class KafkaValidator:
                     "name": "Test Study Group",
                     "goal": "Learn testing",
                     "category": "Education",
+                    "location": "Seoul, Korea",
                     "period": "1 month",
+                    "maxUserCount": 15,
                     "isPlanCreated": True
                 },
-                "required_fields": ["name", "goal", "category", "period", "isPlanCreated"]
+                "required_fields": ["name", "goal", "category", "location", "period", "maxUserCount", "isPlanCreated"]
             },
             {
                 "topic": "group-recommend-question",

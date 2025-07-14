@@ -102,7 +102,9 @@ class KafkaTestProducer:
             "name": "AI Study Group",
             "goal": "Learn machine learning and AI technologies together",
             "category": "Education",
+            "location": "Seoul, Korea",
             "period": "3 months",
+            "maxUserCount": 20,
             "isPlanCreated": True
         }
         

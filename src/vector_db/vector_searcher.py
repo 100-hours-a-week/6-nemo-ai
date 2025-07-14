@@ -221,10 +221,13 @@ def get_user_joined_group_ids(user_id: str) -> Set[str]:
         client = get_chroma_client()
         col = client.get_or_create_collection(name=USER_COLLECTION, embedding_function=embed)
 
-        # Try different user_id formats
-        user_variations = [str(user_id)]
-        if user_id.isdigit():
-            user_variations.append(int(user_id))
+        # Convert user_id to string first, then create variations
+        user_id_str = str(user_id)
+        user_variations = [user_id_str]
+        
+        # Only add integer variant if the string is actually a digit
+        if user_id_str.isdigit():
+            user_variations.append(int(user_id_str))
 
         joined_groups = set()
 

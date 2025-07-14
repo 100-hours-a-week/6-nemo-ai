@@ -96,8 +96,27 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
             timeout=VLLM_TIMEOUT + 10.0  # Add buffer for retries
         )
 
-        if not generated:
-            ai_logger.warning("[vLLM] 응답이 비어 있습니다.")
+        # Check for empty response and retry if needed
+        retry_count = 0
+        max_empty_retries = 2
+        
+        while (not generated or (isinstance(generated, str) and generated.strip() == "")) and retry_count < max_empty_retries:
+            ai_logger.warning(f"[vLLM] 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
+            retry_count += 1
+            await asyncio.sleep(1.0)  # Wait before retry
+            
+            try:
+                generated = await queued_executor.submit(
+                    vllm_manager.execute_with_retry,
+                    make_request,
+                    timeout=VLLM_TIMEOUT + 10.0
+                )
+            except Exception as e:
+                ai_logger.warning(f"[vLLM] 재시도 중 오류: {e}")
+                break
+
+        if not generated or (isinstance(generated, str) and generated.strip() == ""):
+            ai_logger.warning("[vLLM] 모든 재시도 후에도 응답이 비어 있습니다.")
             return await _get_fallback_response(prompt)
 
         if isinstance(generated, list):
