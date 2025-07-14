@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Literal, Optional
 from src.vector_db.chroma_client import get_chroma_client
-from src.models.jina_embeddings_v3 import embed
+from src.models.e5_embeddings import embed
 from src.core.ai_logger import get_ai_logger
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
@@ -22,7 +22,9 @@ def search_similar_documents(
         client = get_chroma_client()
         col = client.get_or_create_collection(name=collection, embedding_function=embed)
 
-        vector = embed(query)[0]
+        # E5 models benefit from query prefix for search
+        query_with_prefix = f"query: {query}"
+        vector = embed(query_with_prefix)[0]
         results = col.query(
             query_embeddings=[vector],
             n_results=top_k * 2,

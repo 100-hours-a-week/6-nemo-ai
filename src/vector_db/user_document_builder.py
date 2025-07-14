@@ -1,5 +1,5 @@
 from src.vector_db.chroma_client import get_chroma_client
-from src.models.jina_embeddings_v3 import embed
+from src.models.e5_embeddings import embed
 
 def build_user_document(userId: str, groupId: str) -> list[dict]:
     if not userId or not groupId:
