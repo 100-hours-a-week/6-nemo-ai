@@ -19,11 +19,9 @@ def get_producer(bootstrap_servers: str | None = None) -> AIOKafkaProducer:
     return AIOKafkaProducer(
         bootstrap_servers=bootstrap_servers or KAFKA_BOOTSTRAP_SERVER,
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-        # Add connection timeout and retry settings
-        request_timeout_ms=2000,         # 2 second timeout (reduced)
-        retry_backoff_ms=100,            # 100ms between retries
-        max_in_flight_requests_per_connection=1,
-        retries=3,                       # Reduce retries to minimize delay
+        # Production-ready settings for aiokafka 0.10.0
+        request_timeout_ms=30000,        # 30 second timeout for production
+        compression_type='gzip',         # Enable compression
     )
 
 
@@ -39,12 +37,11 @@ def get_consumer(
         value_deserializer=lambda v: json.loads(v.decode("utf-8")),
         auto_offset_reset="earliest",
         enable_auto_commit=False,
-        # Add aggressive connection timeout and session settings
-        request_timeout_ms=2000,         # 2 second timeout (reduced)
-        session_timeout_ms=3000,         # 3 second session timeout (reduced)
-        heartbeat_interval_ms=1000,      # 1 second heartbeat (reduced)
-        max_poll_interval_ms=5000,       # 5 second max poll interval (reduced)
-        retry_backoff_ms=100,            # 100ms between retries
-        metadata_max_age_ms=5000,        # 5 second metadata cache (reduced)
-        connections_max_idle_ms=5000,    # 5 second idle connection timeout (reduced)
+        request_timeout_ms=30000,        # 30 second timeout
+        session_timeout_ms=60000,        # 60 second session timeout
+        heartbeat_interval_ms=20000,     # 20 second heartbeat
+        max_poll_interval_ms=300000,     # 5 minute max poll interval
+        fetch_max_wait_ms=1000,          # Max wait for fetch
+        fetch_min_bytes=1,               # Min bytes to fetch
+        fetch_max_bytes=52428800,        # 50MB max fetch size
     )
