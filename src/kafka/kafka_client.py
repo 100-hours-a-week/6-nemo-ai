@@ -23,7 +23,7 @@ def get_producer(bootstrap_servers: str | None = None) -> AIOKafkaProducer:
         request_timeout_ms=2000,         # 2 second timeout (reduced)
         retry_backoff_ms=100,            # 100ms between retries
         max_in_flight_requests_per_connection=1,
-        retries=1,                       # Reduce retries to minimize delay
+        retries=3,                       # Reduce retries to minimize delay
     )
 
 
