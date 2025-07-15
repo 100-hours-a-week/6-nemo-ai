@@ -37,3 +37,5 @@ database/
 # Monitoring & Observability
 monitoring/grafana-data/
 monitoring/prometheus-data/
+
+scripts/

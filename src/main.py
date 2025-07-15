@@ -35,6 +35,17 @@ ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging �
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
+# Suppress Kafka logging completely to prevent connection error spam
+logging.getLogger('aiokafka').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.consumer').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.producer').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.cluster').setLevel(logging.CRITICAL)
+logging.getLogger('kafka').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.cluster').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.protocol').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.consumer').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.producer').setLevel(logging.CRITICAL)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

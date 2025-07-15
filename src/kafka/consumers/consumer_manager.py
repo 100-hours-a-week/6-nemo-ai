@@ -101,29 +101,24 @@ class KafkaConsumerManager:
             return False
     
     async def _check_topic_exists(self, topic: str) -> bool:
-        """Check if a specific topic exists - simplified for aiokafka 0.10.0"""
+        """Check if a specific topic exists"""
         try:
-            # For aiokafka 0.10.0, the admin client has limited functionality
-            # Instead, try to create a consumer and see if it fails
-            from aiokafka import AIOKafkaConsumer
+            from aiokafka.admin import AIOKafkaAdminClient
             
-            test_consumer = AIOKafkaConsumer(
-                topic,
+            admin_client = AIOKafkaAdminClient(
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
-                group_id=f"{self.consumer_group_id}-topic-test",
-                auto_offset_reset="latest",
-                enable_auto_commit=False,
                 request_timeout_ms=5000
             )
             
-            await test_consumer.start()
-            await test_consumer.stop()
-            return True  # If we got here, topic exists
+            await admin_client.start()
+            try:
+                metadata = await admin_client.describe_topics([topic])
+                return topic in metadata
+            finally:
+                await admin_client.close()
                 
-        except Exception as e:
-            # For aiokafka 0.10.0, assume topic exists if we can't check reliably
-            logger.debug(f"[Kafka] Topic check failed for {topic}, assuming exists: {type(e).__name__}")
-            return True  # Fail-safe: assume topic exists
+        except Exception:
+            return False
     
     async def start_consumers(self):
         """Start Kafka consumers with bulletproof error handling"""

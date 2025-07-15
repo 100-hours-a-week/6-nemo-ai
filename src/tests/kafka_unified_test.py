@@ -56,7 +56,7 @@ class KafkaUnifiedTest:
         """Get list of current topics"""
         try:
             result = subprocess.run(
-                "docker exec -it kafka-local kafka-topics.sh --bootstrap-server localhost:9092 --list",
+                "docker exec -it kafka kafka-topics.sh --bootstrap-server localhost:9092 --list",
                 shell=True, capture_output=True, text=True
             )
             if result.returncode == 0:
@@ -78,7 +78,7 @@ class KafkaUnifiedTest:
         if topics:
             print(f"📋 Deleting {len(topics)} existing topics...")
             for topic in topics:
-                cmd = f"docker exec -it kafka-local kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic {topic}"
+                cmd = f"docker exec -it kafka kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic {topic}"
                 self.run_command(cmd)
         
         # Wait for deletion
@@ -109,6 +109,53 @@ class KafkaUnifiedTest:
             print(f"❌ Missing topics: {missing}")
             return False
     
+    # ==================== MONITORING FUNCTIONS ====================
+    
+    async def monitor_kafka_setup(self):
+        """Monitor Kafka consumer setup (from kafka_monitor.py)"""
+        print("🔍 Monitoring Kafka Consumer Setup...")
+        
+        admin_client = AIOKafkaAdminClient(
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
+            request_timeout_ms=10000
+        )
+        
+        try:
+            await admin_client.start()
+            
+            # Check topics
+            topics = ["GROUP_EVENT", "GROUP_RECOMMEND_QUESTION", "GROUP_RECOMMEND"]
+            existing_topics = await admin_client.describe_topics(topics)
+            
+            for topic in topics:
+                if topic in existing_topics:
+                    topic_metadata = existing_topics[topic]
+                    partition_count = len(topic_metadata.partitions)
+                    print(f"✅ {topic}: {partition_count} partitions")
+                else:
+                    print(f"❌ {topic}: Not found")
+            
+            # Check consumer groups
+            try:
+                from src.config import KAFKA_CONSUMER_GROUP_ID
+                group_metadata = await admin_client.describe_consumer_groups([KAFKA_CONSUMER_GROUP_ID])
+                if KAFKA_CONSUMER_GROUP_ID in group_metadata:
+                    group_info = group_metadata[KAFKA_CONSUMER_GROUP_ID]
+                    print(f"✅ Consumer Group: {KAFKA_CONSUMER_GROUP_ID}")
+                    print(f"   Members: {len(group_info.members)}")
+                else:
+                    print(f"ℹ️ Consumer group {KAFKA_CONSUMER_GROUP_ID} not active yet")
+            except Exception as e:
+                print(f"ℹ️ Consumer group check: {e}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Monitoring failed: {e}")
+            return False
+        finally:
+            await admin_client.close()
+
     # ==================== CONNECTIVITY TESTING ====================
     
     async def test_kafka_connectivity(self):
@@ -167,52 +214,80 @@ class KafkaUnifiedTest:
                 print(f"⚠️ Error stopping producer: {e}")
     
     async def send_test_messages(self):
-        """Send test messages to all unified topics"""
-        print("📤 Sending test messages to unified topics...")
+        """Send comprehensive test messages to all unified topics (enhanced from kafka_producer_simulation.py)"""
+        print("📤 Sending comprehensive test messages to unified topics...")
         
-        # Test GROUP_EVENT messages
+        # Enhanced GROUP_EVENT messages with more realistic data
         print("   📧 Testing GROUP_EVENT...")
         group_events = [
             {
                 "eventType": "GROUP_CREATED",
                 "data": {
-                    "groupId": 9999,
-                    "name": "Unified Test Group",
+                    "groupId": 5001,
+                    "name": "AI Study Group",
                     "category": "Technology",
-                    "summary": "Testing unified consumer architecture",
-                    "description": "Integration test for unified Kafka system",
-                    "plan": "1. Test consumers\n2. Verify processing\n3. Check integration",
-                    "location": "Seoul, Korea",
+                    "summary": "Weekly AI and machine learning discussions",
+                    "description": "Join us to explore the latest in AI, share projects, and learn together",
+                    "plan": "Meet every Thursday 7PM at Tech Hub, discuss papers, work on projects",
+                    "location": "Gangnam Tech Hub, Seoul",
                     "currentUserCount": 1,
-                    "maxUserCount": 20,
-                    "imageUrl": "test.jpg",
-                    "tags": ["test", "unified", "kafka"]
+                    "maxUserCount": 12,
+                    "imageUrl": "ai-study-group.jpg",
+                    "tags": ["AI", "Machine Learning", "Technology", "Study"]
                 },
-                "timestamp": [2025, 7, 14, 16, 0, 0, 0]
+                "timestamp": [2025, 7, 15, 14, 0, 0, 0]
             },
             {
                 "eventType": "GROUP_JOINED",
-                "data": {"userId": 1001, "groupId": 9999},
-                "timestamp": [2025, 7, 14, 16, 5, 0, 0]
+                "data": {
+                    "userId": 201,
+                    "groupId": 5001
+                },
+                "timestamp": [2025, 7, 15, 14, 5, 0, 0]
+            },
+            {
+                "eventType": "GROUP_CREATED",
+                "data": {
+                    "groupId": 5002,
+                    "name": "Weekend Hiking Club",
+                    "category": "Outdoor",
+                    "summary": "Explore beautiful hiking trails around Seoul",
+                    "description": "Every weekend we discover new mountains and trails, suitable for all levels",
+                    "plan": "Saturday morning hikes, difficulty varies, equipment sharing available",
+                    "location": "Various mountains near Seoul",
+                    "currentUserCount": 1,
+                    "maxUserCount": 20,
+                    "imageUrl": "hiking-club.jpg",
+                    "tags": ["Hiking", "Outdoor", "Weekend", "Nature"]
+                },
+                "timestamp": [2025, 7, 15, 14, 15, 0, 0]
             }
         ]
         
         for event in group_events:
             try:
                 await self.producer.send_and_wait("GROUP_EVENT", event)
-                print(f"      ✅ Sent: {event['eventType']}")
+                event_type = event["eventType"]
+                if event_type == "GROUP_CREATED":
+                    group_name = event["data"]["name"]
+                    print(f"      ✅ Sent {event_type}: {group_name}")
+                else:
+                    user_id = event["data"]["userId"]
+                    group_id = event["data"]["groupId"]
+                    print(f"      ✅ Sent {event_type}: User {user_id} → Group {group_id}")
+                await asyncio.sleep(0.5)
             except Exception as e:
                 print(f"      ❌ Failed: {event['eventType']} - {e}")
         
         # Test GROUP_GENERATE
         print("   🤖 Testing GROUP_GENERATE...")
         generate_request = {
-            "name": "Unified Test AI Group",
-            "goal": "Test unified consumer architecture with AI",
-            "category": "Technology",
+            "name": "Photography Meetup",
+            "goal": "Learn and practice photography techniques together",
+            "category": "Arts",
             "location": "Seoul, Korea",
-            "period": "2 weeks",
-            "maxUserCount": 25,
+            "period": "Monthly",
+            "maxUserCount": 15,
             "isPlanCreated": True
         }
         try:
@@ -221,43 +296,118 @@ class KafkaUnifiedTest:
         except Exception as e:
             print(f"      ❌ Failed: Group generation - {e}")
         
-        # Test GROUP_RECOMMEND_QUESTION
+        # Enhanced GROUP_RECOMMEND_QUESTION messages
         print("   ❓ Testing GROUP_RECOMMEND_QUESTION...")
-        question_request = {
-            "type": "CREATE_QUESTION",
-            "payload": {
-                "sessionId": "unified-test-session",
-                "userId": 1001,
-                "answer": "Testing unified consumer system"
+        question_requests = [
+            {
+                "type": "CREATE_QUESTION",
+                "payload": {
+                    "sessionId": "test-session-001",
+                    "userId": 201,
+                    "answer": "I'm passionate about technology and love learning new programming languages"
+                }
+            },
+            {
+                "type": "CREATE_QUESTION", 
+                "payload": {
+                    "sessionId": "test-session-002",
+                    "userId": 202,
+                    "answer": "I enjoy outdoor activities, especially hiking and camping on weekends"
+                }
             }
-        }
-        try:
-            await self.producer.send_and_wait("GROUP_RECOMMEND_QUESTION", question_request)
-            print("      ✅ Sent: Question generation request")
-        except Exception as e:
-            print(f"      ❌ Failed: Question generation - {e}")
+        ]
         
-        # Test GROUP_RECOMMEND
+        for request in question_requests:
+            try:
+                await self.producer.send_and_wait("GROUP_RECOMMEND_QUESTION", request)
+                session_id = request["payload"]["sessionId"]
+                user_id = request["payload"]["userId"]
+                print(f"      ✅ Sent question request: Session {session_id}, User {user_id}")
+                await asyncio.sleep(1)
+            except Exception as e:
+                print(f"      ❌ Failed: Question generation - {e}")
+        
+        # Enhanced GROUP_RECOMMEND messages
         print("   💡 Testing GROUP_RECOMMEND...")
-        recommend_request = {
-            "type": "RECOMMEND_REQUEST",
-            "payload": {
-                "sessionId": "unified-test-session",
-                "userId": 1001,
-                "messages": [
-                    {"role": "user", "text": "Test unified system"},
-                    {"role": "assistant", "text": "What would you like to test?"},
-                    {"role": "user", "text": "Consumer processing and integration"}
-                ]
+        recommend_requests = [
+            {
+                "type": "RECOMMEND_REQUEST",
+                "payload": {
+                    "sessionId": "test-session-001",
+                    "userId": 201,
+                    "messages": [
+                        {
+                            "role": "user", 
+                            "text": "I answered that I'm passionate about technology and programming"
+                        },
+                        {
+                            "role": "assistant",
+                            "text": "What specific areas of technology interest you most?"
+                        },
+                        {
+                            "role": "user",
+                            "text": "AI, machine learning, and web development"
+                        }
+                    ]
+                }
+            },
+            {
+                "type": "RECOMMEND_REQUEST",
+                "payload": {
+                    "sessionId": "test-session-002", 
+                    "userId": 202,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "text": "I mentioned I enjoy hiking and outdoor activities"
+                        },
+                        {
+                            "role": "assistant", 
+                            "text": "Do you prefer group activities or solo adventures?"
+                        },
+                        {
+                            "role": "user",
+                            "text": "I love group activities, meeting new people while exploring nature"
+                        }
+                    ]
+                }
             }
-        }
-        try:
-            await self.producer.send_and_wait("GROUP_RECOMMEND", recommend_request)
-            print("      ✅ Sent: Recommendation request")
-        except Exception as e:
-            print(f"      ❌ Failed: Recommendation - {e}")
+        ]
         
-        print("✅ Test message sending completed")
+        for request in recommend_requests:
+            try:
+                await self.producer.send_and_wait("GROUP_RECOMMEND", request)
+                session_id = request["payload"]["sessionId"]
+                user_id = request["payload"]["userId"]
+                print(f"      ✅ Sent recommendation request: Session {session_id}, User {user_id}")
+                await asyncio.sleep(1)
+            except Exception as e:
+                print(f"      ❌ Failed: Recommendation - {e}")
+        
+        # Test invalid messages for DLQ functionality
+        print("   💀 Testing DLQ with invalid messages...")
+        invalid_messages = [
+            {
+                "topic": "GROUP_EVENT",
+                "message": {
+                    "eventType": "INVALID_EVENT_TYPE",
+                    "data": {"invalidField": "This will cause validation error"},
+                    "timestamp": "invalid-timestamp-format"
+                }
+            }
+        ]
+        
+        for invalid_msg in invalid_messages:
+            try:
+                topic = invalid_msg["topic"]
+                message = invalid_msg["message"]
+                await self.producer.send_and_wait(topic, message)
+                print(f"      ✅ Sent invalid message to {topic} (should trigger DLQ)")
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                print(f"      ❌ Failed to send invalid message: {e}")
+        
+        print("✅ Comprehensive test message sending completed")
     
     # ==================== CONSUMER TESTING ====================
     
@@ -333,6 +483,108 @@ class KafkaUnifiedTest:
         except Exception as e:
             print(f"⚠️ Error stopping server: {e}")
     
+    # ==================== CONSUMER VALIDATION ====================
+    
+    async def test_consumer_rebalancing(self):
+        """Test consumer rebalancing (from kafka_consumer_validation.py)"""
+        print("⚖️ Testing consumer rebalancing...")
+        
+        try:
+            from src.config import KAFKA_CONSUMER_GROUP_ID
+            from aiokafka import AIOKafkaConsumer
+            
+            consumers = []
+            
+            # Start first consumer
+            print("👷 Starting first consumer instance...")
+            consumer1 = AIOKafkaConsumer(
+                "GROUP_EVENT",
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
+                group_id=f"{KAFKA_CONSUMER_GROUP_ID}-rebalance-test",
+                auto_offset_reset="latest",
+                enable_auto_commit=False,
+                session_timeout_ms=10000,
+                heartbeat_interval_ms=3000
+            )
+            await consumer1.start()
+            consumers.append(consumer1)
+            
+            await asyncio.sleep(3)  # Wait for initial assignment
+            partitions1 = consumer1.assignment()
+            print(f"  📊 Consumer 1 partitions: {[p.partition for p in partitions1]}")
+            
+            # Start second consumer
+            print("👷 Starting second consumer instance...")
+            consumer2 = AIOKafkaConsumer(
+                "GROUP_EVENT",
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
+                group_id=f"{KAFKA_CONSUMER_GROUP_ID}-rebalance-test",
+                auto_offset_reset="latest",
+                enable_auto_commit=False,
+                session_timeout_ms=10000,
+                heartbeat_interval_ms=3000
+            )
+            await consumer2.start()
+            consumers.append(consumer2)
+            
+            await asyncio.sleep(5)  # Wait for rebalancing
+            partitions1 = consumer1.assignment()
+            partitions2 = consumer2.assignment()
+            print(f"  📊 After 2nd consumer - Consumer 1: {[p.partition for p in partitions1]}")
+            print(f"  📊 After 2nd consumer - Consumer 2: {[p.partition for p in partitions2]}")
+            
+            # Start third consumer
+            print("👷 Starting third consumer instance...")
+            consumer3 = AIOKafkaConsumer(
+                "GROUP_EVENT",
+                bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
+                group_id=f"{KAFKA_CONSUMER_GROUP_ID}-rebalance-test",
+                auto_offset_reset="latest",
+                enable_auto_commit=False,
+                session_timeout_ms=10000,
+                heartbeat_interval_ms=3000
+            )
+            await consumer3.start()
+            consumers.append(consumer3)
+            
+            await asyncio.sleep(5)  # Wait for final rebalancing
+            partitions1 = consumer1.assignment()
+            partitions2 = consumer2.assignment()
+            partitions3 = consumer3.assignment()
+            
+            print("📊 Final partition assignment after 3rd consumer:")
+            print(f"  👷 Consumer 1: {[p.partition for p in partitions1]}")
+            print(f"  👷 Consumer 2: {[p.partition for p in partitions2]}")
+            print(f"  👷 Consumer 3: {[p.partition for p in partitions3]}")
+            
+            # Verify all partitions are assigned
+            all_assigned = set()
+            for consumer in consumers:
+                assigned = {p.partition for p in consumer.assignment()}
+                all_assigned.update(assigned)
+            
+            expected_partitions = {0, 1, 2}
+            success = all_assigned == expected_partitions
+            
+            # Cleanup
+            for consumer in consumers:
+                try:
+                    await consumer.stop()
+                except Exception:
+                    pass
+            
+            if success:
+                print("✅ Consumer rebalancing: PASS - All partitions properly distributed")
+                return True
+            else:
+                missing = expected_partitions - all_assigned
+                print(f"❌ Consumer rebalancing: FAIL - Missing partitions: {missing}")
+                return False
+            
+        except Exception as e:
+            print(f"❌ Consumer rebalancing test failed: {e}")
+            return False
+
     # ==================== INTEGRATION TESTING ====================
     
     async def run_integration_test(self):
@@ -443,10 +695,14 @@ class KafkaUnifiedTest:
                 print("❌ Topic reset failed")
                 all_passed = False
         
-        # 2. Connectivity Test
-        print(f"\n{'='*20} CONNECTIVITY TEST {'='*20}")
+        # 2. Connectivity and Monitoring Test
+        print(f"\n{'='*20} CONNECTIVITY & MONITORING TEST {'='*20}")
         if not await self.test_kafka_connectivity():
             print("❌ Connectivity test failed")
+            all_passed = False
+        
+        if not await self.monitor_kafka_setup():
+            print("❌ Monitoring test failed")
             all_passed = False
         
         # 3. Producer Test
@@ -463,7 +719,13 @@ class KafkaUnifiedTest:
         print(f"\n{'='*20} MESSAGE VERIFICATION {'='*20}")
         self.verify_topic_messages()
         
-        # 5. Integration Test
+        # 5. Consumer Rebalancing Test
+        print(f"\n{'='*20} CONSUMER REBALANCING TEST {'='*20}")
+        if not await self.test_consumer_rebalancing():
+            print("❌ Consumer rebalancing test failed")
+            all_passed = False
+        
+        # 6. Integration Test
         print(f"\n{'='*20} INTEGRATION TEST {'='*20}")
         if not await self.run_integration_test():
             print("❌ Integration test failed")

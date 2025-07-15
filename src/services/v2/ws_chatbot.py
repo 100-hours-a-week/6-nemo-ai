@@ -25,12 +25,23 @@ class PrefixParser:
     
     def process_chunk(self, chunk: str) -> str | None:
         """Process a chunk and return the cleaned text or None if still waiting for prefix"""
+        # Always filter out newlines and carriage returns from the chunk
+        chunk = chunk.replace('\n', '').replace('\r', '')
+        
         if self.prefix_processed:
-            return chunk
+            # Even after prefix is processed, check for any remaining prefix patterns in the middle
+            cleaned_chunk = chunk
+            for prefix in self.prefixes:
+                if prefix in cleaned_chunk:
+                    # Remove the prefix and everything before it
+                    prefix_idx = cleaned_chunk.find(prefix)
+                    cleaned_chunk = cleaned_chunk[prefix_idx + len(prefix):].lstrip()
+                    ai_logger.info(f"[중간 접두어 제거됨] 제거된 접두어: {prefix}")
+            return cleaned_chunk if cleaned_chunk else None
         
         self.buffer += chunk
         
-        # Check for complete prefix match
+        # Check for complete prefix match at the beginning
         prefix_found = False
         prefix_length = 0
         
@@ -41,7 +52,7 @@ class PrefixParser:
                 break
         
         if prefix_found:
-            # Remove prefix and any following spaces
+            # Remove prefix and any following spaces/newlines
             remaining_text = self.buffer[prefix_length:].lstrip()
             self.prefix_processed = True
             ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {self.buffer[:prefix_length]}")
@@ -61,7 +72,9 @@ class PrefixParser:
             else:
                 # Not a prefix, start normal streaming with accumulated buffer
                 self.prefix_processed = True
-                return self.buffer
+                # Clean any newlines and carriage returns from the buffer before returning
+                cleaned_buffer = self.buffer.replace('\n', '').replace('\r', '')
+                return cleaned_buffer if cleaned_buffer else None
 
 
 async def stream_question_chunks(answer: str | None, user_id: str, session_id: str):

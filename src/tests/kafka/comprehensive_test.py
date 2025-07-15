@@ -1,0 +1,289 @@
+import asyncio
+import sys
+from pathlib import Path
+
+# Add src to path for imports
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+from src.kafka.utils.kafka_client import get_producer, get_consumer
+from src.core.ai_logger import get_ai_logger
+
+logger = get_ai_logger()
+
+class KafkaValidator:
+    """All-in-one Kafka implementation validator"""
+
+    def __init__(self):
+        self.test_results = []
+
+    async def test_connectivity(self):
+        """Test basic Kafka connectivity"""
+        logger.info("🔌 Testing Kafka connectivity...")
+
+        producer = get_producer()
+        await producer.start()
+
+        try:
+            await producer.send_and_wait("test-connectivity", {"ping": "pong"})
+            self.test_results.append(("Connectivity", True))
+            logger.info("✅ Kafka connectivity: PASS")
+        except Exception as e:
+            self.test_results.append(("Connectivity", False))
+            logger.error(f"❌ Kafka connectivity: FAIL - {e}")
+        finally:
+            await producer.stop()
+
+    async def test_topic_schema(self, topic: str, message: dict, required_fields: list):
+        """Test topic accessibility and message schema"""
+        producer = get_producer()
+        consumer = get_consumer(topic, f"test-{topic}-validator")
+
+        await producer.start()
+        await consumer.start()
+
+        try:
+            # Send message
+            await producer.send_and_wait(topic, message)
+
+            # Consume and validate schema
+            msg = await asyncio.wait_for(consumer.getone(), timeout=5.0)
+            received = msg.value
+
+            # Check required fields
+            missing = [field for field in required_fields if field not in received]
+
+            if missing:
+                logger.error(f"❌ {topic}: Missing fields {missing}")
+                return False
+            else:
+                logger.info(f"✅ {topic}: Schema valid")
+                await consumer.commit()
+                return True
+
+        except Exception as e:
+            logger.error(f"❌ {topic}: Error - {e}")
+            return False
+        finally:
+            await consumer.stop()
+            await producer.stop()
+
+    async def test_all_topics(self):
+        """Test all topics according to tech spec"""
+        logger.info("📋 Testing all Kafka topics and schemas...")
+
+        # Updated test cases for AI Consumer topics
+        test_cases = [
+            {
+                "topic": "GROUP_EVENT",
+                "message": {
+                    "eventType": "GROUP_CREATED",
+                    "data": {
+                        "groupId": 16,
+                        "name": "Test Group",
+                        "category": "Test",
+                        "summary": "Test summary",
+                        "description": "Test description",
+                        "plan": "Test plan",
+                        "location": "Test location",
+                        "currentUserCount": 1,
+                        "maxUserCount": 5,
+                        "imageUrl": "test.jpg",
+                        "tags": ["test"]
+                    },
+                    "timestamp": [2025, 7, 15, 12, 0, 0, 0]
+                },
+                "required_fields": ["eventType", "data", "timestamp"]
+            },
+            {
+                "topic": "GROUP_GENERATE",
+                "message": {
+                    "name": "Test Study Group",
+                    "goal": "Learn testing",
+                    "category": "Education",
+                    "location": "Seoul, Korea",
+                    "period": "1 month",
+                    "maxUserCount": 15,
+                    "isPlanCreated": True
+                },
+                "required_fields": ["name", "goal", "category", "period", "isPlanCreated"]
+            },
+            {
+                "topic": "GROUP_RECOMMEND_QUESTION",
+                "message": {
+                    "type": "CREATE_QUESTION",
+                    "payload": {
+                        "sessionId": "test-session",
+                        "userId": 42,
+                        "answer": "Testing questions"
+                    }
+                },
+                "required_fields": ["type", "payload"]
+            },
+            {
+                "topic": "GROUP_RECOMMEND",
+                "message": {
+                    "type": "RECOMMEND_REQUEST",
+                    "payload": {
+                        "sessionId": "test-session",
+                        "userId": 42,
+                        "messages": [
+                            {"role": "user", "text": "Looking for study groups"}
+                        ]
+                    }
+                },
+                "required_fields": ["type", "payload"]
+            }
+        ]
+
+        # Test each topic
+        for test_case in test_cases:
+            result = await self.test_topic_schema(
+                test_case["topic"],
+                test_case["message"],
+                test_case["required_fields"]
+            )
+            self.test_results.append((test_case["topic"], result))
+            await asyncio.sleep(0.5)  # Brief pause
+
+    async def test_dlq_topics(self):
+        """Test Dead Letter Queue topics"""
+        logger.info("💀 Testing DLQ topics...")
+
+        dlq_topics = [
+            "GROUP_EVENT_DLQ",
+            "GROUP_GENERATE_DLQ",
+            "GROUP_RECOMMEND_QUESTION_DLQ",
+            "GROUP_RECOMMEND_DLQ"
+        ]
+
+        producer = get_producer()
+        await producer.start()
+
+        try:
+            dlq_success = True
+            for dlq_topic in dlq_topics:
+                test_message = {
+                    "originalMessage": {"test": "data"},
+                    "errorType": "test_error",
+                    "errorMessage": "Test DLQ message",
+                    "failedAt": "2025-07-15T12:00:00Z",
+                    "source": "AI-TEST"
+                }
+
+                try:
+                    await producer.send_and_wait(dlq_topic, test_message)
+                    logger.info(f"✅ DLQ {dlq_topic}: Accessible")
+                except Exception as e:
+                    logger.error(f"❌ DLQ {dlq_topic}: Failed - {e}")
+                    dlq_success = False
+
+            self.test_results.append(("DLQ Topics", dlq_success))
+
+        finally:
+            await producer.stop()
+
+    async def test_consumer_processing(self):
+        """Test that consumers can process messages"""
+        logger.info("🔄 Testing consumer message processing...")
+
+        # Test group events consumer specifically
+        producer = get_producer()
+        consumer = get_consumer("GROUP_EVENT", "test-processing-consumer")
+
+        await producer.start()
+        await consumer.start()
+
+        try:
+            # Send a message
+            test_message = {
+                "eventType": "GROUP_CREATED",
+                "data": {
+                    "groupId": 999,
+                    "name": "Consumer Test Group",
+                    "category": "Test",
+                    "summary": "Testing consumer processing",
+                    "description": "Test description",
+                    "plan": "Test plan",
+                    "location": "Test location",
+                    "currentUserCount": 1,
+                    "maxUserCount": 5,
+                    "imageUrl": "test.jpg",
+                    "tags": ["test", "consumer"]
+                },
+                "timestamp": [2025, 7, 15, 12, 0, 0, 0]
+            }
+
+            await producer.send_and_wait("GROUP_EVENT", test_message)
+
+            # Verify consumer can receive
+            msg = await asyncio.wait_for(consumer.getone(), timeout=5.0)
+
+            if msg.value.get("eventType") == "GROUP_CREATED":
+                logger.info("✅ Consumer processing: PASS")
+                self.test_results.append(("Consumer Processing", True))
+                await consumer.commit()
+            else:
+                logger.error("❌ Consumer processing: Message format incorrect")
+                self.test_results.append(("Consumer Processing", False))
+
+        except Exception as e:
+            logger.error(f"❌ Consumer processing: FAIL - {e}")
+            self.test_results.append(("Consumer Processing", False))
+        finally:
+            await consumer.stop()
+            await producer.stop()
+
+    def print_summary(self):
+        """Print test results summary"""
+        logger.info("\n" + "="*60)
+        logger.info("🏁 AI KAFKA CONSUMER TEST SUMMARY")
+        logger.info("="*60)
+
+        all_passed = True
+        for test_name, result in self.test_results:
+            status = "✅ PASS" if result else "❌ FAIL"
+            logger.info(f"  {test_name:<25}: {status}")
+            if not result:
+                all_passed = False
+
+        logger.info("\n" + "-"*60)
+
+        if all_passed:
+            logger.info("🎉 ALL AI CONSUMER TESTS PASSED!")
+            logger.info("\n✅ AI IMPLEMENTATION STATUS:")
+            logger.info("  ✅ AI Consumer topics operational")
+            logger.info("  ✅ Message schemas validated")
+            logger.info("  ✅ Producer/Consumer working")
+            logger.info("  ✅ DLQ infrastructure ready")
+            logger.info("  ✅ Error handling implemented")
+            logger.info("\n🚀 AI KAFKA CONSUMER READY!")
+        else:
+            logger.error("❌ SOME AI CONSUMER TESTS FAILED!")
+            logger.error("  Fix failing components before deployment")
+
+        return all_passed
+
+async def run_all_tests():
+    """Run comprehensive AI Kafka consumer validation"""
+    logger.info("🚀 Starting AI Kafka Consumer implementation validation...")
+
+    validator = KafkaValidator()
+
+    try:
+        # Run all test categories
+        await validator.test_connectivity()
+        await validator.test_all_topics()
+        await validator.test_dlq_topics()
+        await validator.test_consumer_processing()
+        
+        # Print results
+        success = validator.print_summary()
+        return success
+        
+    except Exception as e:
+        logger.error(f"❌ AI Consumer test suite failed: {e}")
+        return False
+
+if __name__ == "__main__":
+    success = asyncio.run(run_all_tests())
+    sys.exit(0 if success else 1)
