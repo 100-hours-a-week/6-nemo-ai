@@ -52,7 +52,6 @@ class PrefixParser:
                 break
         
         if prefix_found:
-            # Remove prefix and any following spaces/newlines
             remaining_text = self.buffer[prefix_length:].lstrip()
             self.prefix_processed = True
             ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {self.buffer[:prefix_length]}")

@@ -455,6 +455,7 @@ class KafkaConsumerManager:
                     
                     # Stream result to client via WebSocket if connected
                     session_id = request_payload.get("sessionId")
+
                     if session_id and websocket_manager.is_connected(session_id):
                         ws_message = {
                             "type": "QUESTION_GENERATED",

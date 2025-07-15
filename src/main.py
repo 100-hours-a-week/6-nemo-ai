@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+import asyncio
 # 외부 라이브러리
 import torch
 from fastapi import FastAPI
@@ -81,7 +82,6 @@ async def lifespan(app: FastAPI):
     if kafka_manager:
         await kafka_manager.stop_consumers()
         ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
-
 
 app = FastAPI(
     title="NE:MO AI API",
