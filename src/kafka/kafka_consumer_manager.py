@@ -235,13 +235,11 @@ class KafkaConsumerManager:
             logger.warning("[Kafka] No consumers could be started")
     
     async def _create_consumer(self, topic: str, is_dlq: bool = False) -> Optional['AIOKafkaConsumer']:
-        """Create a Kafka consumer for the specified topic with codec support"""
         try:
             from aiokafka import AIOKafkaConsumer
             
             group_id = f"{self.consumer_group_id}-dlq" if is_dlq else self.consumer_group_id
             
-            # Try to create consumer with safe deserializer that handles codec errors
             consumer = AIOKafkaConsumer(
                 topic,
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
@@ -452,8 +450,12 @@ class KafkaConsumerManager:
                         if event_type == "GROUP_JOINED":
                             docs = build_user_document(user_data.userId, user_data.groupId)
                             add_documents_to_vector_db(docs, "user-activity")
-                            logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
-                        else:  # GROUP_LEFT
+                            logger.info(f"[ChromaDB] Added user {event.data.userId} to group {event.data.groupId}")
+                        else:
+                            raise ValueError("GROUP_JOINED event missing user or group data")
+                            
+                    elif event.eventType == "GROUP_LEFT":
+                        if event.data and hasattr(event.data, 'userId') and hasattr(event.data, 'groupId'):
                             client = get_chroma_client()
                             col = client.get_or_create_collection("user-activity")
                             col.delete(ids=[f"user-{user_data.userId}-{user_data.groupId}"])
@@ -659,6 +661,34 @@ class KafkaConsumerManager:
     
     async def _process_group_events_dlq(self, consumer, topic: str):
         """Process GROUP_EVENT_DLQ - handle failed group events"""
+        logger.info(f"[Kafka] Starting DLQ consumer for {topic}")
+        
+        try:
+            async for msg in consumer:
+                if msg.value is None:
+                    await consumer.commit()
+                    continue
+                    
+                try:
+                    from src.schemas.v2.kafka_events import DLQMessage
+                    dlq_message = DLQMessage(**msg.value)
+                    
+                    logger.warning(f"[DLQ] Processing failed GROUP_EVENT: {dlq_message.errorType}")
+                    logger.debug(f"[DLQ] Original message: {dlq_message.originalMessage}")
+                    logger.debug(f"[DLQ] Error: {dlq_message.errorMessage}")
+                    
+                    # Could implement retry logic here or manual intervention alerts
+                    await consumer.commit()
+                    
+                except Exception as e:
+                    logger.error(f"[DLQ] Failed to process DLQ message: {e}")
+                    await consumer.commit()
+                    
+        except Exception as e:
+            logger.error(f"[Kafka] GROUP_EVENT_DLQ consumer stopped: {type(e).__name__}")
+    
+    async def _process_group_generation_dlq(self, consumer, topic: str):
+        """Process GROUP_GENERATE_DLQ - handle failed group generation requests"""
         logger.info(f"[Kafka] Starting DLQ consumer for {topic}")
         
         try:

@@ -37,7 +37,6 @@ def get_consumer(
         value_deserializer=lambda v: json.loads(v.decode("utf-8")),
         auto_offset_reset="earliest",
         enable_auto_commit=False,
-        # Production-ready settings for aiokafka 0.10.0
         request_timeout_ms=30000,        # 30 second timeout
         session_timeout_ms=60000,        # 60 second session timeout
         heartbeat_interval_ms=20000,     # 20 second heartbeat
