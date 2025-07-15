@@ -235,17 +235,18 @@ class KafkaConsumerManager:
             logger.warning("[Kafka] No consumers could be started")
     
     async def _create_consumer(self, topic: str, is_dlq: bool = False) -> Optional['AIOKafkaConsumer']:
-        """Create a Kafka consumer for the specified topic"""
+        """Create a Kafka consumer for the specified topic with codec support"""
         try:
             from aiokafka import AIOKafkaConsumer
             
             group_id = f"{self.consumer_group_id}-dlq" if is_dlq else self.consumer_group_id
             
+            # Try to create consumer with safe deserializer that handles codec errors
             consumer = AIOKafkaConsumer(
                 topic,
                 bootstrap_servers=KAFKA_BOOTSTRAP_SERVER,
                 group_id=group_id,
-                value_deserializer=lambda v: json.loads(v.decode("utf-8")) if v else None,
+                value_deserializer=self._safe_deserializer,
                 auto_offset_reset="earliest",
                 enable_auto_commit=False,
                 request_timeout_ms=10000,
@@ -263,6 +264,27 @@ class KafkaConsumerManager:
             
         except Exception as e:
             logger.debug(f"[Kafka] Failed to create consumer for {topic}: {type(e).__name__}")
+            return None
+    
+    def _safe_deserializer(self, data):
+        """Safe deserializer that handles codec errors gracefully"""
+        if data is None:
+            return None
+            
+        try:
+            # First try normal JSON decoding
+            return json.loads(data.decode("utf-8"))
+        except UnicodeDecodeError:
+            # If there's a decode error, it might be compressed data that we can't handle
+            logger.warning(f"[Kafka] UnicodeDecodeError - message may be compressed with unsupported codec")
+            return None
+        except json.JSONDecodeError as e:
+            # If JSON decode fails, log and skip the message
+            logger.warning(f"[Kafka] JSONDecodeError: {e} - skipping malformed message")
+            return None
+        except Exception as e:
+            # Catch any other deserialization errors
+            logger.warning(f"[Kafka] Deserialization error: {type(e).__name__}: {e}")
             return None
     
     async def _start_consumer(self, consumer, consumer_func, topic: str):
@@ -353,7 +375,15 @@ class KafkaConsumerManager:
         
         try:
             async for msg in consumer:
+                # Handle None values (empty messages)
                 if msg.value is None:
+                    logger.debug(f"[Kafka] Skipping null message in {topic}")
+                    await consumer.commit()
+                    continue
+                
+                # Handle messages that couldn't be deserialized due to codec issues
+                if msg.value is None and hasattr(msg, 'headers'):
+                    logger.warning(f"[Kafka] Skipping message with unsupported codec in {topic}")
                     await consumer.commit()
                     continue
                     
@@ -362,61 +392,98 @@ class KafkaConsumerManager:
                     logger.debug(f"[Kafka] Processing group event: {event_data.get('eventType', 'UNKNOWN')}")
                     
                     # Import here to avoid circular imports
-                    from src.schemas.v2.kafka_events import GroupEvent
+                    from src.schemas.v2.kafka_events import GroupEvent, GroupEventData, UserEventData
                     from src.vector_db.group_document_builder import build_group_document
                     from src.vector_db.user_document_builder import build_user_document
                     from src.vector_db.vector_indexer import add_documents_to_vector_db
                     from src.vector_db.chroma_client import get_chroma_client
-                    
-                    # Parse and validate event
-                    event = GroupEvent(**event_data)
-                    
-                    if event.eventType == "GROUP_CREATED":
-                        if event.data and hasattr(event.data, 'dict'):
-                            doc = build_group_document(event.data.dict())
-                            add_documents_to_vector_db([doc], "group-info")
-                            logger.info(f"[ChromaDB] Added group {event.data.groupId} to vector database")
-                        else:
+
+                    # Parse event type first to determine data structure
+                    event_type = event_data.get('eventType')
+                    if not event_type:
+                        raise ValueError("Missing eventType in GROUP_EVENT message")
+
+                    # Handle different event types with appropriate data validation
+                    if event_type == "GROUP_CREATED":
+                        if not event_data.get('data'):
                             raise ValueError("GROUP_CREATED event missing required data")
-                            
-                    elif event.eventType == "GROUP_DELETED":
-                        group_id = event.groupId or (event.data.groupId if event.data else None)
-                        if group_id:
-                            client = get_chroma_client()
-                            col = client.get_or_create_collection("group-info")
-                            col.delete(ids=[f"group-{group_id}"])
-                            logger.info(f"[ChromaDB] Deleted group {group_id} from vector database")
-                        else:
+
+                        # Validate as GroupEventData
+                        group_data = GroupEventData(**event_data['data'])
+                        event = GroupEvent(
+                            eventType=event_type,
+                            data=group_data,
+                            timestamp=event_data.get('timestamp', [])
+                        )
+
+                        # Build and store document
+                        doc = build_group_document(group_data.dict())
+                        add_documents_to_vector_db([doc], "group-info")
+                        logger.info(f"[ChromaDB] Added group {group_data.groupId} to vector database")
+
+                    elif event_type == "GROUP_DELETED":
+                        group_id = event_data.get('groupId') or (event_data.get('data', {}).get('groupId') if event_data.get('data') else None)
+                        if not group_id:
                             raise ValueError("GROUP_DELETED event missing groupId")
-                            
-                    elif event.eventType == "GROUP_JOINED":
-                        if event.data and hasattr(event.data, 'userId') and hasattr(event.data, 'groupId'):
-                            docs = build_user_document(event.data.userId, event.data.groupId)
+
+                        event = GroupEvent(
+                            eventType=event_type,
+                            groupId=group_id,
+                            timestamp=event_data.get('timestamp', [])
+                        )
+
+                        client = get_chroma_client()
+                        col = client.get_or_create_collection("group-info")
+                        col.delete(ids=[f"group-{group_id}"])
+                        logger.info(f"[ChromaDB] Deleted group {group_id} from vector database")
+
+                    elif event_type in ["GROUP_JOINED", "GROUP_LEFT"]:
+                        if not event_data.get('data'):
+                            raise ValueError(f"{event_type} event missing required data")
+
+                        # Validate as UserEventData
+                        user_data = UserEventData(**event_data['data'])
+                        event = GroupEvent(
+                            eventType=event_type,
+                            data=user_data,
+                            timestamp=event_data.get('timestamp', [])
+                        )
+
+                        if event_type == "GROUP_JOINED":
+                            docs = build_user_document(user_data.userId, user_data.groupId)
                             add_documents_to_vector_db(docs, "user-activity")
-                            logger.info(f"[ChromaDB] Added user {event.data.userId} to group {event.data.groupId}")
-                        else:
-                            raise ValueError("GROUP_JOINED event missing user or group data")
-                            
-                    elif event.eventType == "GROUP_LEFT":
-                        if event.data and hasattr(event.data, 'userId') and hasattr(event.data, 'groupId'):
+                            logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
+                        else:  # GROUP_LEFT
                             client = get_chroma_client()
                             col = client.get_or_create_collection("user-activity")
-                            col.delete(ids=[f"user-{event.data.userId}-{event.data.groupId}"])
-                            logger.info(f"[ChromaDB] Removed user {event.data.userId} from group {event.data.groupId}")
-                        else:
-                            raise ValueError("GROUP_LEFT event missing user or group data")
+                            col.delete(ids=[f"user-{user_data.userId}-{user_data.groupId}"])
+                            logger.info(f"[ChromaDB] Removed user {user_data.userId} from group {user_data.groupId}")
                     else:
-                        logger.warning(f"[Kafka] Unknown event type: {event.eventType}")
+                        logger.warning(f"[Kafka] Unknown event type: {event_type}")
                     
                     await consumer.commit()
                     
                 except Exception as e:
+                    # Handle specific codec-related errors
+                    error_name = type(e).__name__
+                    if "UnsupportedCodec" in error_name or "codec" in str(e).lower():
+                        logger.error(f"[Kafka] Codec error in GROUP_EVENT: {error_name} - skipping message with unsupported compression")
+                        # Skip the problematic message by committing offset
+                        await consumer.commit()
+                        continue
+                    
                     logger.error(f"[Kafka] GROUP_EVENT processing failed: {e}")
                     await self._send_to_dlq(msg.value, type(e).__name__, str(e), topic)
                     await consumer.commit()  # Commit to avoid reprocessing
                     
         except Exception as e:
-            logger.error(f"[Kafka] GROUP_EVENT consumer stopped: {type(e).__name__}")
+            error_name = type(e).__name__
+            if "UnsupportedCodec" in error_name:
+                logger.error(f"[Kafka] GROUP_EVENT consumer stopped due to codec error: {error_name}")
+                logger.error(f"[Kafka] This indicates messages were produced with compression codec not supported by consumer")
+                logger.error(f"[Kafka] Required codec libraries: python-snappy, lz4, zstandard")
+            else:
+                logger.error(f"[Kafka] GROUP_EVENT consumer stopped: {error_name}")
     
     async def _process_question_generation_requests(self, consumer, topic: str):
         """Process GROUP_RECOMMEND_QUESTION - generates MC questions and streams via vLLM SSE over WebSocket"""

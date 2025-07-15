@@ -121,16 +121,15 @@ class KafkaUnifiedTest:
             await admin_client.start()
             print("✅ Kafka connection established")
             
+            # Get existing topics using the simple command method
+            existing_topics = set(self.get_topics())
+            
             # Test topic access
             for topic in self.expected_topics:
-                try:
-                    metadata = await admin_client.describe_topics([topic])
-                    if metadata and topic in metadata:
-                        print(f"   ✅ {topic}: accessible")
-                    else:
-                        print(f"   ❌ {topic}: not found")
-                except Exception as e:
-                    print(f"   ❌ {topic}: error - {e}")
+                if topic in existing_topics:
+                    print(f"   ✅ {topic}: accessible")
+                else:
+                    print(f"   ❌ {topic}: not found")
             
             return True
             
