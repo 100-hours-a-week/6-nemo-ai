@@ -5,7 +5,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from src.kafka.utils.kafka_client import get_producer, get_consumer
+from src.kafka.kafka_client import get_producer, get_consumer
 from src.core.ai_logger import get_ai_logger
 
 logger = get_ai_logger()
