@@ -3,6 +3,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 import asyncio
+import os
 # 외부 라이브러리
 import torch
 from fastapi import FastAPI
@@ -29,12 +30,18 @@ from src.vector_db.sync import (
 from src.router.v2.ws_chatbot import router as ws_chatbot_router
 from src.kafka.kafka_consumer_manager import KafkaConsumerManager
 
+# PROMETHEUS MONITORING
+from src.monitoring.prometheus_config import PrometheusConfig, track_health_check
+
 # 로거 초기화
 ai_logger = get_ai_logger()
 ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
 
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
+
+# Prometheus 설정 초기화
+prometheus_config = PrometheusConfig()
 
 
 @asynccontextmanager
@@ -81,6 +88,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# PROMETHEUS SETUP - Setup instrumentator first
+prometheus_config.setup_instrumentator(app)
+
 setup_exception_handlers(app)
 
 # [AI] 성능 로깅 미들웨어 등록
@@ -94,6 +104,19 @@ def root():
     return {"message": "Ne:Mo AI Server Running!"}
 
 
+# Enhanced health check with Prometheus tracking
+@app.get("/health")
+def health_check():
+    try:
+        # Your existing health check logic here
+        track_health_check("success")
+        return {"status": "healthy", "service": "nemo-ai-api", "version": "2.0.0"}
+    except Exception as e:
+        track_health_check("failure")
+        ai_logger.error(f"Health check failed: {e}")
+        return {"status": "unhealthy", "error": str(e)}
+
+
 app.include_router(health.router)
 # app.include_router(rate_test_router)
 app.include_router(vector_db.router, prefix="/ai/v2")
@@ -105,6 +128,9 @@ app.include_router(ws_chatbot_router, prefix="/ai/v2")
 ai_logger.info("[AI] [라우터 등록 시작] v1 group_information 라우터 준비 중")
 app.include_router(v1_group_information.router, prefix="/ai/v1")
 ai_logger.info("[AI] [라우터 등록 완료] v1 group_information 라우터 활성화")
+
+# PROMETHEUS SETUP - Expose metrics endpoint (do this after all routes are added)
+prometheus_config.expose_metrics(app, endpoint="/metrics")
 # [AI] v2 라우터 등록
 # ai_logger.info("[AI-v2] [라우터 등록 시작] v2 group_information 라우터 준비 중")
 # app.include_router(v2_group_information.router, prefix="/ai/v2")
@@ -113,9 +139,14 @@ ai_logger.info("[AI] [라우터 등록 완료] v1 group_information 라우터 �
 # 서버 실행
 if __name__ == "__main__":
     import uvicorn
-    host = "0.0.0.0"
-    port = 8000
+    
+    # Get host and port from environment or use defaults
+    host = os.getenv("FASTAPI_HOST", "0.0.0.0")
+    port = int(os.getenv("FASTAPI_PORT", 8000))
+    
     ai_logger.info("[FastAPI 실행] 서버 시작 전 초기화")
+    ai_logger.info(f"[Prometheus] 메트릭스 엔드포인트 활성화: http://{host}:{port}/metrics")
+    
     try:
         uvicorn.run(app, host=host, port=port)
         ai_logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
