@@ -36,43 +36,52 @@ ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging �
 # 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 
+# Suppress Kafka logging completely to prevent connection error spam
+logging.getLogger('aiokafka').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.consumer').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.producer').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.cluster').setLevel(logging.CRITICAL)
+logging.getLogger('kafka').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.cluster').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.protocol').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.consumer').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.producer').setLevel(logging.CRITICAL)
+
+kafka_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    chroma = get_chroma_client()
-
-    should_sync_user = not chroma_collection_exists("user-activity", chroma)
-    should_sync_group = not chroma_collection_exists("group-info", chroma)
-
-    if not (should_sync_user or should_sync_group):
-        ai_logger.info("[Chroma] 모든 컬렉션 존재 → 동기화 생략")
-    else:
-        ai_logger.info("[Chroma] 일부 컬렉션 누락 → MySQL에서 데이터 불러오는 중")
-        user_participation, group_infos = fetch_data_from_mysql()
-
-        if should_sync_user:
-            ai_logger.info(f"[Chroma] 유저 문서 {len(user_participation)}건 동기화 중")
-            sync_user_documents(user_participation)
-
-        if should_sync_group:
-            ai_logger.info(f"[Chroma] 그룹 문서 {len(group_infos)}건 동기화 중")
-            asyncio.create_task(sync_group_documents(group_infos))
-
-        ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
-    clean_idle_sessions()
-
-    # Initialize Kafka Consumer Manager (Consumer-Only Approach)
-    kafka_manager = KafkaConsumerManager()
-
-    # Start Kafka consumers - gracefully handles missing topics
-    await kafka_manager.start_consumers()
-
+    global kafka_manager
+    # Start Chroma sync and Kafka in the background after FastAPI is up
+    async def chroma_and_kafka():
+        chroma = get_chroma_client()
+        should_sync_user = not chroma_collection_exists("user-activity", chroma)
+        should_sync_group = not chroma_collection_exists("group-info", chroma)
+        if not (should_sync_user or should_sync_group):
+            ai_logger.info("[Chroma] 모든 컬렉션 존재 → 동기화 생략")
+        else:
+            ai_logger.info("[Chroma] 일부 컬렉션 누락 → MySQL에서 데이터 불러오는 중")
+            user_participation, group_infos = fetch_data_from_mysql()
+            if should_sync_user:
+                ai_logger.info(f"[Chroma] 유저 문서 {len(user_participation)}건 동기화 중")
+                sync_user_documents(user_participation)
+            if should_sync_group:
+                ai_logger.info(f"[Chroma] 그룹 문서 {len(group_infos)}건 동기화 중")
+                await sync_group_documents(group_infos)
+            ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
+        clean_idle_sessions()
+        # Kafka (after Chroma sync)
+        kafka_manager_local = KafkaConsumerManager()
+        await kafka_manager_local.start_consumers()
+        global kafka_manager
+        kafka_manager = kafka_manager_local
+    # Start the background task
+    asyncio.create_task(chroma_and_kafka())
     yield
-
-    # Clean shutdown of Kafka consumers
-    await kafka_manager.stop_consumers()
-    ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
-
+    # Shutdown logic
+    if kafka_manager:
+        await kafka_manager.stop_consumers()
+        ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
 
 app = FastAPI(
     title="NE:MO AI API",
