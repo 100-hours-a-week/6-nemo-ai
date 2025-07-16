@@ -377,12 +377,14 @@ class KafkaConsumerManager:
                 if msg.value is None:
                     logger.debug(f"[Kafka] Skipping null message in {topic}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                 
                 # Handle messages that couldn't be deserialized due to codec issues
                 if msg.value is None and hasattr(msg, 'headers'):
                     logger.warning(f"[Kafka] Skipping message with unsupported codec in {topic}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -450,20 +452,20 @@ class KafkaConsumerManager:
                         if event_type == "GROUP_JOINED":
                             docs = build_user_document(user_data.userId, user_data.groupId)
                             add_documents_to_vector_db(docs, "user-activity")
-                            logger.info(f"[ChromaDB] Added user {event.data.userId} to group {event.data.groupId}")
-                        else:
-                            raise ValueError("GROUP_JOINED event missing user or group data")
-                            
-                    elif event.eventType == "GROUP_LEFT":
-                        if event.data and hasattr(event.data, 'userId') and hasattr(event.data, 'groupId'):
+                            logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
+                        elif event_type == "GROUP_LEFT":
                             client = get_chroma_client()
                             col = client.get_or_create_collection("user-activity")
                             col.delete(ids=[f"user-{user_data.userId}-{user_data.groupId}"])
                             logger.info(f"[ChromaDB] Removed user {user_data.userId} from group {user_data.groupId}")
+                        else:
+                            raise ValueError(f"{event_type} event missing user or group data")
+
                     else:
                         logger.warning(f"[Kafka] Unknown event type: {event_type}")
                     
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     # Handle specific codec-related errors
@@ -472,11 +474,13 @@ class KafkaConsumerManager:
                         logger.error(f"[Kafka] Codec error in GROUP_EVENT: {error_name} - skipping message with unsupported compression")
                         # Skip the problematic message by committing offset
                         await consumer.commit()
+                        logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                         continue
                     
                     logger.error(f"[Kafka] GROUP_EVENT processing failed: {e}")
                     await self._send_to_dlq(msg.value, type(e).__name__, str(e), topic)
-                    await consumer.commit()  # Commit to avoid reprocessing
+                    await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")  # Commit to avoid reprocessing
                     
         except Exception as e:
             error_name = type(e).__name__
@@ -495,6 +499,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -542,11 +547,13 @@ class KafkaConsumerManager:
                         logger.warning(f"[Kafka] WebSocket session {session_id} not connected")
                     
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[Kafka] Question generation failed: {e}")
                     await self._send_to_dlq(msg.value, type(e).__name__, str(e), topic)
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] Question generation consumer stopped: {type(e).__name__}")
@@ -559,6 +566,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -605,11 +613,14 @@ class KafkaConsumerManager:
                         logger.warning(f"[Kafka] WebSocket session {session_id} not connected")
                     
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[Kafka] Group recommendation failed: {e}")
                     await self._send_to_dlq(msg.value, type(e).__name__, str(e), topic)
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] Group recommendation consumer stopped: {type(e).__name__}")
@@ -622,6 +633,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -648,11 +660,14 @@ class KafkaConsumerManager:
                     logger.info(f"[Kafka] Group generation completed for: {request.name}")
                     
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[Kafka] Group generation failed: {e}")
                     await self._send_to_dlq(msg.value, type(e).__name__, str(e), topic)
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] Group generation consumer stopped: {type(e).__name__}")
@@ -667,6 +682,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -679,10 +695,12 @@ class KafkaConsumerManager:
                     
                     # Could implement retry logic here or manual intervention alerts
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[DLQ] Failed to process DLQ message: {e}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] GROUP_EVENT_DLQ consumer stopped: {type(e).__name__}")
@@ -695,34 +713,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
-                    continue
-                    
-                try:
-                    from src.schemas.v2.kafka_events import DLQMessage
-                    dlq_message = DLQMessage(**msg.value)
-                    
-                    logger.warning(f"[DLQ] Processing failed GROUP_EVENT: {dlq_message.errorType}")
-                    logger.debug(f"[DLQ] Original message: {dlq_message.originalMessage}")
-                    logger.debug(f"[DLQ] Error: {dlq_message.errorMessage}")
-                    
-                    # Could implement retry logic here or manual intervention alerts
-                    await consumer.commit()
-                    
-                except Exception as e:
-                    logger.error(f"[DLQ] Failed to process DLQ message: {e}")
-                    await consumer.commit()
-                    
-        except Exception as e:
-            logger.error(f"[Kafka] GROUP_EVENT_DLQ consumer stopped: {type(e).__name__}")
-    
-    async def _process_group_generation_dlq(self, consumer, topic: str):
-        """Process GROUP_GENERATE_DLQ - handle failed group generation requests"""
-        logger.info(f"[Kafka] Starting DLQ consumer for {topic}")
-        
-        try:
-            async for msg in consumer:
-                if msg.value is None:
-                    await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -731,10 +722,12 @@ class KafkaConsumerManager:
                     
                     logger.warning(f"[DLQ] Processing failed GROUP_GENERATE: {dlq_message.errorType}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[DLQ] Failed to process DLQ message: {e}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] GROUP_GENERATE_DLQ consumer stopped: {type(e).__name__}")
@@ -747,6 +740,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -755,10 +749,12 @@ class KafkaConsumerManager:
                     
                     logger.warning(f"[DLQ] Processing failed question generation: {dlq_message.errorType}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[DLQ] Failed to process DLQ message: {e}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] GROUP_RECOMMEND_QUESTION_DLQ consumer stopped: {type(e).__name__}")
@@ -771,6 +767,7 @@ class KafkaConsumerManager:
             async for msg in consumer:
                 if msg.value is None:
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                     
                 try:
@@ -779,10 +776,12 @@ class KafkaConsumerManager:
                     
                     logger.warning(f"[DLQ] Processing failed recommendation generation: {dlq_message.errorType}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
                 except Exception as e:
                     logger.error(f"[DLQ] Failed to process DLQ message: {e}")
                     await consumer.commit()
+                    logger.info(f"[Kafka] Job completed (with error) - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     
         except Exception as e:
             logger.error(f"[Kafka] GROUP_RECOMMEND_DLQ consumer stopped: {type(e).__name__}")
