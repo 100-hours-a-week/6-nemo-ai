@@ -13,7 +13,6 @@ import asyncio
 
 ai_logger = get_ai_logger()
 
-
 class PrefixParser:
     """Helper class to handle prefix removal in streaming responses"""
     
@@ -74,7 +73,6 @@ class PrefixParser:
                 # Clean any newlines and carriage returns from the buffer before returning
                 cleaned_buffer = self.buffer.replace('\n', '').replace('\r', '')
                 return cleaned_buffer if cleaned_buffer else None
-
 
 async def stream_question_chunks(answer: str | None, user_id: str, session_id: str):
     history = get_session_history(session_id)

@@ -97,7 +97,6 @@ app.add_middleware(AILoggingMiddleware)
 app.middleware("http")(log_requests)
 app.add_middleware(LogRequestsMiddleware)
 
-
 @app.get("/")
 def root():
     return {"message": "Ne:Mo AI Server Running!"}
