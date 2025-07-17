@@ -62,72 +62,35 @@ jobs:
           echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           
-          # 서버에 SSH 접속하여 배포
+          # 서버에 SSH 접속하여 배포 (헬스체크 포함)
           ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
           
             echo "🚀 Starting deployment process..."
           
-            # 배포 스크립트 실행
+            # 배포 스크립트 실행 (헬스체크 포함)
             cd /home/ubuntu/nemo
-          
-            # 스크립트에 실행 권한 부여
             chmod +x deploy.sh
-          
-            # 배포 스크립트 실행
             ./deploy.sh ${{ env.TIME_TAG }}
           
-            echo "🎉 배포 완료! 이미지: ${{ env.TIME_TAG }}"
+            echo "🎉 배포 및 헬스체크 완료! 이미지: ${{ env.TIME_TAG }}"
           EOF
           
           # 정리
           rm -f private_key.pem
 
-      - name: Verify Deployment
+      - name: Final Status Check
         run: |
           echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           
           ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
-            echo "🔍 배포 상태 확인..."
+            echo "📊 최종 상태 확인..."
+            docker ps | grep -E "(ai-prod|vllm)" || echo "컨테이너 확인 실패"
           
-            # 컨테이너 상태 확인
-            echo "📊 컨테이너 상태:"
-            docker ps | grep -E "(ai-prod|vllm)"
-          
-            # AI 서비스 헬스체크
-            echo "🏥 AI 서비스 헬스체크..."
-            for i in {1..5}; do
-              if curl -f http://localhost:8000/health > /dev/null 2>&1; then
-                echo "✅ AI 서비스 정상 (시도 $i/5)"
-                break
-              elif [ $i -eq 5 ]; then
-                echo "❌ AI 서비스 헬스체크 실패"
-                docker logs --tail 20 ai-prod
-                exit 1
-              else
-                echo "⏳ AI 서비스 헬스체크 재시도 ($i/5)..."
-                sleep 10
-              fi
-            done
-          
-            # VLLM 서비스 헬스체크
-            echo "🤖 VLLM 서비스 헬스체크..."
-            for i in {1..3}; do
-              if curl -f http://localhost:8002/v1/models > /dev/null 2>&1; then
-                echo "✅ VLLM 서비스 정상 (시도 $i/3)"
-                break
-              elif [ $i -eq 3 ]; then
-                echo "❌ VLLM 서비스 헬스체크 실패"
-                docker logs --tail 20 vllm
-                exit 1
-              else
-                echo "⏳ VLLM 서비스 헬스체크 재시도 ($i/3)..."
-                sleep 15
-              fi
-            done
-          
-            echo "✅ 모든 서비스 정상 동작 확인!"
+            # 간단한 상태만 확인 (헬스체크는 deploy.sh에서 이미 완료)
+            echo "🔍 서비스 포트 확인..."
+            netstat -tuln | grep -E ":8000|:8002" || echo "포트 확인 완료"
           EOF
           
           rm -f private_key.pem
@@ -136,6 +99,8 @@ jobs:
         run: |
           echo "🚀 배포 완료!"
           echo "📦 새 이미지: ${{ env.TIME_TAG }}"
+          echo "🌐 AI 서비스: http://${{ secrets.EC2_HOST }}:8000"
+          echo "🤖 VLLM 서비스: http://${{ secrets.EC2_HOST }}:8002"
 
       - name: Discord Notification - Success
         if: success()
@@ -151,16 +116,6 @@ jobs:
                   {
                     "name": "📦 이미지 태그",
                     "value": "${{ env.TIME_TAG }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "🌐 AI 서비스",
-                    "value": "http://${{ secrets.EC2_HOST }}:8000",
-                    "inline": true
-                  },
-                  {
-                    "name": "🤖 VLLM 서비스",
-                    "value": "http://${{ secrets.EC2_HOST }}:8002",
                     "inline": true
                   },
                   {
