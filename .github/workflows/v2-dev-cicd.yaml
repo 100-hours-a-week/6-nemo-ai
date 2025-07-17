@@ -1,257 +1,106 @@
-name: AI CI/CD - Build & Deploy
+name: AI CI/CD Pipeline
 
 on:
-  push:
-    branches: [ infra/cicd ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '릴리즈 버전 태그 (예: v1.3.0)'
+        required: true
 
 jobs:
-  build-and-deploy:
-    name: Build & Deploy AI + VLLM
+  build:
+    name: Build and Push to ECR
     runs-on: ubuntu-latest
 
-    env:
-      AWS_REGION: ap-northeast-2
-      SERVICE: ai
-      ENVIRONMENT: dev
+    outputs:
+      image-tag: ${{ steps.set-tag.outputs.IMAGE_TAG }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
-      - name: Set image tag and URI
-        run: |
-          TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
-          echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
-          
-          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SERVICE }}"
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-
-      - name: Get current date
-        id: date
-        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ap-northeast-2
 
       - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build and Push Docker Image to ECR
+      - name: Set image tag
+        id: set-tag
         run: |
-          docker build -t "${IMAGE_URI}:${TIME_TAG}" .
-          docker push "${IMAGE_URI}:${TIME_TAG}"
+          TIME_TAG="prod-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
+          echo "IMAGE_TAG=$TIME_TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAG=$TIME_TAG" >> $GITHUB_ENV
 
-      - name: Output image info
+      - name: Build and Push Docker Image
         run: |
-          echo "🚀 AI Image pushed successfully!"
-          echo "📦 Image URI: ${IMAGE_URI}:${TIME_TAG}"
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          IMAGE_URI="${ECR_REGISTRY}/ai"
+          
+          echo "Building and pushing image: ${IMAGE_URI}:${IMAGE_TAG}"
+          
+          docker build -t "${IMAGE_URI}:${IMAGE_TAG}" .
+          docker tag "${IMAGE_URI}:${IMAGE_TAG}" "${IMAGE_URI}:latest"
+          
+          docker push "${IMAGE_URI}:${IMAGE_TAG}"
+          docker push "${IMAGE_URI}:latest"
 
-      - name: Deploy to EC2 Server
-        run: |
-          # SSH 키 설정
-          echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          
-          # 서버에 SSH 접속하여 배포
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
-            set -e
-          
-            echo "🔑 ECR 로그인..."
-            aws ecr get-login-password --region ap-northeast-2 | \
-              docker login --username AWS --password-stdin \
-              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
-          
-            echo "🔐 Secrets Manager에서 환경변수 가져오기..."
-            aws secretsmanager get-secret-value \
-              --secret-id ai-env-prod \
-              --region ap-northeast-2 \
-              --query SecretString \
-              --output text | \
-              jq -r 'to_entries[] | "\(.key)=\(.value)"' > /tmp/secrets.env
-          
-            echo "📦 최신 이미지 pull..."
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/ai:${{ env.TIME_TAG }}
-          
-            echo "📝 docker-compose.yml 업데이트..."
-            cd /home/ubuntu/nemo
-            sed -i "s|084375578827.dkr.ecr.ap-northeast-2.amazonaws.com/ai:.*|${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/ai:${{ env.TIME_TAG }}|g" docker-compose.yml
-          
-            echo "🚀 서비스 재시작..."
-            docker-compose down
-          
-            # 기본 환경변수 + Secrets Manager 환경변수로 실행
-            export AWS_REGION=ap-northeast-2
-            export JSON_FILENAME=naemo-project-admin-key.json
-            export BASE_DIR=/app
-            export SECRET_NAME=ai-env-prod
-          
-            # Secrets Manager 환경변수 추가
-            set -a  # 자동 export 활성화
-            source /tmp/secrets.env
-            set +a  # 자동 export 비활성화
-          
-            docker-compose up -d ai-prod vllm
-          
-            # 임시 파일 삭제
-            rm -f /tmp/secrets.env
-          
-            echo "🚀 서비스 재시작..."
-            docker-compose down
-            docker-compose up -d ai-prod vllm
-          
-            echo "🔒 환경변수 파일 삭제..."
-            rm -f /home/ubuntu/nemo/.env
-          
-            echo "⏰ 서비스 시작 대기 및 상태 확인..."
-            sleep 30
-          
-            echo "📊 컨테이너 상태 확인:"
-            docker-compose ps
-          
-            echo "🔍 AI 컨테이너 상태 확인:"
-            if docker ps | grep -q "ai-prod.*Up"; then
-              echo "✅ AI 컨테이너 정상 실행 중"
-          
-              echo "🏥 AI 서비스 헬스체크 (최대 5회 시도):"
-              for i in {1..5}; do
-                if curl -f http://localhost:8000/health > /dev/null 2>&1; then
-                  echo "✅ AI 서비스 정상 (시도 $i/5)"
-                  break
-                elif [ $i -eq 5 ]; then
-                  echo "❌ AI 서비스 헬스체크 실패 (5회 시도 후)"
-                  echo "📋 AI 컨테이너 로그:"
-                  docker logs --tail 20 ai-prod
-                else
-                  echo "⏳ AI 서비스 헬스체크 재시도 ($i/5)..."
-                  sleep 10
-                fi
-              done
-            else
-              echo "❌ AI 컨테이너 실행 실패"
-              echo "📋 AI 컨테이너 로그:"
-              docker logs --tail 20 ai-prod
-            fi
-          
-            echo "🔍 VLLM 컨테이너 상태 확인:"
-            if docker ps | grep -q "vllm.*Up"; then
-              echo "✅ VLLM 컨테이너 정상 실행 중"
-          
-              echo "🏥 VLLM 서비스 헬스체크 (최대 3회 시도):"
-              for i in {1..3}; do
-                if curl -f http://localhost:8002/v1/models > /dev/null 2>&1; then
-                  echo "✅ VLLM 서비스 정상 (시도 $i/3)"
-                  break
-                elif [ $i -eq 3 ]; then
-                  echo "❌ VLLM 서비스 헬스체크 실패 (3회 시도 후)"
-                  echo "📋 VLLM 컨테이너 로그:"
-                  docker logs --tail 20 vllm
-                else
-                  echo "⏳ VLLM 서비스 헬스체크 재시도 ($i/3)..."
-                  sleep 15
-                fi
-              done
-            else
-              echo "❌ VLLM 컨테이너 실행 실패"
-              echo "📋 VLLM 컨테이너 로그:"
-              docker logs --tail 20 vllm
-            fi
-          
-            echo "🎉 배포 완료! 이미지: ${{ env.TIME_TAG }}"
-          EOF
-          
-          # 정리
-          rm -f private_key.pem
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: build
 
-      - name: Notify Deployment Status
-        run: |
-          echo "🚀 배포 완료!"
-          echo "📦 새 이미지: ${{ env.TIME_TAG }}"
-          echo "🌐 AI 서비스: http://${{ secrets.EC2_HOST }}:8000"
-          echo "🤖 VLLM 서비스: http://${{ secrets.EC2_HOST }}:8002"
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # 배포 스크립트 실행
+            bash ~/nemo/deploy.sh ${{ needs.build.outputs.image-tag }}
 
-      - name: Discord Notification - Success
-        if: success()
-        run: |
-          curl -H "Content-Type: application/json" \
-            -X POST \
-            -d '{
-              "embeds": [{
-                "title": "🚀 AI 배포 성공!",
-                "description": "새로운 AI 서비스가 성공적으로 배포되었습니다.",
-                "color": 3066993,
-                "fields": [
-                  {
-                    "name": "📦 이미지 태그",
-                    "value": "${{ env.TIME_TAG }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "🌐 AI 서비스",
-                    "value": "http://${{ secrets.EC2_HOST }}:8000",
-                    "inline": true
-                  },
-                  {
-                    "name": "🤖 VLLM 서비스",
-                    "value": "http://${{ secrets.EC2_HOST }}:8002",
-                    "inline": true
-                  },
-                  {
-                    "name": "👤 배포자",
-                    "value": "${{ github.actor }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "🔗 커밋",
-                    "value": "[${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})",
-                    "inline": true
-                  }
-                ],
-                "timestamp": "${{ steps.date.outputs.date }}",
-                "footer": {
-                  "text": "AI CI/CD Pipeline"
-                }
-              }]
-            }' \
-            https://discord.com/api/webhooks/1372113045471498250/al6sPD-f9AzhQiQslu3EjnsSq8iK1aEQJMT8vqLLEbGiPg2I53O_2Xx60PcxVTqmELio
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # 컨테이너 상태 확인
+            echo "=== Container Status ==="
+            docker ps | grep ai-prod
+            
+            # 로그 확인
+            echo "=== Recent Logs ==="
+            docker logs ai-prod --tail=10
+            
+            # 헬스체크
+            echo "=== Health Check ==="
+            curl -f http://localhost:8000/health || echo "Health check failed"
 
-      - name: Discord Notification - Failure
-        if: failure()
-        run: |
-          curl -H "Content-Type: application/json" \
-            -X POST \
-            -d '{
-              "embeds": [{
-                "title": "❌ AI 배포 실패!",
-                "description": "AI 서비스 배포 중 오류가 발생했습니다.",
-                "color": 15158332,
-                "fields": [
-                  {
-                    "name": "📦 시도한 이미지",
-                    "value": "${{ env.TIME_TAG }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "👤 배포자",
-                    "value": "${{ github.actor }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "🔗 실패한 워크플로우",
-                    "value": "[로그 확인](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
-                    "inline": true
-                  }
-                ],
-                "timestamp": "${{ steps.date.outputs.date }}",
-                "footer": {
-                  "text": "AI CI/CD Pipeline"
-                }
-              }]
-            }' \
-            https://discord.com/api/webhooks/1372113045471498250/al6sPD-f9AzhQiQslu3EjnsSq8iK1aEQJMT8vqLLEbGiPg2I53O_2Xx60PcxVTqmELio
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: failure()
+
+    steps:
+      - name: Rollback to Previous Version
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            echo "🔄 Rolling back to previous version..."
+            bash ~/nemo/deploy.sh latest
