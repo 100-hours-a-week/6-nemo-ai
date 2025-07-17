@@ -109,15 +109,59 @@ jobs:
             echo "🔒 환경변수 파일 삭제..."
             rm -f /home/ubuntu/nemo/.env
           
-            echo "⏰ 서비스 시작 대기..."
+            echo "⏰ 서비스 시작 대기 및 상태 확인..."
             sleep 30
           
-            echo "🏥 헬스체크..."
-            curl -f http://localhost:8000 && echo "✅ AI 서비스 정상" || echo "❌ AI 서비스 오류"
-            curl -f http://localhost:8002/v1/models && echo "✅ VLLM 서비스 정상" || echo "❌ VLLM 서비스 오류"
-          
-            echo "📊 실행 상태:"
+            echo "📊 컨테이너 상태 확인:"
             docker-compose ps
+          
+            echo "🔍 AI 컨테이너 상태 확인:"
+            if docker ps | grep -q "ai-prod.*Up"; then
+              echo "✅ AI 컨테이너 정상 실행 중"
+          
+              echo "🏥 AI 서비스 헬스체크 (최대 5회 시도):"
+              for i in {1..5}; do
+                if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+                  echo "✅ AI 서비스 정상 (시도 $i/5)"
+                  break
+                elif [ $i -eq 5 ]; then
+                  echo "❌ AI 서비스 헬스체크 실패 (5회 시도 후)"
+                  echo "📋 AI 컨테이너 로그:"
+                  docker logs --tail 20 ai-prod
+                else
+                  echo "⏳ AI 서비스 헬스체크 재시도 ($i/5)..."
+                  sleep 10
+                fi
+              done
+            else
+              echo "❌ AI 컨테이너 실행 실패"
+              echo "📋 AI 컨테이너 로그:"
+              docker logs --tail 20 ai-prod
+            fi
+          
+            echo "🔍 VLLM 컨테이너 상태 확인:"
+            if docker ps | grep -q "vllm.*Up"; then
+              echo "✅ VLLM 컨테이너 정상 실행 중"
+          
+              echo "🏥 VLLM 서비스 헬스체크 (최대 3회 시도):"
+              for i in {1..3}; do
+                if curl -f http://localhost:8002/v1/models > /dev/null 2>&1; then
+                  echo "✅ VLLM 서비스 정상 (시도 $i/3)"
+                  break
+                elif [ $i -eq 3 ]; then
+                  echo "❌ VLLM 서비스 헬스체크 실패 (3회 시도 후)"
+                  echo "📋 VLLM 컨테이너 로그:"
+                  docker logs --tail 20 vllm
+                else
+                  echo "⏳ VLLM 서비스 헬스체크 재시도 ($i/3)..."
+                  sleep 15
+                fi
+              done
+            else
+              echo "❌ VLLM 컨테이너 실행 실패"
+              echo "📋 VLLM 컨테이너 로그:"
+              docker logs --tail 20 vllm
+            fi
           
             echo "🎉 배포 완료! 이미지: ${{ env.TIME_TAG }}"
           EOF
@@ -129,6 +173,8 @@ jobs:
         run: |
           echo "🚀 배포 완료!"
           echo "📦 새 이미지: ${{ env.TIME_TAG }}"
+          echo "🌐 AI 서비스: http://${{ secrets.EC2_HOST }}:8000"
+          echo "🤖 VLLM 서비스: http://${{ secrets.EC2_HOST }}:8002"
 
       - name: Discord Notification - Success
         if: success()
@@ -144,6 +190,16 @@ jobs:
                   {
                     "name": "📦 이미지 태그",
                     "value": "${{ env.TIME_TAG }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "🌐 AI 서비스",
+                    "value": "http://${{ secrets.EC2_HOST }}:8000",
+                    "inline": true
+                  },
+                  {
+                    "name": "🤖 VLLM 서비스",
+                    "value": "http://${{ secrets.EC2_HOST }}:8002",
                     "inline": true
                   },
                   {
