@@ -1,52 +1,55 @@
-name: AI CI for v2-dev (AWS)
+name: AI CI - Build & Push to ECR
 
 on:
   push:
     branches: [ infra/cicd ]
 
 jobs:
-  build-and-deploy:
-    name: Build & Deploy to AWS AI Server
+  build-and-push:
+    name: Build & Push to AWS ECR
     runs-on: ubuntu-latest
 
     env:
-      REGION: ap-northeast-2
+      AWS_REGION: ap-northeast-2
       SERVICE: ai
       ENVIRONMENT: dev
-      DEPLOY_SCRIPT: ~/nemo/cloud/v2/scripts/deploy.sh
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.REGION }}
 
       - name: Set image tag and URI
         run: |
           TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
           echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
           
-          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.REGION }}.amazonaws.com/${{ env.SERVICE }}"
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SERVICE }}"
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region ${{ env.REGION }} | \
-            docker login --username AWS --password-stdin \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.REGION }}.amazonaws.com
-
-      - name: Build and Push Docker Image
+      - name: Build and Push Docker Image to ECR
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t "${IMAGE_URI}:${TIME_TAG}" \
-            -t "${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest" \
             --push .
+
+      - name: Output image info
+        run: |
+          echo "🚀 AI Image pushed successfully!"
+          echo "📦 Image URI: ${IMAGE_URI}:${TIME_TAG}"
