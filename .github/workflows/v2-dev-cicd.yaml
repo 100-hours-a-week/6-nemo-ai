@@ -69,11 +69,12 @@ jobs:
               ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
           
             echo "🔐 Secrets Manager에서 환경변수 가져오기..."
-            SECRET_JSON=$(aws secretsmanager get-secret-value \
+            aws secretsmanager get-secret-value \
               --secret-id ai-env-prod \
               --region ap-northeast-2 \
               --query SecretString \
-              --output text)
+              --output text | \
+              jq -r 'to_entries[] | "\(.key)=\(.value)"' > /tmp/secrets.env
           
             echo "📦 최신 이미지 pull..."
             docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/ai:${{ env.TIME_TAG }}
@@ -85,11 +86,21 @@ jobs:
             echo "🚀 서비스 재시작..."
             docker-compose down
           
-            # Secrets를 환경변수로 export
-            eval $(echo "$SECRET_JSON" | jq -r 'to_entries[] | "export \(.key)=\(.value)"')
+            # 기본 환경변수 + Secrets Manager 환경변수로 실행
+            export AWS_REGION=ap-northeast-2
+            export JSON_FILENAME=naemo-project-admin-key.json
+            export BASE_DIR=/app
+            export SECRET_NAME=ai-env-prod
           
-            # 환경변수와 함께 docker-compose 실행
+            # Secrets Manager 환경변수 추가
+            set -a  # 자동 export 활성화
+            source /tmp/secrets.env
+            set +a  # 자동 export 비활성화
+          
             docker-compose up -d ai-prod vllm
+          
+            # 임시 파일 삭제
+            rm -f /tmp/secrets.env
           
             echo "🚀 서비스 재시작..."
             docker-compose down
@@ -118,8 +129,6 @@ jobs:
         run: |
           echo "🚀 배포 완료!"
           echo "📦 새 이미지: ${{ env.TIME_TAG }}"
-          echo "🌐 AI 서비스: http://${{ secrets.EC2_HOST }}:8000"
-          echo "🤖 VLLM 서비스: http://${{ secrets.EC2_HOST }}:8002"
 
       - name: Discord Notification - Success
         if: success()
@@ -135,16 +144,6 @@ jobs:
                   {
                     "name": "📦 이미지 태그",
                     "value": "${{ env.TIME_TAG }}",
-                    "inline": true
-                  },
-                  {
-                    "name": "🌐 AI 서비스",
-                    "value": "http://${{ secrets.EC2_HOST }}:8000",
-                    "inline": true
-                  },
-                  {
-                    "name": "🤖 VLLM 서비스",
-                    "value": "http://${{ secrets.EC2_HOST }}:8002",
                     "inline": true
                   },
                   {
