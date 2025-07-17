@@ -68,6 +68,13 @@ jobs:
               docker login --username AWS --password-stdin \
               ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com
           
+            echo "🔐 Secrets Manager에서 환경변수 가져오기..."
+            SECRET_JSON=$(aws secretsmanager get-secret-value \
+              --secret-id ai-env-prod \
+              --region ap-northeast-2 \
+              --query SecretString \
+              --output text)
+          
             echo "📦 최신 이미지 pull..."
             docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-northeast-2.amazonaws.com/ai:${{ env.TIME_TAG }}
           
@@ -77,7 +84,19 @@ jobs:
           
             echo "🚀 서비스 재시작..."
             docker-compose down
+          
+            # Secrets를 환경변수로 export
+            eval $(echo "$SECRET_JSON" | jq -r 'to_entries[] | "export \(.key)=\(.value)"')
+          
+            # 환경변수와 함께 docker-compose 실행
             docker-compose up -d ai-prod vllm
+          
+            echo "🚀 서비스 재시작..."
+            docker-compose down
+            docker-compose up -d ai-prod vllm
+          
+            echo "🔒 환경변수 파일 삭제..."
+            rm -f /home/ubuntu/nemo/.env
           
             echo "⏰ 서비스 시작 대기..."
             sleep 15
@@ -146,7 +165,6 @@ jobs:
               }]
             }' \
             https://discord.com/api/webhooks/1372113045471498250/al6sPD-f9AzhQiQslu3EjnsSq8iK1aEQJMT8vqLLEbGiPg2I53O_2Xx60PcxVTqmELio
-
 
       - name: Discord Notification - Failure
         if: failure()
