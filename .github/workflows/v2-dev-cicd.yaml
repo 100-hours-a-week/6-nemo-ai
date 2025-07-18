@@ -2,7 +2,7 @@ name: AI CI/CD - Build & Deploy
 
 on:
   push:
-    branches: [ infra/cicd ]
+    branches: [ develop ]
 
 jobs:
   build-and-deploy:
