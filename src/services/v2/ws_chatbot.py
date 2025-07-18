@@ -312,35 +312,110 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
 def extract_options_from_stream(raw: str) -> list[str] | None:
     import re
-
-    json_match = re.search(r'"options"\s*:\s*(\[\s*".+?"\s*(?:,\s*".+?"\s*)*\])', raw, re.DOTALL)
-    options_str = None
-
-    if json_match:
-        options_str = json_match.group(1)
-
-    if not options_str:
-        fallback_match = re.search(r'\[\s*"(.*?)"(?:\s*,\s*"(.*?)")+\s*\]', raw, re.DOTALL)
-        if fallback_match:
-            options_str = fallback_match.group(0)
-
-    if not options_str:
-        start_idx = raw.find('"options"')
-        if start_idx != -1:
-            array_start = raw.find('[', start_idx)
-            array_end = raw.find(']', array_start)
-            if array_start != -1 and array_end != -1:
-                options_str = raw[array_start:array_end + 1]
-
-    if not options_str:
-        return None
-
-    try:
-        options = json.loads(options_str)
-        if isinstance(options, list):
-            return [o.strip() for o in options if isinstance(o, str)]
-    except Exception:
-        return None
-
+    import json
+    
+    ai_logger.debug(f"[옵션 파싱 시작] raw 텍스트: {raw}")
+    
+    # Clean the raw text first
+    cleaned_raw = raw.strip()
+    
+    # Strategy 1: Look for complete JSON with "options" key
+    json_patterns = [
+        r'"options"\s*:\s*(\[\s*"[^"]*"(?:\s*,\s*"[^"]*")*\s*\])',  # Standard JSON array
+        r'"options"\s*:\s*(\[\s*["\'][^"\']*["\'](?:\s*,\s*["\'][^"\']*["\'])*\s*\])',  # Mixed quotes
+        r'options["\']?\s*:\s*(\[\s*"[^"]*"(?:\s*,\s*"[^"]*")*\s*\])',  # No quotes around key
+    ]
+    
+    for pattern in json_patterns:
+        match = re.search(pattern, cleaned_raw, re.DOTALL | re.IGNORECASE)
+        if match:
+            try:
+                options_str = match.group(1)
+                ai_logger.debug(f"[JSON 패턴 매치] 추출된 옵션 문자열: {options_str}")
+                options = json.loads(options_str)
+                if isinstance(options, list) and len(options) >= 2:
+                    clean_options = [str(o).strip() for o in options if o and str(o).strip()]
+                    if len(clean_options) >= 2:
+                        ai_logger.info(f"[옵션 파싱 성공 - JSON] 옵션: {clean_options}")
+                        return clean_options
+            except json.JSONDecodeError as e:
+                ai_logger.debug(f"[JSON 파싱 실패] 에러: {e}")
+                continue
+    
+    # Strategy 2: Look for standalone array patterns (without "options" key)
+    array_patterns = [
+        r'\[\s*"([^"]+)"(?:\s*,\s*"([^"]+)")*\s*\]',  # ["option1", "option2", ...]
+        r'\[\s*["\']([^"\']+)["\'](?:\s*,\s*["\']([^"\']+)["\'])*\s*\]',  # Mixed quotes
+        r'\[\s*([^,\[\]]+)(?:\s*,\s*([^,\[\]]+))*\s*\]',  # Unquoted options
+    ]
+    
+    for pattern in array_patterns:
+        matches = re.findall(pattern, cleaned_raw, re.DOTALL)
+        if matches:
+            # Flatten the matches and filter out empty strings
+            options = []
+            for match_group in matches:
+                if isinstance(match_group, tuple):
+                    options.extend([opt.strip().strip('"\'') for opt in match_group if opt and opt.strip()])
+                else:
+                    options.append(match_group.strip().strip('"\''))
+            
+            if len(options) >= 2:
+                ai_logger.info(f"[옵션 파싱 성공 - 배열] 옵션: {options}")
+                return options
+    
+    # Strategy 3: Line-by-line parsing for numbered or bulleted lists
+    lines = cleaned_raw.split('\n')
+    list_options = []
+    
+    for line in lines:
+        line = line.strip()
+        # Match patterns like: 1. option, - option, • option, * option
+        line_patterns = [
+            r'^\d+\.\s*(.+)$',  # 1. option
+            r'^[-•*]\s*(.+)$',  # - option, • option, * option
+            r'^["\']([^"\']+)["\'](?:\s*,?\s*)*$',  # "option" or 'option'
+        ]
+        
+        for pattern in line_patterns:
+            match = re.match(pattern, line)
+            if match:
+                option = match.group(1).strip().strip('"\'').rstrip(',')
+                if option and len(option) <= 50:  # Reasonable length check
+                    list_options.append(option)
+                break
+    
+    if len(list_options) >= 2:
+        ai_logger.info(f"[옵션 파싱 성공 - 라인별] 옵션: {list_options}")
+        return list_options
+    
+    # Strategy 4: Extract quoted strings as potential options
+    quoted_strings = re.findall(r'["\']([^"\']{1,30})["\']', cleaned_raw)
+    if len(quoted_strings) >= 2:
+        # Filter out common non-option words
+        stopwords = {'options', 'question', '질문', '선택', '답변', 'answer', 'choice'}
+        filtered_options = [opt.strip() for opt in quoted_strings 
+                          if opt.strip().lower() not in stopwords and len(opt.strip()) > 0]
+        
+        if len(filtered_options) >= 2:
+            ai_logger.info(f"[옵션 파싱 성공 - 인용문] 옵션: {filtered_options[:4]}")  # Take first 4
+            return filtered_options[:4]
+    
+    # Strategy 5: Comma-separated values (last resort)
+    if ',' in cleaned_raw:
+        # Look for the part that might contain comma-separated options
+        potential_options = []
+        for segment in cleaned_raw.split('\n'):
+            if ',' in segment and not any(word in segment.lower() for word in ['question', '질문', 'prompt']):
+                parts = [p.strip().strip('"\'') for p in segment.split(',')]
+                valid_parts = [p for p in parts if p and 1 <= len(p) <= 20]
+                if len(valid_parts) >= 2:
+                    potential_options.extend(valid_parts)
+        
+        if len(potential_options) >= 2:
+            ai_logger.info(f"[옵션 파싱 성공 - 쉼표 구분] 옵션: {potential_options[:4]}")
+            return potential_options[:4]
+    
+    ai_logger.warning(f"[옵션 파싱 완전 실패] raw 텍스트: {raw}")
     return None
 
