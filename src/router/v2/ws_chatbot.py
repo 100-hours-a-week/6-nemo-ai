@@ -1,5 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import JSONResponse
+import asyncio
 from src.core.websocket_manager import websocket_manager
 from src.core.ai_logger import get_ai_logger
 from src.middleware import authenticate_websocket, validate_session_message, ping_loop
