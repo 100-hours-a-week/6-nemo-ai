@@ -1,4 +1,4 @@
-name: AI CI for v2-dev
+name: AI CI/CD - Build & Deploy
 
 on:
   push:
@@ -6,63 +6,168 @@ on:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy to AI Server
+    name: Build & Deploy AI + VLLM
     runs-on: ubuntu-latest
 
     env:
-      REGION: asia-northeast3
-      REPOSITORY: registry
-      SERVICE: ai-dev
+      AWS_REGION: ap-northeast-2
+      SERVICE: ai
       ENVIRONMENT: dev
-      DEPLOY_SCRIPT: ~/nemo/cloud/v2/scripts/deploy.sh
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-    - name: Set GCP Project
-      run: gcloud config set project ${{ secrets.GCP_PROJECT_ID_AI }}
-
-    - name: Set image tag and URI
-      run: |
-        TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
-        echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
-
-        IMAGE_URI="${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID_AI }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}"
-        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Configure Docker for Artifact Registry
-      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-    - name: Build and Push Docker Image
-      run: |+
-        echo Checking pushed image: ${IMAGE_URI}:${TIME_TAG}
-        echo Checking pushed image: ${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest
-
-        docker buildx build \
-          --platform linux/amd64 \
-          -t "${IMAGE_URI}:${TIME_TAG}" \
-          -t "${IMAGE_URI}:${{ env.ENVIRONMENT }}-latest" \
-          --push .
+      - name: Set image tag and URI
+        run: |
+          TIME_TAG="${{ env.ENVIRONMENT }}-$(TZ=Asia/Seoul date +'%Y%m%d-%H%M')"
+          echo "TIME_TAG=$TIME_TAG" >> $GITHUB_ENV
           
-    - name: Deploy via Bastion to AI Server
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.AI_HOST }}
-        username: ${{ secrets.AI_USER }}
-        key: ${{ secrets.AI_SSH_KEY }}
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.SERVICE }}"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-        proxy_host: ${{ secrets.BASTION_HOST }}
-        proxy_username: ${{ secrets.BASTION_USER }}
-        proxy_key: ${{ secrets.BASTION_SSH_KEY }}
+      - name: Get current date
+        id: date
+        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
 
-        script: |
-          bash ${{ env.DEPLOY_SCRIPT }} ${{ env.SERVICE }} ${{ env.ENVIRONMENT }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+
+      - name: Build and Push Docker Image to ECR
+        run: |
+          echo "🔨 Building Docker image..."
+          docker build -t "${IMAGE_URI}:${TIME_TAG}" .
+          
+          echo "📦 Pushing to ECR..."
+          docker push "${IMAGE_URI}:${TIME_TAG}"
+
+      - name: Output image info
+        run: |
+          echo "🚀 AI Image pushed successfully!"
+          echo "📦 Image URI: ${IMAGE_URI}:${TIME_TAG}"
+
+      - name: Deploy to EC2 Server
+        run: |
+          # SSH 키 설정
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          
+          # 서버에 SSH 접속하여 배포 (헬스체크 포함)
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+          
+            echo "🚀 Starting deployment process..."
+          
+            # 배포 스크립트 실행 (헬스체크 포함)
+            cd /home/ubuntu/nemo
+            chmod +x deploy.sh
+            ./deploy.sh ${{ env.TIME_TAG }}
+          
+            echo "🎉 배포 및 헬스체크 완료! 이미지: ${{ env.TIME_TAG }}"
+          EOF
+          
+          # 정리
+          rm -f private_key.pem
+
+      - name: Final Status Check
+        run: |
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            echo "📊 최종 상태 확인..."
+            docker ps | grep -E "(ai-prod|vllm)" || echo "컨테이너 확인 실패"
+          
+            # 간단한 상태만 확인 (헬스체크는 deploy.sh에서 이미 완료)
+            echo "🔍 서비스 포트 확인..."
+            netstat -tuln | grep -E ":8000|:8002" || echo "포트 확인 완료"
+          EOF
+          
+          rm -f private_key.pem
+
+      - name: Notify Deployment Status
+        run: |
+          echo "🚀 배포 완료!"
+          echo "📦 새 이미지: ${{ env.TIME_TAG }}"
+          echo "🌐 AI 서비스: http://${{ secrets.EC2_HOST }}:8000"
+          echo "🤖 VLLM 서비스: http://${{ secrets.EC2_HOST }}:8002"
+
+      - name: Discord Notification - Success
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "🚀 AI 배포 성공!",
+                "description": "새로운 AI 서비스가 성공적으로 배포되었습니다.",
+                "color": 3066993,
+                "fields": [
+                  {
+                    "name": "📦 이미지 태그",
+                    "value": "${{ env.TIME_TAG }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "👤 배포자",
+                    "value": "${{ github.actor }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "🔗 커밋",
+                    "value": "[${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})",
+                    "inline": true
+                  }
+                ],
+                "timestamp": "${{ steps.date.outputs.date }}",
+                "footer": {
+                  "text": "AI CI/CD Pipeline"
+                }
+              }]
+            }' \
+            https://discord.com/api/webhooks/1372113045471498250/al6sPD-f9AzhQiQslu3EjnsSq8iK1aEQJMT8vqLLEbGiPg2I53O_2Xx60PcxVTqmELio
+
+      - name: Discord Notification - Failure
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "embeds": [{
+                "title": "❌ AI 배포 실패!",
+                "description": "AI 서비스 배포 중 오류가 발생했습니다.",
+                "color": 15158332,
+                "fields": [
+                  {
+                    "name": "📦 시도한 이미지",
+                    "value": "${{ env.TIME_TAG }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "👤 배포자",
+                    "value": "${{ github.actor }}",
+                    "inline": true
+                  },
+                  {
+                    "name": "🔗 실패한 워크플로우",
+                    "value": "[로그 확인](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})",
+                    "inline": true
+                  }
+                ],
+                "timestamp": "${{ steps.date.outputs.date }}",
+                "footer": {
+                  "text": "AI CI/CD Pipeline"
+                }
+              }]
+            }' \
+            https://discord.com/api/webhooks/1372113045471498250/al6sPD-f9AzhQiQslu3EjnsSq8iK1aEQJMT8vqLLEbGiPg2I53O_2Xx60PcxVTqmELio

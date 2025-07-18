@@ -377,6 +377,12 @@ class KafkaConsumerManager:
                 if msg.value is None:
                     logger.debug(f"[Kafka] Skipping null message in {topic}")
                     await consumer.commit()
+                    continue
+                
+                # Handle messages that couldn't be deserialized due to codec issues
+                if msg.value is None and hasattr(msg, 'headers'):
+                    logger.warning(f"[Kafka] Skipping message with unsupported codec in {topic}")
+                    await consumer.commit()
                     logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
                     continue
                 
@@ -714,6 +720,34 @@ class KafkaConsumerManager:
                 if msg.value is None:
                     await consumer.commit()
                     logger.info(f"[Kafka] Job completed - Topic: {topic}, Partition: {msg.partition}, Offset: {msg.offset}")
+                    continue
+                    
+                try:
+                    from src.schemas.v2.kafka_events import DLQMessage
+                    dlq_message = DLQMessage(**msg.value)
+                    
+                    logger.warning(f"[DLQ] Processing failed GROUP_EVENT: {dlq_message.errorType}")
+                    logger.debug(f"[DLQ] Original message: {dlq_message.originalMessage}")
+                    logger.debug(f"[DLQ] Error: {dlq_message.errorMessage}")
+                    
+                    # Could implement retry logic here or manual intervention alerts
+                    await consumer.commit()
+                    
+                except Exception as e:
+                    logger.error(f"[DLQ] Failed to process DLQ message: {e}")
+                    await consumer.commit()
+                    
+        except Exception as e:
+            logger.error(f"[Kafka] GROUP_EVENT_DLQ consumer stopped: {type(e).__name__}")
+    
+    async def _process_group_generation_dlq(self, consumer, topic: str):
+        """Process GROUP_GENERATE_DLQ - handle failed group generation requests"""
+        logger.info(f"[Kafka] Starting DLQ consumer for {topic}")
+        
+        try:
+            async for msg in consumer:
+                if msg.value is None:
+                    await consumer.commit()
                     continue
                     
                 try:

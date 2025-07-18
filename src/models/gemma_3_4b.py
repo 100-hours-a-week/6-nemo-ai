@@ -270,6 +270,44 @@ async def _get_fallback_response(prompt: Union[str, List[str]]) -> Union[str, Li
         return fallback_text
 
 
+async def stream_vllm_response(messages: list[dict]):
+    VLLM_API_URL = vLLM_URL + "v1/chat/completions"
+
+    converted_messages = [
+        {"role": m["role"], "content": m["text"]} for m in messages
+    ]
+
+    payload = {
+        "messages": converted_messages,
+        "stream": True,
+        "max_tokens": 256,
+        "temperature": 0.7,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", VLLM_API_URL, json=payload) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if line.startswith("data:"):
+                        content = line[len("data:"):].strip()
+                        if content == "[DONE]":
+                            break
+                        try:
+                            parsed = json.loads(content)
+                            delta = parsed["choices"][0]["delta"]
+                            token = delta.get("content", "")
+                            if token:
+                                yield token
+                        except Exception as e:
+                            ai_logger.warning(
+                                "[vLLM 스트리밍 파싱 실패]",
+                                extra={"line": line, "error": str(e)},
+                            )
+    except httpx.HTTPError as e:
+        ai_logger.error("[vLLM SSE 연결 실패]", extra={"error": str(e)})
+        raise
+
 async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
     """Placeholder for local model generation (currently disabled)"""
     # Local model code commented out as in original
@@ -278,7 +316,6 @@ async def local_model_generate(prompt: str, max_new_tokens: int = 512) -> str:
 
 if __name__ == "__main__":
     import asyncio
-
 
     async def test_streaming():
         messages = [{"role": "user", "text": "안녕하세요"}]

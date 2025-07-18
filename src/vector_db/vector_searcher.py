@@ -17,7 +17,6 @@ GROUP_COLLECTION = "group-info"
 SYN_COLLECTION = "group-synthetic"
 USER_COLLECTION = "user-activity"
 RECOMMENDATION_THRESHOLD = 0.25
-
 logger = get_ai_logger()
 
 class VectorBasedCategoryDiscovery:
@@ -538,7 +537,6 @@ def get_user_joined_group_ids_enhanced(user_id: str) -> Set[str]:
 
 if __name__ == "__main__":
     from pprint import pprint
-
     print("=== Vector-Based Category Discovery Test ===")
 
     # Test system stats

@@ -9,11 +9,9 @@ from src.services.v2.ws_chatbot import (
     stream_recommendation_chunks,
 )
 from src.models.gemma_3_4b import get_vllm_health_metrics
-import asyncio
 
 router = APIRouter(prefix="/chatbot", tags=["WebSocket"])
 ai_logger = get_ai_logger()
-
 
 @router.get("/health")
 async def get_health_status():
@@ -28,7 +26,6 @@ async def get_health_status():
     except Exception as e:
         ai_logger.error(f"[Health Check] 상태 확인 실패: {e}")
         raise HTTPException(status_code=500, detail="Health check failed")
-
 
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket):
