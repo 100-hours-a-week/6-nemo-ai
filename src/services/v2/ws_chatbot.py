@@ -24,18 +24,23 @@ class PrefixParser:
     
     def process_chunk(self, chunk: str) -> str | None:
         """Process a chunk and return the cleaned text or None if still waiting for prefix"""
-        # Always filter out newlines and carriage returns from the chunk
+        # Only remove newlines and carriage returns, but preserve other formatting
+        original_chunk = chunk
         chunk = chunk.replace('\n', '').replace('\r', '')
         
+        # Preserve original chunk for debugging
+        if chunk != original_chunk:
+            ai_logger.debug(f"[청크 정리] 원본: {repr(original_chunk)} → 정리됨: {repr(chunk)}")
+        
         if self.prefix_processed:
-            # Even after prefix is processed, check for any remaining prefix patterns in the middle
+            # After prefix is processed, only check for major prefix patterns at the beginning
             cleaned_chunk = chunk
             for prefix in self.prefixes:
-                if prefix in cleaned_chunk:
-                    # Remove the prefix and everything before it
-                    prefix_idx = cleaned_chunk.find(prefix)
-                    cleaned_chunk = cleaned_chunk[prefix_idx + len(prefix):].lstrip()
+                # Only remove prefix if it's clearly at the beginning of the chunk
+                if cleaned_chunk.startswith(prefix):
+                    cleaned_chunk = cleaned_chunk[len(prefix):].lstrip()
                     ai_logger.info(f"[중간 접두어 제거됨] 제거된 접두어: {prefix}")
+                    break
             return cleaned_chunk if cleaned_chunk else None
         
         self.buffer += chunk
@@ -48,6 +53,7 @@ class PrefixParser:
             if self.buffer.startswith(prefix):
                 prefix_found = True
                 prefix_length = len(prefix)
+                ai_logger.debug(f"[접두어 발견] 매치된 접두어: {prefix}")
                 break
         
         if prefix_found:
@@ -60,19 +66,20 @@ class PrefixParser:
         else:
             # Check if buffer could be building up to a prefix
             could_be_prefix = any(
-                prefix.startswith(self.buffer) or self.buffer.startswith(prefix[:len(self.buffer)])
+                prefix.startswith(self.buffer) and len(self.buffer) < len(prefix)
                 for prefix in self.prefixes
             )
             
             if could_be_prefix and len(self.buffer) < self.max_prefix_length:
                 # Might be partial prefix, wait for more chunks
+                ai_logger.debug(f"[접두어 대기] 현재 버퍼: {repr(self.buffer)}")
                 return None
             else:
                 # Not a prefix, start normal streaming with accumulated buffer
                 self.prefix_processed = True
-                # Clean any newlines and carriage returns from the buffer before returning
-                cleaned_buffer = self.buffer.replace('\n', '').replace('\r', '')
-                return cleaned_buffer if cleaned_buffer else None
+                ai_logger.info(f"[접두어 없음] 일반 스트리밍 시작, 버퍼: {repr(self.buffer)}")
+                # Return the buffer without additional cleaning to preserve formatting
+                return self.buffer if self.buffer else None
 
 async def stream_question_chunks(answer: str | None, user_id: str, session_id: str):
     history = get_session_history(session_id)
@@ -98,7 +105,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
         {"role": "user", "text": prompt}
     ]):
         if first:
-            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: '{chunk}' (len={len(chunk)}) time {time.time() - start_time} sec")
+            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: {repr(chunk)} (len={len(chunk)}) time {time.time() - start_time} sec")
             first = False
 
         streamed_text += chunk  # Keep original for logging
@@ -107,6 +114,10 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
         processed_chunk = prefix_parser.process_chunk(chunk)
         if processed_chunk is None:
             continue  # Still waiting for complete prefix
+        
+        # Log the processing result for debugging
+        if processed_chunk != chunk:
+            ai_logger.debug(f"[청크 처리] 원본: {repr(chunk)} → 처리됨: {repr(processed_chunk)}")
         
         cleaned_text += processed_chunk  # Accumulate cleaned text
         chunk = processed_chunk  # Use the cleaned chunk
@@ -135,8 +146,8 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
     end_time = time.time()
     ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec")
-    ai_logger.info(f"[원본 응답]: {streamed_text.strip()}")
-    ai_logger.info(f"[정리된 응답]: {cleaned_text.strip()}")
+    ai_logger.info(f"[원본 응답]: {repr(streamed_text.strip())}")
+    ai_logger.info(f"[정리된 응답]: {repr(cleaned_text.strip())}")
 
     try:
         options = extract_options_from_stream(options_text)
@@ -152,7 +163,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
         })
 
     except Exception as e:
-        ai_logger.warning("[질문 옵션 파싱 실패]", extra={"error": str(e), "raw": options_text})
+        ai_logger.warning("[질문 옵션 파싱 실패]", extra={"error": str(e), "raw": repr(options_text)})
 
         fallback = {
             "question": "다른 사람과 함께 하고 싶은 활동은 무엇인가요?",
@@ -268,7 +279,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
             if first:
                 first_chunk_time = time.time()
                 ai_logger.info(
-                    f"[추천 vLLM 첫 chunk 수신] chunk: {chunk} time {first_chunk_time - start_time:.3f} sec"
+                    f"[추천 vLLM 첫 chunk 수신] chunk: {repr(chunk)} time {first_chunk_time - start_time:.3f} sec"
                 )
                 first = False
 
@@ -276,6 +287,10 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
             processed_chunk = prefix_parser.process_chunk(chunk)
             if processed_chunk is None:
                 continue  # Still waiting for complete prefix
+            
+            # Log the processing result for debugging
+            if processed_chunk != chunk:
+                ai_logger.debug(f"[추천 청크 처리] 원본: {repr(chunk)} → 처리됨: {repr(processed_chunk)}")
             
             chunk = processed_chunk  # Use the cleaned chunk
 
