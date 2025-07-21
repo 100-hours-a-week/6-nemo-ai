@@ -39,3 +39,4 @@ monitoring/grafana-data/
 monitoring/prometheus-data/
 
 scripts/
+ssh_servers/

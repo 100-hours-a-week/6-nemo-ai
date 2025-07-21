@@ -438,8 +438,9 @@ class KafkaConsumerManager:
                             timestamp=event_data.get('timestamp', [])
                         )
 
+                        from src.models.e5_embeddings import embed
                         client = get_chroma_client()
-                        col = client.get_or_create_collection("group-info")
+                        col = client.get_or_create_collection("group-info", embedding_function=embed)
                         col.delete(ids=[f"group-{group_id}"])
                         logger.info(f"[ChromaDB] Deleted group {group_id} from vector database")
 
@@ -460,8 +461,9 @@ class KafkaConsumerManager:
                             add_documents_to_vector_db(docs, "user-activity")
                             logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
                         elif event_type == "GROUP_LEFT":
+                            from src.models.e5_embeddings import embed
                             client = get_chroma_client()
-                            col = client.get_or_create_collection("user-activity")
+                            col = client.get_or_create_collection("user-activity", embedding_function=embed)
                             col.delete(ids=[f"user-{user_data.userId}-{user_data.groupId}"])
                             logger.info(f"[ChromaDB] Removed user {user_data.userId} from group {user_data.groupId}")
                         else:

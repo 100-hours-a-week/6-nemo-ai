@@ -56,6 +56,37 @@ async def get_vllm_health_metrics():
     }
 
 
+def _is_korean_text_garbled(text: str) -> bool:
+    """Check if Korean text appears to be garbled or corrupted"""
+    if not text or not isinstance(text, str):
+        return False
+    
+    # Check for patterns that indicate garbled Korean text
+    garbled_patterns = [
+        r'7은',  # Common pattern in your garbled output
+        r'[0-9]+은',  # Numbers followed by 은
+        r'은[0-9]+',  # 은 followed by numbers
+        r'(?:은|가|이|를|에|의){3,}',  # Repeated particles
+        r'[?]{2,}',  # Multiple question marks in garbled text
+    ]
+    
+    import re
+    for pattern in garbled_patterns:
+        if re.search(pattern, text):
+            return True
+    
+    # If text has Korean but very little meaningful content
+    korean_chars = len([c for c in text if ord(c) >= 0xAC00 and ord(c) <= 0xD7AF])
+    total_chars = len(text.strip())
+    if korean_chars > 0 and total_chars > 0:
+        # If more than 30% of characters are numbers/symbols mixed with Korean, likely garbled
+        non_korean_count = len([c for c in text if c.isdigit() or c in '?은'])
+        if non_korean_count / total_chars > 0.3:
+            return True
+    
+    return False
+
+
 async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, temperature: float = 0.7) -> Union[
     str, List[str]]:
     """Enhanced vLLM API call with retry logic and circuit breaker"""
@@ -65,7 +96,7 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         payload = {
             "prompt": prompt,
             "max_tokens": max_tokens,
-            "temperature": temperature
+            "temperature": temperature,
         }
 
         timeout_config = httpx.Timeout(
@@ -81,9 +112,20 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
             result = response.json()
 
             if isinstance(prompt, list):
-                return [c.get("text", "").strip() for c in result.get("choices", [])]
+                generated_texts = [c.get("text", "").strip() for c in result.get("choices", [])]
+                # Check for garbled Korean text in batch responses
+                for i, text in enumerate(generated_texts):
+                    if _is_korean_text_garbled(text):
+                        ai_logger.warning(f"[vLLM] Detected garbled Korean text in batch response {i}: {text[:100]}")
+                        generated_texts[i] = ""  # Will trigger fallback
+                return generated_texts
             else:
-                return result.get("choices", [{}])[0].get("text", "").strip()
+                generated_text = result.get("choices", [{}])[0].get("text", "").strip()
+                # Check for garbled Korean text
+                if _is_korean_text_garbled(generated_text):
+                    ai_logger.warning(f"[vLLM] Detected garbled Korean text: {generated_text[:100]}")
+                    return ""  # Will trigger fallback handling
+                return generated_text
 
     try:
         # Start health monitoring if not already running
@@ -100,8 +142,12 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         retry_count = 0
         max_empty_retries = 2
         
-        while (not generated or (isinstance(generated, str) and generated.strip() == "")) and retry_count < max_empty_retries:
-            ai_logger.warning(f"[vLLM] 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
+        while (not generated or (isinstance(generated, str) and generated.strip() == "") or 
+               (isinstance(generated, str) and _is_korean_text_garbled(generated))) and retry_count < max_empty_retries:
+            if isinstance(generated, str) and _is_korean_text_garbled(generated):
+                ai_logger.warning(f"[vLLM] Garbled Korean detected, retrying {retry_count + 1}/{max_empty_retries}")
+            else:
+                ai_logger.warning(f"[vLLM] 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
             retry_count += 1
             await asyncio.sleep(1.0)  # Wait before retry
             
@@ -115,8 +161,12 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
                 ai_logger.warning(f"[vLLM] 재시도 중 오류: {e}")
                 break
 
-        if not generated or (isinstance(generated, str) and generated.strip() == ""):
-            ai_logger.warning("[vLLM] 모든 재시도 후에도 응답이 비어 있습니다.")
+        if (not generated or (isinstance(generated, str) and generated.strip() == "") or
+            (isinstance(generated, str) and _is_korean_text_garbled(generated))):
+            if isinstance(generated, str) and _is_korean_text_garbled(generated):
+                ai_logger.warning("[vLLM] 모든 재시도 후에도 한국어 출력이 깨져있습니다.")
+            else:
+                ai_logger.warning("[vLLM] 모든 재시도 후에도 응답이 비어 있습니다.")
             return await _get_fallback_response(prompt)
 
         if isinstance(generated, list):
@@ -132,7 +182,8 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
     except Exception as e:
         ai_logger.error("[vLLM] 응답 실패", extra={
             "error": str(e),
-            "prompt_preview": str(prompt)[:100] if prompt else "None"
+            "prompt_preview": str(prompt)[:100] if prompt else "None",
+            "is_recommendation_prompt": "설명을 작성하세요" in str(prompt) if isinstance(prompt, str) else False
         })
         return await _get_fallback_response(prompt)
 
@@ -262,7 +313,32 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
 
 async def _get_fallback_response(prompt: Union[str, List[str]]) -> Union[str, List[str]]:
     """Generate fallback response when vLLM fails"""
-    fallback_text = '{"question": "모임에 참여할 때 어떤 점을 가장 중요하게 생각하시나요?", "options": ["분위기", "활동 내용", "참여자", "일정"]}'
+    # Check if this is a question generation prompt or recommendation explanation prompt
+    if isinstance(prompt, str):
+        prompt_lower = prompt.lower()
+        # Check for question generation indicators
+        if ("JSON으로만 출력하세요" in prompt or 
+            "question" in prompt_lower or 
+            "options" in prompt_lower or
+            "선택지" in prompt):
+            # This is likely a question generation request
+            fallback_text = '{"question": "모임에 참여할 때 어떤 점을 가장 중요하게 생각하시나요?", "options": ["분위기", "활동 내용", "참여자", "일정"]}'
+            ai_logger.info("[vLLM Fallback] 질문 생성 fallback 사용")
+        elif ("설명을 작성하세요" in prompt or 
+              "추천" in prompt or 
+              "이유" in prompt or
+              "적합한" in prompt):
+            # This is likely a recommendation explanation request
+            fallback_text = "이 모임은 당신의 대화 내용과 잘 어울리는 것 같아서 추천드려요. 새로운 사람들과 함께 즐거운 시간을 보내실 수 있을 거예요!"
+            ai_logger.info("[vLLM Fallback] 추천 설명 fallback 사용")
+        else:
+            # Default to recommendation explanation
+            fallback_text = "이 모임은 당신의 관심사와 잘 맞는 것 같아요. 참여해보시면 좋은 경험이 될 것 같습니다!"
+            ai_logger.info("[vLLM Fallback] 기본 추천 설명 fallback 사용")
+    else:
+        # For list prompts, default to question format
+        fallback_text = '{"question": "모임에 참여할 때 어떤 점을 가장 중요하게 생각하시나요?", "options": ["분위기", "활동 내용", "참여자", "일정"]}'
+        ai_logger.info("[vLLM Fallback] 배치 질문 생성 fallback 사용")
 
     if isinstance(prompt, list):
         return [fallback_text for _ in prompt]

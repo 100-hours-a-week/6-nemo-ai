@@ -147,7 +147,10 @@ async def handle_answer_analysis(
 
     try:
         reason = await generate_explaination(messages, group_text)
-        ai_logger.info("[추천] 추천 사유 생성 성공", extra={"group_id": group_id})
+        ai_logger.info("[추천] 추천 사유 생성 성공", extra={
+            "group_id": group_id, 
+            "reason_preview": reason[:50] + "..." if len(reason) > 50 else reason
+        })
     except Exception as e:
         reason = "이 모임은 당신의 대화 내용과 가장 잘 어울려 추천드립니다."
         ai_logger.warning("[추천] 추천 사유 생성 실패", extra={"group_id": group_id, "error": str(e)})

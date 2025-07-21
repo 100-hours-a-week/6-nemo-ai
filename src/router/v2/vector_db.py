@@ -74,8 +74,9 @@ def delete_group_from_chroma_route(payload: GroupDeleteRequest):
     try:
         group_id = payload.groupId
 
+        from src.models.e5_embeddings import embed
         client = get_chroma_client()
-        col = client.get_or_create_collection("group-info")
+        col = client.get_or_create_collection("group-info", embedding_function=embed)
         col.delete(ids=[f"group-{group_id}"])
 
         return {
@@ -96,8 +97,9 @@ def remove_user_from_chroma_route(payload: UserRemoveRequest):
 
         ids = [f"user-{user_id}-{group_id}"]
 
+        from src.models.e5_embeddings import embed
         client = get_chroma_client()
-        col = client.get_or_create_collection("user-activity")
+        col = client.get_or_create_collection("user-activity", embedding_function=embed)
         col.delete(ids=ids)
 
         return {
@@ -129,7 +131,7 @@ def list_collection_items(
 ):
     try:
         client = get_chroma_client()
-        col = client.get_or_create_collection(name=collection)
+        col = client.get_or_create_collection(name=collection, embedding_function=embed)
         results = col.get(include=["documents", "metadatas"])
 
         total = len(results.get("documents", []))
@@ -164,7 +166,7 @@ def get_single_document(
         id: str = Query(..., description="조회할 문서 ID")
 ):
     client = get_chroma_client()
-    col = client.get_or_create_collection(name=collection)
+    col = client.get_or_create_collection(name=collection, embedding_function=embed)
 
     try:
         result = col.get(ids=[id], include=["documents", "metadatas"])
