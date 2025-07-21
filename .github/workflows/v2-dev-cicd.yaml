@@ -13,10 +13,25 @@ jobs:
       AWS_REGION: ap-northeast-2
       SERVICE: ai
       ENVIRONMENT: dev
+      # UTF-8 한국어 지원을 위한 locale 설정
+      LC_ALL: ko_KR.UTF-8
+      LANG: ko_KR.UTF-8
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
+      - name: Setup UTF-8 Korean locale
+        run: |
+          echo "🌐 Setting up UTF-8 Korean locale..."
+          sudo apt-get update
+          sudo apt-get install -y locales
+          sudo locale-gen ko_KR.UTF-8
+          sudo update-locale LANG=ko_KR.UTF-8 LC_ALL=ko_KR.UTF-8
+            
+          # 현재 locale 확인
+          echo "Current locale settings:"
+          locale
 
       - name: Set image tag and URI
         run: |
@@ -66,6 +81,10 @@ jobs:
           ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
           
+            # EC2 서버에서도 UTF-8 한국어 locale 설정
+            export LC_ALL=ko_KR.UTF-8
+            export LANG=ko_KR.UTF-8
+          
             echo "🚀 Starting deployment process..."
           
             # 배포 스크립트 실행 (헬스체크 포함)
@@ -85,6 +104,10 @@ jobs:
           chmod 600 private_key.pem
           
           ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            # UTF-8 한국어 locale 설정
+            export LC_ALL=ko_KR.UTF-8
+            export LANG=ko_KR.UTF-8
+          
             echo "📊 최종 상태 확인..."
             docker ps | grep -E "(ai-prod|vllm)" || echo "컨테이너 확인 실패"
           
@@ -99,8 +122,6 @@ jobs:
         run: |
           echo "🚀 배포 완료!"
           echo "📦 새 이미지: ${{ env.TIME_TAG }}"
-          echo "🌐 AI 서비스: http://${{ secrets.EC2_HOST }}:8000"
-          echo "🤖 VLLM 서비스: http://${{ secrets.EC2_HOST }}:8002"
 
       - name: Discord Notification - Success
         if: success()
