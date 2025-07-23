@@ -89,7 +89,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
     else:
         context = "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
-    return f"""
+    return f"""[QUESTION]
 {context}
 
 - 질문은 75~120자 이내의 자연스럽고 대화체 말투로 작성하세요.
@@ -166,7 +166,7 @@ async def handle_answer_analysis(
 async def generate_explaination(messages: list[dict], group_text: str, debug: bool = True) -> str:
     conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
-    prompt = f"""
+    prompt = f"""[RECOMMEND]
     당신은 모임 추천 챗봇입니다.
 
     다음은 사용자와의 대화 내용입니다:

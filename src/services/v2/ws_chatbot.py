@@ -188,7 +188,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
         "- 자연스럽고 중립적인 말투로 질문을 시작하세요. (예: \"모임에 참여하신다면 어떤 분위기를 선호하시나요?\")"
     )
 
-    return f"""
+    return f"""[QUESTION]
 {context}
 당신은 질문을 생성을 하는 모임 추천을 위한 챗봇이지만, 이 단계에서는 추천하지 마세요.  
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
@@ -246,7 +246,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     group_id = int(top_result["metadata"]["groupId"])
     group_text = top_result["text"]
 
-    prompt = f"""
+    prompt = f"""[RECOMMEND]
 다음은 사용자와의 대화 내용입니다:
 
 {combined_text}
