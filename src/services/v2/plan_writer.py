@@ -23,7 +23,7 @@ def clean_output_to_steps(text:str) -> str:
     return "\n".join(cleaned_lines)
 
 async def generate_plan(data: GroupGenerationRequest) -> str:
-    prompt = f"""
+    prompt = f"""[PLAN]
     당신은 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성하는 AI입니다.
 
     # 조건

@@ -31,13 +31,19 @@ DB_USER = os.getenv("DB_USER")
 PASSWORD = os.getenv("PASSWORD")
 DATABASE = os.getenv("DATABASE")
 
-vLLM_URL = os.getenv("VLLM_API_URL")
+vLLM_URL = os.getenv("VLLM_API_URL", "http://localhost:8001")
 
 # vLLM Configuration
 VLLM_TIMEOUT = int(os.getenv("VLLM_TIMEOUT", "30"))
 VLLM_STREAM_TIMEOUT = int(os.getenv("VLLM_STREAM_TIMEOUT", "120"))
 VLLM_READ_TIMEOUT = int(os.getenv("VLLM_READ_TIMEOUT", "60"))
 VLLM_MAX_RETRIES = int(os.getenv("VLLM_MAX_RETRIES", "3"))
+
+# vLLM Model Configuration
+VLLM_MODEL_NAME = os.getenv("VLLM_MODEL_NAME", "gemma-3-4b-it")
+VLLM_MAX_TOKENS = int(os.getenv("VLLM_MAX_TOKENS", "512"))
+VLLM_TEMPERATURE = float(os.getenv("VLLM_TEMPERATURE", "0.7"))
+VLLM_GPU_MEMORY_UTIL = float(os.getenv("VLLM_GPU_MEMORY_UTIL", "0.8"))
 
 KAFKA_BOOTSTRAP_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVER", "localhost:9092")
 KAFKA_ENABLED = os.getenv("KAFKA_ENABLED", "true").lower() == "true"

@@ -7,7 +7,7 @@ from src.models.gemma_3_4b import call_vllm_api   #로컬 모델 호출로 교�
 ai_logger = get_ai_logger()
 
 async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
-    prompt = f"""
+    prompt = f"""[INFORMATION]
     당신은 모임을 소개하는 AI 비서입니다.
 
     출력 내용:
