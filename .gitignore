@@ -40,3 +40,6 @@ monitoring/prometheus-data/
 
 scripts/
 ssh_servers/
+
+# Prompts (contains business logic and IP)
+prompts/
