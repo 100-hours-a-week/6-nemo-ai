@@ -5,6 +5,7 @@ from src.models.gemma_3_4b import call_vllm_api
 from src.vector_db.vector_searcher import search_similar_documents, get_user_joined_group_ids
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any  # 유사 질문 비교
+from app.prompts.prompt_loader import load_prompt_template
 
 ai_logger = get_ai_logger()
 
@@ -89,21 +90,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
     else:
         context = "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
-    return f"""[QUESTION]
-{context}
-
-- 질문은 75~120자 이내의 자연스럽고 대화체 말투로 작성하세요.
-- AI에 대한 설명 없이, 사용자에게 직접 질문하세요.
-- 질문 내용은 모임의 성격, 분위기, 규모, 목적 등 사용자에게 맞는 '모임 유형'을 파악하는 데 집중하세요.
-- 선택지는 4개 작성하세요.
-- 각 선택지는 1-3개 단어로 구성하세요.
-
-다음 형식의 JSON으로만 출력하세요:
-{{
-  "question": "...",
-  "options": ["...", "...", "...", "..."]
-}}
-""".strip()
+    return load_prompt_template("chatbot_question_generation", context=context)
 
 
 async def handle_answer_analysis(
@@ -166,25 +153,9 @@ async def handle_answer_analysis(
 async def generate_explaination(messages: list[dict], group_text: str, debug: bool = True) -> str:
     conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
-    prompt = f"""[RECOMMEND]
-    당신은 모임 추천 챗봇입니다.
-
-    다음은 사용자와의 대화 내용입니다:
-    {conversation}
-
-    추천할 모임 정보:
-    {group_text.strip()}
-
-    이 모임이 사용자에게 적합한 이유를 설명해주세요. 아래 조건을 지키세요:
-
-    - 설명은 **150자 이상, 270자 이하**, **1~3개의 문장**으로 작성하세요.
-    - 문장은 **말하듯 자연스럽고 부드러운 어투**로 작성하며, **친근한 마무리**로 끝내세요. (예: '~하신 거죠.', '~좋은 거예요~')
-    - 설명은 반드시 **추천 이유에 집중**하세요. (예: 성향, 관심사, 분위기, 대화 흐름 등과의 연결)
-    - 모임의 **운영 세부사항(시간, 위치, 규칙 등)**은 최소화하고, **사용자에게 어울리는 이유**를 중심으로 설명하세요.
-    - 출력은 **텍스트만** 포함하고, `"AI:"`, `"설명:"`, 따옴표, 리스트 등은 절대 포함하지 마세요.
-
-    아래에 바로 설명을 작성하세요.
-    """.strip()
+    prompt = load_prompt_template("chatbot_recommendation_explanation", 
+                                  conversation=conversation, 
+                                  group_text=group_text.strip())
 
     explanation = await call_vllm_api(prompt, max_tokens=400)
     cleaned = re.sub(

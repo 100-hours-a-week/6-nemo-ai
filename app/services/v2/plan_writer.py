@@ -1,6 +1,7 @@
 from src.schemas.v1.group_writer import GroupGenerationRequest
 from src.core.ai_logger import get_ai_logger
 from src.models.gemma_3_4b import call_vllm_api  # 로컬 모델 호출로 교체
+from app.prompts.prompt_loader import load_prompt_template
 import asyncio
 import re
 
@@ -23,25 +24,11 @@ def clean_output_to_steps(text:str) -> str:
     return "\n".join(cleaned_lines)
 
 async def generate_plan(data: GroupGenerationRequest) -> str:
-    prompt = f"""[PLAN]
-    당신은 모임의 '목적'을 중심으로 실현 가능한 활동 커리큘럼을 스텝별로 작성하는 AI입니다.
-
-    # 조건
-    - 입력된 기간을 참고하여 적절한 단계 수(4~8단계 이내)를 추정해야 합니다.
-    - 단, 무조건 8단계를 채우지 말고, 모임 목적과 활동 적절성에 따라 4~8단계 내에서 결정하세요.
-    - 출력 형식은 순수한 텍스트로만 작성합니다. 코드 예시나 함수 정의는 작성하지 않습니다.
-    - 각 단계는 다음 형식을 따릅니다:
-    - Step N: [제목]
-        - [설명 문장 1]
-        - [설명 문장 2]
-        - [설명 문장 3]
-
-    # 입력 정보
-    - 모임명: {data.name}
-    - 목적: {data.goal}
-    - 카테고리: {data.category}
-    - 기간: {data.period}
-    """
+    prompt = load_prompt_template("plan_writer_v2",
+                                  name=data.name,
+                                  goal=data.goal,
+                                  category=data.category,
+                                  period=data.period)
     try:
         ai_logger.info("[AI-v2] [커리큘럼 생성 시작]", extra={"meeting_name": data.name})
         # 로컬 모델 호출로 교체

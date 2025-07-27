@@ -8,6 +8,7 @@ from src.vector_db.vector_searcher import (
 )
 from src.vector_db.hybrid_search import hybrid_group_search
 from src.core.ai_logger import get_ai_logger
+from app.prompts.prompt_loader import load_prompt_template
 import time
 import asyncio
 
@@ -188,26 +189,9 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
         "- 자연스럽고 중립적인 말투로 질문을 시작하세요. (예: \"모임에 참여하신다면 어떤 분위기를 선호하시나요?\")"
     )
 
-    return f"""[QUESTION]
-{context}
-당신은 질문을 생성을 하는 모임 추천을 위한 챗봇이지만, 이 단계에서는 추천하지 마세요.  
-다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
-질문은 일반 문장 형태로 먼저 출력되고, 옵션은 JSON 형태로 나중에 함께 출력됩니다.
-
-- "**질문:**", "**options:**" 같은 접두어는 절대 쓰지 마세요. 그냥 질문 문장과 JSON만 출력하세요.
-- "네, 알겠습니다", "질문을 만들어보겠습니다", "아", "**질문:**" 같은 서론을 절대 포함하지 마세요
-- 절대로 "질문:" 또는 "**질문:**" 접두어로 시작하지 마세요. 바로 질문 문장으로 시작하세요.
-- 질문은 반드시 **AI가 사용자에게 묻는 문장**이어야 합니다. 질문의 주어는 항상 '당신' 또는 생략된 2인칭 사용자입니다.
-- 문장은 항상 **2인칭 대상에게 질문하는 형태**여야 하며, **AI는 조력자 역할**입니다.
-- 서론 없이 질문은 **하나의 문장**으로, **75~120자** 길이의 **친근하고 자연스러운 말투**로 작성하세요.
-{connect_instruction}
-- 질문의 주제는 모임의 성격, 분위기, 활동 목적, 인원 수, 대화 스타일, 모임 빈도 등 다양하게 설정하세요.
-- 반드시 **이전 질문과는 다른 주제나 방향**의 질문을 작성하세요.
-- 문장 앞뒤가 매끄럽게 이어지도록 하며, **반말이나 명령형은 피하고**, 정중하고 부드러운 말투를 사용하세요.
-- 선택지는 총 4개이며, **각각 1~3단어 이내의 표현으로 구성**하세요.
-질문 다음에 바로 아래 JSON 형식으로 출력하세요: 
-  "options": ["...", "...", "...", "..."]
-""".strip()
+    return load_prompt_template("ws_chatbot_question_generation", 
+                                context=context, 
+                                connect_instruction=connect_instruction)
 
 
 async def stream_recommendation_chunks(messages: list[dict], user_id: str, session_id: str):
@@ -246,20 +230,9 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     group_id = int(top_result["metadata"]["groupId"])
     group_text = top_result["text"]
 
-    prompt = f"""[RECOMMEND]
-다음은 사용자와의 대화 내용입니다:
-
-{combined_text}
-
-추천할 모임 정보:
-{group_text.strip()}
-
-[작성 지침]
-- 한국어로만 작성하세요. 영어는 절대 포함하지 마세요.
-- 설명은 150~270자 이내로 자연스럽고 말하듯 작성하세요.
-- "설명:" 같은 접두어 없이 문장만 출력하세요.
-- 예시는 참고용이며, 사용자의 대화와 모임 정보를 바탕으로 새롭게 작성하세요.
-""".strip()
+    prompt = load_prompt_template("ws_chatbot_recommendation",
+                                  conversation=combined_text,
+                                  group_text=group_text.strip())
 
     messages_for_vllm = [
         {"role": "system", "text": "당신은 한국어로 대화하는 친절한 모임 추천 챗봇입니다. 영어를 절대 사용하지 마세요."},
