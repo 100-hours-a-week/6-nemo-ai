@@ -1,5 +1,5 @@
-from app.schemas.v1.group_information import MeetingInput, MeetingData
-from app.schemas.v1.group_writer import GroupGenerationRequest
+from app.schemas.groups.group_information import MeetingInput, MeetingData
+from app.schemas.groups.group_writer import GroupGenerationRequest
 from app.services.v2.tag_extraction import extract_tags
 from app.services.v2.description_writer import generate_description
 from app.services.v2.plan_writer import generate_plan

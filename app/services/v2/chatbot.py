@@ -2,9 +2,9 @@ import json
 import re
 from app.core.ai_logger import get_ai_logger
 from app.models.gemma_3_4b import call_vllm_api
-from app.vector_db.vector_searcher import search_similar_documents, get_user_joined_group_ids
+from app.database.vector.vector_searcher import search_similar_documents, get_user_joined_group_ids
 from app.core.chat_cache import get_session_history
-from app.core.similarity_filter import is_similar_to_any  # 유사 질문 비교
+from app.core.utils import is_similar_to_any  # 유사 질문 비교
 from app.prompts.prompt_loader import load_prompt_template
 
 ai_logger = get_ai_logger()

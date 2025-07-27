@@ -1,5 +1,5 @@
 from typing import Tuple
-from app.schemas.v1.group_writer import GroupGenerationRequest
+from app.schemas.groups.group_writer import GroupGenerationRequest
 # from app.core.cloud_logging import logger
 from app.core.ai_logger import get_ai_logger
 from app.core.vertex_client import smart_generate
@@ -42,7 +42,7 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
 
 if __name__ == "__main__":
     import asyncio
-    from app.schemas.v1.group_writer import GroupGenerationRequest
+    from app.schemas.groups.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
         name="주말 러닝 크루",

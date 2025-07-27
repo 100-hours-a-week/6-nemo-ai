@@ -1,5 +1,5 @@
 from typing import Tuple
-from app.schemas.v1.group_writer import GroupGenerationRequest
+from app.schemas.groups.group_writer import GroupGenerationRequest
 # from app.core.cloud_logging import logger
 from app.core.ai_logger import get_ai_logger
 from app.models.gemma_3_4b import call_vllm_api   #로컬 모델 호출로 교체
@@ -46,7 +46,7 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
 
 if __name__ == "__main__":
     import asyncio
-    from app.schemas.v1.group_writer import GroupGenerationRequest
+    from app.schemas.groups.group_writer import GroupGenerationRequest
 
     data = GroupGenerationRequest(
         name="로미의 백반기행",

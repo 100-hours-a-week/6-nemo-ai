@@ -344,7 +344,7 @@ class KafkaConsumerManager:
                 return
             
             from aiokafka import AIOKafkaProducer
-            from app.schemas.v2.kafka_events import DLQMessage
+            from app.schemas.events.kafka_events import DLQMessage
             
             dlq_message = DLQMessage(
                 originalMessage=original_message,
@@ -403,11 +403,11 @@ class KafkaConsumerManager:
                     logger.debug(f"[Kafka] Processing group event: {event_data.get('eventType', 'UNKNOWN')}")
                     
                     # Import here to avoid circular imports
-                    from app.schemas.v2.kafka_events import GroupEvent, GroupEventData, UserEventData
-                    from app.vector_db.group_document_builder import build_group_document
-                    from app.vector_db.user_document_builder import build_user_document
-                    from app.vector_db.vector_indexer import add_documents_to_vector_db
-                    from app.vector_db.chroma_client import get_chroma_client
+                    from app.schemas.events.kafka_events import GroupEvent, GroupEventData, UserEventData
+                    from app.database.vector.group_document_builder import build_group_document
+                    from app.database.vector.user_document_builder import build_user_document
+                    from app.database.vector.vector_indexer import add_documents_to_vector_db
+                    from app.database.vector.chroma_client import get_chroma_client
 
                     # Parse event type first to determine data structure
                     event_type = event_data.get('eventType')
@@ -519,7 +519,7 @@ class KafkaConsumerManager:
                     payload = msg.value
                     logger.debug(f"[Kafka] Processing question generation request")
                     
-                    from app.schemas.v2.kafka_events import QuestionRequest
+                    from app.schemas.events.kafka_events import QuestionRequest
                     from app.services.v2.chatbot import handle_combined_question
                     from app.core.websocket_manager import websocket_manager
                     
@@ -586,7 +586,7 @@ class KafkaConsumerManager:
                     payload = msg.value
                     logger.debug(f"[Kafka] Processing group recommendation request")
                     
-                    from app.schemas.v2.kafka_events import RecommendRequest
+                    from app.schemas.events.kafka_events import RecommendRequest
                     from app.services.v2.chatbot import handle_answer_analysis
                     from app.core.websocket_manager import websocket_manager
                     
@@ -653,8 +653,8 @@ class KafkaConsumerManager:
                     payload = msg.value
                     logger.debug(f"[Kafka] Processing group generation request")
                     
-                    from app.schemas.v2.kafka_events import GroupGenerateRequest
-                    from app.schemas.v1.group_information import MeetingInput
+                    from app.schemas.events.kafka_events import GroupGenerateRequest
+                    from app.schemas.groups.group_information import MeetingInput
                     from app.services.v2.group_information import build_meeting_data
                     
                     # Validate and parse request
@@ -699,7 +699,7 @@ class KafkaConsumerManager:
                     continue
                     
                 try:
-                    from app.schemas.v2.kafka_events import DLQMessage
+                    from app.schemas.events.kafka_events import DLQMessage
                     dlq_message = DLQMessage(**msg.value)
                     
                     logger.warning(f"[DLQ] Processing failed GROUP_EVENT: {dlq_message.errorType}")
@@ -730,7 +730,7 @@ class KafkaConsumerManager:
                     continue
                     
                 try:
-                    from app.schemas.v2.kafka_events import DLQMessage
+                    from app.schemas.events.kafka_events import DLQMessage
                     dlq_message = DLQMessage(**msg.value)
                     
                     logger.warning(f"[DLQ] Processing failed GROUP_EVENT: {dlq_message.errorType}")
@@ -758,7 +758,7 @@ class KafkaConsumerManager:
                     continue
                     
                 try:
-                    from app.schemas.v2.kafka_events import DLQMessage
+                    from app.schemas.events.kafka_events import DLQMessage
                     dlq_message = DLQMessage(**msg.value)
                     
                     logger.warning(f"[DLQ] Processing failed GROUP_GENERATE: {dlq_message.errorType}")
@@ -785,7 +785,7 @@ class KafkaConsumerManager:
                     continue
                     
                 try:
-                    from app.schemas.v2.kafka_events import DLQMessage
+                    from app.schemas.events.kafka_events import DLQMessage
                     dlq_message = DLQMessage(**msg.value)
                     
                     logger.warning(f"[DLQ] Processing failed question generation: {dlq_message.errorType}")
@@ -812,7 +812,7 @@ class KafkaConsumerManager:
                     continue
                     
                 try:
-                    from app.schemas.v2.kafka_events import DLQMessage
+                    from app.schemas.events.kafka_events import DLQMessage
                     dlq_message = DLQMessage(**msg.value)
                     
                     logger.warning(f"[DLQ] Processing failed recommendation generation: {dlq_message.errorType}")
