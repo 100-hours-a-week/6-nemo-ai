@@ -42,4 +42,4 @@ scripts/
 ssh_servers/
 
 # Prompts (contains business logic and IP)
-prompts/
+app/prompts/*.txt
