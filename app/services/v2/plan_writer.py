@@ -1,6 +1,6 @@
-from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.core.ai_logger import get_ai_logger
-from src.models.gemma_3_4b import call_vllm_api  # 로컬 모델 호출로 교체
+from app.schemas.v1.group_writer import GroupGenerationRequest
+from app.core.ai_logger import get_ai_logger
+from app.models.gemma_3_4b import call_vllm_api  # 로컬 모델 호출로 교체
 from app.prompts.prompt_loader import load_prompt_template
 import asyncio
 import re

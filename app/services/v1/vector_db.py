@@ -1,9 +1,9 @@
 import chromadb
-from src.services.v1.embed import embed
+from app.services.v1.embed import embed
 import numpy as np
 from typing import Callable
 import os
-from src.core.ai_logger import get_ai_logger
+from app.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 

@@ -7,27 +7,27 @@ import asyncio
 import torch
 from fastapi import FastAPI
 # 미들웨어
-from src.middleware.http import log_requests, LogRequestsMiddleware
-from src.middleware.ai_logger import AILoggingMiddleware
+from app.middleware.http import log_requests, LogRequestsMiddleware
+from app.middleware.ai_logger import AILoggingMiddleware
 # 라우터
-from src.router.v1 import health
-from src.router.v1 import group_information as v1_group_information
-from src.router.v2 import group_information as v2_group_information
-from src.router.v2 import vector_db, chatbot
+from app.router.v1 import health
+from app.router.v1 import group_information as v1_group_information
+from app.router.v2 import group_information as v2_group_information
+from app.router.v2 import vector_db, chatbot
 # 코어 유틸
-from src.core.ai_logger import get_ai_logger
-from src.core.exception_handler import setup_exception_handlers
-from src.core.chat_cache import clean_idle_sessions  # 저장 위치에 따라 조정
+from app.core.ai_logger import get_ai_logger
+from app.core.exception_handler import setup_exception_handlers
+from app.core.chat_cache import clean_idle_sessions  # 저장 위치에 따라 조정
 # 벡터 DB 관련
-from src.vector_db.chroma_client import get_chroma_client, chroma_collection_exists
-from src.vector_db.sync import (
+from app.database.vector.chroma_client import get_chroma_client, chroma_collection_exists
+from app.database.vector.sync import (
     fetch_data_from_mysql,
     sync_group_documents,
     sync_user_documents,
 )
-# from src.tests.rate_test import router as rate_test_router
-from src.router.v2.ws_chatbot import router as ws_chatbot_router
-from src.kafka.kafka_consumer_manager import KafkaConsumerManager
+# from app.tests.rate_test import router as rate_test_router
+from app.router.v2.ws_chatbot import router as ws_chatbot_router
+from app.integrations.kafka.kafka_consumer_manager import KafkaConsumerManager
 
 # 로거 초기화
 ai_logger = get_ai_logger()

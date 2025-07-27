@@ -1,8 +1,8 @@
 import json
 import re
-# from src.core.cloud_logging import logger
-from src.models.gemma_3_4b import call_vllm_api   # 로컬 모델로 교체
-from src.core.ai_logger import get_ai_logger
+# from app.core.cloud_logging import logger
+from app.models.gemma_3_4b import call_vllm_api   # 로컬 모델로 교체
+from app.core.ai_logger import get_ai_logger
 from app.prompts.prompt_loader import load_prompt_template
 
 ai_logger = get_ai_logger()

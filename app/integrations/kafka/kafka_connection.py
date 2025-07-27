@@ -2,9 +2,9 @@ import asyncio
 import json
 import uuid
 
-from src.kafka.kafka_client import get_producer, get_consumer
-from src.config import KAFKA_BOOTSTRAP_SERVER
-from src.core.ai_logger import get_ai_logger
+from app.kafka.kafka_client import get_producer, get_consumer
+from app.config import KAFKA_BOOTSTRAP_SERVER
+from app.core.ai_logger import get_ai_logger
 
 logger = get_ai_logger()
 

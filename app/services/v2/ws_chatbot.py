@@ -1,13 +1,13 @@
 import json
-from src.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
-from src.core.chat_cache import get_session_history
-from src.core.similarity_filter import is_similar_to_any
-from src.vector_db.vector_searcher import (
+from app.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
+from app.core.chat_cache import get_session_history
+from app.core.similarity_filter import is_similar_to_any
+from app.vector_db.vector_searcher import (
     search_similar_documents,
     RECOMMENDATION_THRESHOLD,
 )
-from src.vector_db.hybrid_search import hybrid_group_search
-from src.core.ai_logger import get_ai_logger
+from app.vector_db.hybrid_search import hybrid_group_search
+from app.core.ai_logger import get_ai_logger
 from app.prompts.prompt_loader import load_prompt_template
 import time
 import asyncio

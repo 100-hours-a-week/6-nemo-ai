@@ -1,9 +1,9 @@
-from src.schemas.v1.group_information import MeetingInput, MeetingData
-from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.services.v1.tag_extraction import extract_tags
-from src.services.v1.description_writer import generate_description
-from src.services.v1.plan_writer import generate_plan
-from src.core.ai_logger import get_ai_logger
+from app.schemas.v1.group_information import MeetingInput, MeetingData
+from app.schemas.v1.group_writer import GroupGenerationRequest
+from app.services.v1.tag_extraction import extract_tags
+from app.services.v1.description_writer import generate_description
+from app.services.v1.plan_writer import generate_plan
+from app.core.ai_logger import get_ai_logger
 import asyncio
 
 ai_logger = get_ai_logger()

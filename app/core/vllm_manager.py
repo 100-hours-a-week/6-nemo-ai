@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 from enum import Enum
 import httpx
-from src.core.ai_logger import get_ai_logger
+from app.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 

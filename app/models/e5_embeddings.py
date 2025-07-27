@@ -1,8 +1,8 @@
 from typing import List, Union
 from sentence_transformers import SentenceTransformer
 from chromadb.api.types import EmbeddingFunction
-from src.config import EMBED_MODEL
-from src.core.ai_logger import get_ai_logger
+from app.config import EMBED_MODEL
+from app.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 _MODEL = SentenceTransformer(EMBED_MODEL, trust_remote_code=True).to("cpu")

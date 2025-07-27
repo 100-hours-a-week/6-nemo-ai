@@ -1,16 +1,16 @@
 import httpx, json
 import asyncio
 import time
-from src.core.ai_logger import get_ai_logger
-from src.config import (
+from app.core.ai_logger import get_ai_logger
+from app.config import (
     vLLM_URL,
     VLLM_TIMEOUT,
     VLLM_STREAM_TIMEOUT,
     VLLM_READ_TIMEOUT,
     VLLM_MAX_RETRIES
 )
-from src.core.rate_limiter import QueuedExecutor
-from src.core.vllm_manager import VLLMManager, RetryConfig, CircuitBreakerConfig
+from app.core.rate_limiter import QueuedExecutor
+from app.core.vllm_manager import VLLMManager, RetryConfig, CircuitBreakerConfig
 from typing import Union, List, AsyncGenerator
 
 # Initialize components

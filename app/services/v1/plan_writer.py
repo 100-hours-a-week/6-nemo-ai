@@ -1,6 +1,6 @@
-from src.schemas.v1.group_writer import GroupGenerationRequest
-from src.core.ai_logger import get_ai_logger
-from src.core.vertex_client import smart_generate
+from app.schemas.v1.group_writer import GroupGenerationRequest
+from app.core.ai_logger import get_ai_logger
+from app.core.vertex_client import smart_generate
 from app.prompts.prompt_loader import load_prompt_template
 import asyncio
 

@@ -1,5 +1,5 @@
 # import sentry_sdk
-# from src.config import SENTRY_DSN, SENTRY_ENVIRONMENT
+# from app.config import SENTRY_DSN, SENTRY_ENVIRONMENT
 # from sentry_sdk.integrations.fastapi import FastApiIntegration
 #
 #

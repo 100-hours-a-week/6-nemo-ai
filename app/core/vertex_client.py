@@ -4,9 +4,9 @@ from google.oauth2 import service_account
 from vertexai.preview.generative_models import GenerativeModel, GenerationConfig
 from vertexai.language_models import TextEmbeddingModel
 from google.api_core.exceptions import InvalidArgument, ResourceExhausted
-from src.config import PROJECT_ID, REGION, CREDENTIAL_PATH, TXTGEN_MODEL_ID, EMBEDDING_MODEL_ID
-from src.core.ai_logger import get_ai_logger
-from src.core.rate_limiter import RateLimitedExecutor, QueuedExecutor
+from app.config import PROJECT_ID, REGION, CREDENTIAL_PATH, TXTGEN_MODEL_ID, EMBEDDING_MODEL_ID
+from app.core.ai_logger import get_ai_logger
+from app.core.rate_limiter import RateLimitedExecutor, QueuedExecutor
 import time
 
 # --- 로깅 설정

@@ -6,7 +6,7 @@ from datetime import datetime, UTC
 # from google.oauth2 import service_account
 # from google.cloud import logging as gcp_logging
 # from google.cloud.logging_v2.handlers import CloudLoggingHandler
-# from src.config import CREDENTIAL_PATH
+# from app.config import CREDENTIAL_PATH
 
 # JSON 구조 콘솔 출력 포맷터
 class CloudLoggingFormatter(logging.Formatter):

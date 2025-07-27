@@ -1,5 +1,5 @@
 from fastapi import WebSocket
-from src.core.ai_logger import get_ai_logger
+from app.core.ai_logger import get_ai_logger
 import asyncio
 from starlette.websockets import WebSocketState
 

@@ -1,7 +1,7 @@
 import logging
 import os
 import requests
-from src.config import WEBHOOK_URL
+from app.config import WEBHOOK_URL
 from pathlib import Path
 # from google.cloud import logging as gcp_logging
 # from google.cloud.logging_v2.handlers import CloudLoggingHandler

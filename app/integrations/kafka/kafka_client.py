@@ -1,7 +1,7 @@
 import json
 import logging
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
-from src.config import KAFKA_BOOTSTRAP_SERVER
+from app.config import KAFKA_BOOTSTRAP_SERVER
 
 # Completely suppress all Kafka-related logging to prevent spam
 loggers_to_suppress = [

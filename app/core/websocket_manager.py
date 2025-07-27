@@ -1,7 +1,7 @@
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 from typing import Dict
-from src.core.ai_logger import get_ai_logger
+from app.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()
 

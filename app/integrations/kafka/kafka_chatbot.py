@@ -3,15 +3,15 @@ import json
 from datetime import datetime
 from typing import Any
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
-from src.kafka.kafka_client import get_consumer, get_producer
-from src.core.ai_logger import get_ai_logger
-from src.core.websocket_manager import websocket_manager
-from src.services.v2.chatbot import handle_answer_analysis, handle_combined_question
-from src.services.v2.group_information import build_meeting_data
-from src.vector_db.group_document_builder import build_group_document
-from src.vector_db.user_document_builder import build_user_document
-from src.vector_db.vector_indexer import add_documents_to_vector_db
-from src.schemas.v2.kafka_events import GroupEvent, GroupGenerateRequest, QuestionRequest, RecommendRequest, DLQMessage
+from app.kafka.kafka_client import get_consumer, get_producer
+from app.core.ai_logger import get_ai_logger
+from app.core.websocket_manager import websocket_manager
+from app.services.v2.chatbot import handle_answer_analysis, handle_combined_question
+from app.services.v2.group_information import build_meeting_data
+from app.vector_db.group_document_builder import build_group_document
+from app.vector_db.user_document_builder import build_user_document
+from app.vector_db.vector_indexer import add_documents_to_vector_db
+from app.schemas.v2.kafka_events import GroupEvent, GroupGenerateRequest, QuestionRequest, RecommendRequest, DLQMessage
 
 logger = get_ai_logger()
 
@@ -61,8 +61,8 @@ async def process_group_events() -> None:
                     
                 elif event.eventType == "GROUP_DELETED":
                     # Remove group from ChromaDB
-                    from src.vector_db.chroma_client import get_chroma_client
-                    from src.models.e5_embeddings import embed
+                    from app.vector_db.chroma_client import get_chroma_client
+                    from app.models.e5_embeddings import embed
                     client = get_chroma_client()
                     col = client.get_or_create_collection("group-info", embedding_function=embed)
                     col.delete(ids=[f"group-{event.groupId}"])
@@ -76,8 +76,8 @@ async def process_group_events() -> None:
                         add_documents_to_vector_db(docs, "user-activity")
                         logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
                     else:  # GROUP_LEFT
-                        from src.vector_db.chroma_client import get_chroma_client
-                        from src.models.e5_embeddings import embed
+                        from app.vector_db.chroma_client import get_chroma_client
+                        from app.models.e5_embeddings import embed
                         client = get_chroma_client()
                         col = client.get_or_create_collection("user-activity", embedding_function=embed)
                         col.delete(ids=[f"user-{user_data.userId}-{user_data.groupId}"])
@@ -115,7 +115,7 @@ async def process_group_generation_requests() -> None:
                 request = GroupGenerateRequest(**payload)
                 
                 # Generate group information using AI
-                from src.schemas.v1.group_information import MeetingInput
+                from app.schemas.v1.group_information import MeetingInput
                 meeting_input = MeetingInput(
                     name=request.name,
                     goal=request.goal,

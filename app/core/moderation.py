@@ -1,8 +1,8 @@
 import json
 import requests
 from datetime import datetime, UTC
-from src.config import PERSPECTIVE_API_KEY
-from src.core.ai_logger import get_ai_logger
+from app.config import PERSPECTIVE_API_KEY
+from app.core.ai_logger import get_ai_logger
 import asyncio
 
 ai_logger = get_ai_logger()
