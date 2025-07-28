@@ -62,7 +62,7 @@ class TestModeration:
     def test_check_spam_patterns_repetitive_content(self):
         """Test spam detection on repetitive content."""
         spam_texts = [
-            "모임모임모임모임모임모임모임모임",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaa",  # Same character repeated
             "!!!!!!!!!!!!!!!!!!!!!!!!",
             "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
         ]

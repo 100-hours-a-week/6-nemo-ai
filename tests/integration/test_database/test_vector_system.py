@@ -10,27 +10,15 @@ from typing import List, Dict
 from pprint import pprint
 import time
 
-# Import from app instead of src
-try:
-    from app.database.vector.vector_searcher import (
-        search_similar_documents,
-        keyword_search_documents,
-        get_user_joined_group_ids,
-        get_system_stats,
-        category_discovery,
-        semantic_booster
-    )
-except ImportError:
-    pytest.skip("Vector database not available", allow_module_level=True)
-
 
 @pytest.mark.integration
 @pytest.mark.vector
 class TestVectorSystem:
     """Integration test suite for vector search system."""
 
-    def test_user_exclusion(self):
+    def test_user_exclusion(self, vector_search_functions):
         """Test user group exclusion functionality."""
+        get_user_joined_group_ids = vector_search_functions['get_user_joined_group_ids']
         test_users = ["20", "15", "u2", "u5"]
         
         for user_id in test_users:
@@ -41,8 +29,9 @@ class TestVectorSystem:
                 for group_id in list(joined_groups)[:5]:  # Check first 5
                     assert group_id is not None
 
-    def test_category_discovery(self):
+    def test_category_discovery(self, vector_search_functions):
         """Test vector-based category discovery."""
+        category_discovery = vector_search_functions['category_discovery']
         test_queries = [
             "축구 모임 찾아요",
             "개발 스터디 하고 싶어요", 
@@ -60,8 +49,9 @@ class TestVectorSystem:
                 assert isinstance(score, (int, float))
                 assert 0 <= score <= 1
 
-    def test_semantic_enhancement(self):
+    def test_semantic_enhancement(self, vector_search_functions):
         """Test semantic term relationships."""
+        semantic_booster = vector_search_functions['semantic_booster']
         test_terms = ["축구", "풋살", "개발", "프로그래밍", "요리", "음식"]
         
         for term in test_terms:
@@ -93,8 +83,11 @@ class TestVectorSystem:
             "expected_categories": ["culture", "movies", "discussion"]
         }
     ])
-    def test_search_scenarios(self, scenario):
+    def test_search_scenarios(self, vector_search_functions, scenario):
         """Test various search scenarios with parameterized data."""
+        search_similar_documents = vector_search_functions['search_similar_documents']
+        keyword_search_documents = vector_search_functions['keyword_search_documents']
+        
         query = scenario["query"]
         user_id = scenario["user_id"]
         
@@ -140,8 +133,9 @@ class TestVectorSystem:
         {"name": "Mixed Language", "query": "programming 스터디", "user_id": "15"},
         {"name": "Special Characters", "query": "모임!@#$%^&*()", "user_id": None},
     ])
-    def test_edge_cases(self, edge_case):
+    def test_edge_cases(self, vector_search_functions, edge_case):
         """Test edge cases and error handling."""
+        search_similar_documents = vector_search_functions['search_similar_documents']
         query = edge_case["query"]
         user_id = edge_case["user_id"]
         
@@ -167,8 +161,11 @@ class TestVectorSystem:
             assert "empty" in str(e).lower() or "invalid" in str(e).lower()
 
     @pytest.mark.slow
-    def test_performance(self):
+    def test_performance(self, vector_search_functions):
         """Test system performance."""
+        search_similar_documents = vector_search_functions['search_similar_documents']
+        keyword_search_documents = vector_search_functions['keyword_search_documents']
+        
         queries = [
             "축구 모임",
             "개발 스터디", 
@@ -199,8 +196,9 @@ class TestVectorSystem:
         print(f"Vector Search Average: {avg_vector_time:.3f}s")
         print(f"Keyword Search Average: {avg_keyword_time:.3f}s")
 
-    def test_system_health(self):
+    def test_system_health(self, vector_search_functions):
         """Test overall system health."""
+        get_system_stats = vector_search_functions['get_system_stats']
         stats = get_system_stats()
         
         # Validate stats structure
@@ -218,18 +216,29 @@ class TestVectorSystem:
 
 
 @pytest.mark.integration
-def test_comprehensive_vector_system():
+def test_comprehensive_vector_system(vector_search_functions):
     """Run comprehensive test for the vector system."""
     # This function serves as an entry point for running all vector tests
     # and can be called from CI/CD pipelines
     
-    test_suite = TestVectorSystem()
+    get_system_stats = vector_search_functions['get_system_stats']
+    get_user_joined_group_ids = vector_search_functions['get_user_joined_group_ids']
+    category_discovery = vector_search_functions['category_discovery']
+    semantic_booster = vector_search_functions['semantic_booster']
     
     # Run core functionality tests
-    test_suite.test_system_health()
-    test_suite.test_user_exclusion()
-    test_suite.test_category_discovery()
-    test_suite.test_semantic_enhancement()
+    stats = get_system_stats()
+    assert isinstance(stats, dict)
+    
+    joined_groups = get_user_joined_group_ids("20")
+    assert isinstance(joined_groups, (list, set))
+    
+    categories = category_discovery.infer_query_categories("축구 모임")
+    assert isinstance(categories, list)
+    
+    related = semantic_booster.get_related_terms("축구", threshold=0.7)
+    # This might be empty if the system hasn't learned yet, so just check type
+    assert isinstance(related, dict)
     
     print("✅ Comprehensive vector system test completed")
 

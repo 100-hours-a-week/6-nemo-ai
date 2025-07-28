@@ -1,8 +1,131 @@
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable
+from typing import Callable, Dict, List, Optional
 import asyncio
+from collections import defaultdict, deque
+
+
+class RateLimiter:
+    """Traditional per-user rate limiter for API requests."""
+    
+    def __init__(self, max_requests: int = 100, time_window: int = 3600):
+        """
+        Initialize rate limiter.
+        
+        Args:
+            max_requests: Maximum number of requests allowed per time window
+            time_window: Time window in seconds (default: 1 hour)
+        """
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.request_log: Dict[str, deque] = defaultdict(deque)
+        self.lock = threading.Lock()
+    
+    def is_allowed(self, user_id: str) -> bool:
+        """
+        Check if a request from user_id is allowed.
+        
+        Args:
+            user_id: Unique identifier for the user
+            
+        Returns:
+            True if request is allowed, False if rate limited
+        """
+        if user_id is None:
+            return False
+            
+        if self.max_requests <= 0:
+            return False
+            
+        current_time = time.time()
+        
+        with self.lock:
+            # Clean old requests outside the time window
+            user_requests = self.request_log[user_id]
+            while user_requests and current_time - user_requests[0] > self.time_window:
+                user_requests.popleft()
+            
+            # Check if under the limit
+            if len(user_requests) < self.max_requests:
+                user_requests.append(current_time)
+                return True
+            else:
+                return False
+    
+    def get_remaining_requests(self, user_id: str) -> int:
+        """Get the number of remaining requests for a user."""
+        if user_id is None:
+            return 0
+            
+        current_time = time.time()
+        
+        with self.lock:
+            user_requests = self.request_log[user_id]
+            # Clean old requests
+            while user_requests and current_time - user_requests[0] > self.time_window:
+                user_requests.popleft()
+            
+            return max(0, self.max_requests - len(user_requests))
+    
+    def reset_user_limit(self, user_id: str):
+        """Reset rate limit for a specific user."""
+        with self.lock:
+            if user_id in self.request_log:
+                del self.request_log[user_id]
+
+
+# Global rate limiter instance
+_global_rate_limiter = RateLimiter(max_requests=100, time_window=3600)
+
+
+def is_rate_limited(user_id: str, max_requests: int = 100, time_window: int = 3600) -> bool:
+    """
+    Check if a user is rate limited.
+    
+    Args:
+        user_id: Unique identifier for the user
+        max_requests: Maximum requests allowed (default: 100)
+        time_window: Time window in seconds (default: 3600)
+        
+    Returns:
+        True if user is rate limited, False otherwise
+    """
+    # Use global limiter or create a temporary one with custom limits
+    if max_requests == 100 and time_window == 3600:
+        return not _global_rate_limiter.is_allowed(user_id)
+    else:
+        temp_limiter = RateLimiter(max_requests=max_requests, time_window=time_window)
+        return not temp_limiter.is_allowed(user_id)
+
+
+def get_rate_limit_info(user_id: str) -> Dict[str, int]:
+    """
+    Get rate limit information for a user.
+    
+    Args:
+        user_id: Unique identifier for the user
+        
+    Returns:
+        Dictionary with rate limit info
+    """
+    remaining = _global_rate_limiter.get_remaining_requests(user_id)
+    return {
+        "max_requests": _global_rate_limiter.max_requests,
+        "time_window": _global_rate_limiter.time_window,
+        "remaining_requests": remaining,
+        "used_requests": _global_rate_limiter.max_requests - remaining
+    }
+
+
+def reset_rate_limit(user_id: str):
+    """
+    Reset rate limit for a specific user.
+    
+    Args:
+        user_id: Unique identifier for the user
+    """
+    _global_rate_limiter.reset_user_limit(user_id)
 
 
 class RateLimitedExecutor:

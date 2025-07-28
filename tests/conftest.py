@@ -9,9 +9,10 @@ import os
 import sys
 from pathlib import Path
 
-# Add app directory to Python path for imports
-app_dir = Path(__file__).parent.parent / "app"
-sys.path.insert(0, str(app_dir))
+# Add the project root to Python path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "app"))
 
 # Test configuration
 TEST_DATABASE_URL = "sqlite:///./test.db"
@@ -23,7 +24,7 @@ def test_settings():
     return {
         "database_url": TEST_DATABASE_URL,
         "kafka_enabled": False,
-        "vector_db_enabled": False,
+        "vector_db_enabled": True,  # Enable vector DB for tests
         "llm_enabled": False,
         "test_mode": True
     }
@@ -112,3 +113,49 @@ def websocket_test_client():
         yield client
     except ImportError:
         pytest.skip("WebSocket client not available")
+
+
+@pytest.fixture(scope="session")
+def vector_db_client():
+    """Vector database client for testing."""
+    try:
+        from app.database.vector.chroma_client import get_chroma_client
+        client = get_chroma_client()
+        yield client
+    except ImportError:
+        pytest.skip("Vector database not available")
+
+
+@pytest.fixture(scope="session")
+def embedding_function():
+    """Embedding function for testing."""
+    try:
+        from app.models.e5_embeddings import embed
+        yield embed
+    except ImportError:
+        pytest.skip("E5 embeddings not available")
+
+
+# Vector database fixtures
+@pytest.fixture(scope="function")
+def vector_search_functions():
+    """Vector search functions for testing."""
+    try:
+        from app.database.vector.vector_searcher import (
+            search_similar_documents,
+            keyword_search_documents,
+            get_user_joined_group_ids,
+            get_system_stats,
+            category_discovery,
+            semantic_booster
+        )
+        return {
+            'search_similar_documents': search_similar_documents,
+            'keyword_search_documents': keyword_search_documents,
+            'get_user_joined_group_ids': get_user_joined_group_ids,
+            'get_system_stats': get_system_stats,
+            'category_discovery': category_discovery,
+            'semantic_booster': semantic_booster
+        }
+    except ImportError as e:
+        pytest.skip(f"Vector search functions not available: {e}")

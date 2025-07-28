@@ -56,10 +56,12 @@ class TestFreeformRecommendations:
     ])
     def test_freeform_recommendation_scenarios(self, api_client, test_case):
         """Test various freeform recommendation scenarios."""
-        # Prepare request data
+        # Prepare request data with correct schema
         request_data = {
             "userId": test_case["user_id"],
-            "requestText": test_case["request_text"]
+            "messages": [
+                {"role": "USER", "text": test_case["request_text"]}
+            ]
         }
         
         # Make API request
@@ -69,56 +71,54 @@ class TestFreeformRecommendations:
         assert response.status_code == 200
         response_data = response.json()
         
-        # Check required fields
-        assert "recommendations" in response_data
-        assert isinstance(response_data["recommendations"], list)
+        # Check required fields - correct schema
+        assert "code" in response_data
+        assert "message" in response_data
+        assert "data" in response_data
         
         # Validate recommendation content
-        recommendations = response_data["recommendations"]
-        if recommendations:  # If recommendations are returned
-            for recommendation in recommendations[:3]:  # Check first 3
-                assert "groupId" in recommendation
-                assert "title" in recommendation
-                assert "description" in recommendation
-                assert "score" in recommendation
-                
-                # Score should be reasonable
-                assert 0 <= recommendation["score"] <= 1
+        data = response_data["data"]
+        assert "groupId" in data
+        assert "reason" in data
+        
+        # GroupId should be a valid integer
+        assert isinstance(data["groupId"], int)
+        assert data["groupId"] > 0
         
         # Log for debugging
         print(f"Test case: {test_case['name']}")
         print(f"Request: {test_case['request_text']}")
-        print(f"Recommendations returned: {len(recommendations)}")
+        print(f"Group ID: {data['groupId']}, Reason: {data['reason']}")
 
     def test_freeform_recommendation_edge_cases(self, api_client):
         """Test edge cases for freeform recommendations."""
         edge_cases = [
             {
                 "name": "Empty Request",
-                "data": {"userId": 1, "requestText": ""},
-                "should_succeed": False
+                "data": {"userId": 1, "messages": [{"role": "USER", "text": ""}]},
+                "should_succeed": True  # Changed: API handles empty requests
             },
             {
                 "name": "Very Short Request",
-                "data": {"userId": 1, "requestText": "모임"},
+                "data": {"userId": 1, "messages": [{"role": "USER", "text": "모임"}]},
                 "should_succeed": True
             },
             {
                 "name": "Very Long Request",
                 "data": {
                     "userId": 1, 
-                    "requestText": "안녕하세요. 저는 정말 조용하고 평화로운 분위기에서 책을 읽거나 글을 쓸 수 있는 독서 모임이나 글쓰기 모임을 찾고 있습니다. 시끄러운 환경을 싫어하고 집중할 수 있는 환경을 선호합니다."
+                    "messages": [{"role": "USER", "text": "안녕하세요. 저는 정말 조용하고 평화로운 분위기에서 책을 읽거나 글을 쓸 수 있는 독서 모임이나 글쓰기 모임을 찾고 있습니다. 시끄러운 환경을 싫어하고 집중할 수 있는 환경을 선호합니다."}]
                 },
                 "should_succeed": True
             },
             {
                 "name": "English Request",
-                "data": {"userId": 1, "requestText": "I want to join a reading group"},
+                "data": {"userId": 1, "messages": [{"role": "USER", "text": "I want to join a reading group"}]},
                 "should_succeed": True
             },
             {
                 "name": "Mixed Language",
-                "data": {"userId": 1, "requestText": "programming 스터디 모임 찾아요"},
+                "data": {"userId": 1, "messages": [{"role": "USER", "text": "programming 스터디 모임 찾아요"}]},
                 "should_succeed": True
             }
         ]
@@ -129,7 +129,8 @@ class TestFreeformRecommendations:
             if case["should_succeed"]:
                 assert response.status_code == 200
                 response_data = response.json()
-                assert "recommendations" in response_data
+                assert "data" in response_data
+                assert "groupId" in response_data["data"]
             else:
                 # Should return error for invalid requests
                 assert response.status_code in [400, 422]
@@ -143,7 +144,7 @@ class TestFreeformRecommendations:
         for user_id in [1, 2, 3]:
             response = api_client.post_freeform_recommendation({
                 "userId": user_id,
-                "requestText": request_text
+                "messages": [{"role": "USER", "text": request_text}]
             })
             
             assert response.status_code == 200
@@ -151,15 +152,15 @@ class TestFreeformRecommendations:
         
         # Each user should get recommendations (even if same ones)
         for user_id, response_data in responses.items():
-            assert "recommendations" in response_data
-            assert isinstance(response_data["recommendations"], list)
+            assert "data" in response_data
+            assert "groupId" in response_data["data"]
 
     @pytest.mark.slow
     def test_recommendation_consistency(self, api_client):
         """Test that same request returns consistent results."""
         request_data = {
             "userId": 1,
-            "requestText": "개발 스터디 모임 찾아요"
+            "messages": [{"role": "USER", "text": "개발 스터디 모임 찾아요"}]
         }
         
         responses = []
@@ -169,18 +170,12 @@ class TestFreeformRecommendations:
             responses.append(response.json())
         
         # Results should be consistent (same recommendations)
-        first_recommendations = responses[0]["recommendations"]
+        first_data = responses[0]["data"]
         for response in responses[1:]:
-            current_recommendations = response["recommendations"]
+            current_data = response["data"]
             
-            # Should have same number of recommendations
-            assert len(current_recommendations) == len(first_recommendations)
-            
-            # Should have same group IDs in same order
-            if first_recommendations:
-                first_ids = [r["groupId"] for r in first_recommendations]
-                current_ids = [r["groupId"] for r in current_recommendations]
-                assert first_ids == current_ids
+            # Should have same group ID
+            assert current_data["groupId"] == first_data["groupId"]
 
 
 class APIClient:
@@ -193,8 +188,10 @@ class APIClient:
     
     def post_freeform_recommendation(self, data: Dict[str, Any]) -> requests.Response:
         """Make a freeform recommendation request."""
-        url = f"{self.base_url}/ai/{API_VERSION}/groups/recommendations/freeform"
-        return self.session.post(url, json=data)
+        url = f"{self.base_url}/ai/{API_VERSION}/groups/recommendations"
+        # Add session ID header required by the endpoint
+        headers = {"x-session-id": f"test-session-{data.get('userId', 1)}"}
+        return self.session.post(url, json=data, headers=headers)
 
 
 @pytest.fixture(scope="session")

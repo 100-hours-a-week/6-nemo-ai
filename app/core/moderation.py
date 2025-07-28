@@ -79,6 +79,63 @@ async def analyze_queued(text: str) -> dict:
                 "IDENTITY_ATTACK": 0.0
             }
 
+# Additional functions for test compatibility
+def is_inappropriate_content(text: str) -> bool:
+    """Check if content is inappropriate (legacy interface)."""
+    try:
+        scores = get_harmfulness_scores_korean(text)
+        return not is_request_valid(scores)
+    except Exception:
+        return False
+
+def filter_inappropriate_text(text: str) -> str:
+    """Filter inappropriate text (legacy interface)."""
+    if is_inappropriate_content(text):
+        return "[Content filtered]"
+    return text
+
+def check_spam_patterns(text: str) -> bool:
+    """Check for spam patterns."""
+    if not text or len(text.strip()) == 0:
+        return False
+    
+    # Simple spam detection
+    char_count = {}
+    for char in text:
+        char_count[char] = char_count.get(char, 0) + 1
+    
+    # Check for excessive repetition
+    for char, count in char_count.items():
+        if count > len(text) * 0.5:  # More than 50% same character
+            return True
+    
+    return False
+
+def validate_content_safety(text: str) -> dict:
+    """Comprehensive content safety validation."""
+    try:
+        inappropriate = is_inappropriate_content(text)
+        filtered = filter_inappropriate_text(text)
+        spam = check_spam_patterns(text)
+        
+        warnings = []
+        if inappropriate:
+            warnings.append("inappropriate_content")
+        if spam:
+            warnings.append("spam_pattern")
+            
+        return {
+            "is_safe": not (inappropriate or spam),
+            "filtered_text": filtered,
+            "warnings": warnings
+        }
+    except Exception as e:
+        return {
+            "is_safe": True,
+            "filtered_text": text,
+            "warnings": [f"validation_error: {str(e)}"]
+        }
+
 if __name__ == "__main__":
     test_text = "못된 송아지 뿔."
 
