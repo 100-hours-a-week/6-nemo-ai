@@ -41,5 +41,7 @@ monitoring/prometheus-data/
 scripts/
 ssh_servers/
 
+app/prompts/*
+
 # Prompts (contains business logic and IP)
 prompts/

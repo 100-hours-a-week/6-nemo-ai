@@ -1,6 +1,7 @@
 import httpx, json
 import asyncio
 import time
+import re
 from src.core.ai_logger import get_ai_logger
 from src.config import (
     vLLM_URL,
@@ -59,29 +60,49 @@ async def get_vllm_health_metrics():
 def _is_korean_text_garbled(text: str) -> bool:
     """Check if Korean text appears to be garbled or corrupted"""
     if not text or not isinstance(text, str):
-        return False
+        return True
+    
+    text = text.strip()
+    if len(text) < 3:
+        return True
     
     # Check for patterns that indicate garbled Korean text
     garbled_patterns = [
-        r'7은',  # Common pattern in your garbled output
-        r'[0-9]+은',  # Numbers followed by 은
-        r'은[0-9]+',  # 은 followed by numbers
+        r'할로운 분위기',   # Specific corruption from assessment
+        r'교류하고율',      # Another specific pattern  
+        r'영n',            # Truncated pattern
+        r'[가-힣]+[0-9]+[가-힣]*',  # Korean mixed with numbers inappropriately
+        r'[?]{2,}',        # Multiple question marks
         r'(?:은|가|이|를|에|의){3,}',  # Repeated particles
-        r'[?]{2,}',  # Multiple question marks in garbled text
+        r'[가-힣][a-zA-Z0-9]$',  # Korean ending with Latin chars (truncation)
+        r'7은',            # Common pattern from assessment
+        r'[0-9]+은',       # Numbers followed by 은
+        r'은[0-9]+',       # 은 followed by numbers
     ]
     
-    import re
     for pattern in garbled_patterns:
         if re.search(pattern, text):
             return True
+    
+    # Check for incomplete sentences (Korean text ending abruptly)
+    if len(text) > 10:
+        # Korean should end with proper sentence endings
+        if not re.search(r'[다요니까습음겠앙함면동]$', text):
+            # If it doesn't end properly and has mixed characters, likely garbled
+            if re.search(r'[a-zA-Z0-9]$', text):
+                return True
     
     # If text has Korean but very little meaningful content
     korean_chars = len([c for c in text if ord(c) >= 0xAC00 and ord(c) <= 0xD7AF])
     total_chars = len(text.strip())
     if korean_chars > 0 and total_chars > 0:
         # If more than 30% of characters are numbers/symbols mixed with Korean, likely garbled
-        non_korean_count = len([c for c in text if c.isdigit() or c in '?은'])
+        non_korean_count = len([c for c in text if c.isdigit() or c in '?은율'])
         if non_korean_count / total_chars > 0.3:
+            return True
+        
+        # Check if Korean ratio is too low (might be garbled)
+        if korean_chars / total_chars < 0.3:
             return True
     
     return False
@@ -357,20 +378,20 @@ if __name__ == "__main__":
     async def test_streaming():
         messages = [{"role": "user", "text": "안녕하세요"}]
         async for token in stream_vllm_response(messages):
-            print("Token:", token)
+            ai_logger.info(f"Token: {token}")
 
 
     async def test_health_metrics():
         await start_health_monitoring()
         await asyncio.sleep(2)  # Let health check run
         metrics = await get_vllm_health_metrics()
-        print("Health Metrics:", json.dumps(metrics, indent=2))
+        ai_logger.info(f"Health Metrics: {json.dumps(metrics, indent=2)}")
 
 
     async def main():
-        print("Testing streaming...")
+        ai_logger.info("Testing streaming...")
         await test_streaming()
-        print("\nTesting health metrics...")
+        ai_logger.info("Testing health metrics...")
         await test_health_metrics()
 
 
