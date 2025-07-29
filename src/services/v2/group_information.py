@@ -5,8 +5,28 @@ from src.services.v2.description_writer import generate_description
 from src.services.v2.plan_writer import generate_plan
 from src.core.ai_logger import get_ai_logger
 import asyncio
+import re
 
 ai_logger = get_ai_logger()
+
+def clean_group_text(text: str) -> str:
+    """Clean group text by removing code blocks and unwanted formatting"""
+    if not text:
+        return text
+    
+    # Remove code blocks (``` ``` patterns)
+    text = re.sub(r'```[^`]*```', '', text, flags=re.DOTALL)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    
+    # Remove triple quotes blocks (''' ''' patterns)
+    text = re.sub(r"'''[^']*'''", '', text, flags=re.DOTALL)
+    text = re.sub(r"'''.*?'''", '', text, flags=re.DOTALL)
+    
+    # Clean up extra whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
 
 async def build_meeting_data(input: MeetingInput) -> MeetingData:
     ai_logger.info("[AI-v2] [모임 정보 생성 시작]", extra={
@@ -28,9 +48,18 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
         plan_task = asyncio.create_task(generate_plan(group_data)) if input.isPlanCreated else None
 
         summary, description = await description_task
+        
+        # Clean the generated description
+        description = clean_group_text(description)
+        summary = clean_group_text(summary)
+        
         tags = await extract_tags(description)
 
         plan = await plan_task if plan_task else None
+        
+        # Clean the plan if it exists
+        if plan:
+            plan = clean_group_text(plan)
 
         ai_logger.info("[AI-v2] [모임 정보 생성 완료]", extra={"tags_count": len(tags)})
 

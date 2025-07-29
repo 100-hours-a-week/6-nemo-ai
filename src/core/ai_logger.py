@@ -42,7 +42,20 @@ class DiscordHandler(logging.Handler):
                 "/docs",
                 "[Moderation 평가]",
                 "[유해성 차단]",
-                "[Client Error]"
+                "[Client Error]",
+                "[질문 전체 응답 수신 완료]",
+                "[원본 응답]:",
+                "[정리된 응답]:",
+                "[옵션 파싱 시작]",
+                "[vLLM 첫 chunk 수신]",
+                "[추천 vLLM 첫 chunk 수신]",
+                "[청크 처리]",
+                "[청크 정리]",
+                "[접두어",
+                "[일반 스트리밍",
+                "[옵션 파싱 성공",
+                "[JSON 패턴 매치]",
+                "[추천 청크 처리]"
             ]
             if any(block in msg for block in blocked_keywords):
                 # print("필터됨 (내용 조건)")

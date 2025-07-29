@@ -1,4 +1,5 @@
 import json
+import logging
 from src.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any
@@ -24,9 +25,30 @@ class PrefixParser:
     
     def process_chunk(self, chunk: str) -> str | None:
         """Process a chunk and return the cleaned text or None if still waiting for prefix"""
-        # Only remove newlines and carriage returns, but preserve other formatting
+        # Handle empty input immediately
+        if not chunk:
+            if self.prefix_processed:
+                return ""
+            else:
+                # For empty chunks during prefix detection, if buffer is also empty, return empty string
+                if not self.buffer:
+                    self.prefix_processed = True
+                    return ""
+                # Otherwise continue with existing logic
+        
+        # Clean control characters and problematic standalone characters
         original_chunk = chunk
-        chunk = chunk.replace('\n', '').replace('\r', '')
+        
+        # Remove only problematic control characters
+        import re
+        chunk = re.sub(r'\\[nrt\\]', '', chunk)  # Remove escaped newlines, tabs, backslashes
+        chunk = re.sub(r'[\n\r\t]', '', chunk)  # Remove actual newlines, tabs
+        
+        # Remove standalone problematic characters that appear in streaming
+        # but keep them when they're part of actual content
+        # Be more selective - only remove opening JSON structure, not quotes needed for parsing
+        if chunk.strip() in ['{', '}', '{"', '{"options":', '/', '\\']:
+            chunk = ''
         
         # Preserve original chunk for debugging
         if chunk != original_chunk:
@@ -61,14 +83,20 @@ class PrefixParser:
             self.prefix_processed = True
             ai_logger.info(f"[접두어 제거됨] 제거된 접두어: {self.buffer[:prefix_length]}")
             
-            # Return the remaining text after prefix removal
-            return remaining_text if remaining_text else None
+            # Return the remaining text after prefix removal, or empty string if nothing remains
+            return remaining_text
         else:
             # Check if buffer could be building up to a prefix
             could_be_prefix = any(
                 prefix.startswith(self.buffer) and len(self.buffer) < len(prefix)
                 for prefix in self.prefixes
             )
+            
+            # Special case: if buffer is empty after cleaning (e.g., only special chars), proceed
+            if not self.buffer:
+                self.prefix_processed = True
+                ai_logger.info(f"[접두어 없음] 빈 버퍼로 일반 스트리밍 시작")
+                return ""
             
             if could_be_prefix and len(self.buffer) < self.max_prefix_length:
                 # Might be partial prefix, wait for more chunks
@@ -78,8 +106,8 @@ class PrefixParser:
                 # Not a prefix, start normal streaming with accumulated buffer
                 self.prefix_processed = True
                 ai_logger.info(f"[접두어 없음] 일반 스트리밍 시작, 버퍼: {repr(self.buffer)}")
-                # Return the buffer without additional cleaning to preserve formatting
-                return self.buffer if self.buffer else None
+                # Return the buffer - even if empty after cleaning
+                return self.buffer
 
 async def stream_question_chunks(answer: str | None, user_id: str, session_id: str):
     history = get_session_history(session_id)
@@ -105,7 +133,7 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
         {"role": "user", "text": prompt}
     ]):
         if first:
-            ai_logger.info(f"[vLLM 첫 chunk 수신] chunk: {repr(chunk)} (len={len(chunk)}) time {time.time() - start_time} sec")
+            ai_logger.debug(f"[vLLM 첫 chunk 수신] chunk: {repr(chunk)} (len={len(chunk)}) time {time.time() - start_time:.3f} sec")
             first = False
 
         streamed_text += chunk  # Keep original for logging
@@ -145,9 +173,10 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
                 yield chunk
 
     end_time = time.time()
-    ai_logger.info(f"[질문 전체 응답 수신 완료] time {end_time - start_time} sec")
-    ai_logger.info(f"[원본 응답]: {repr(streamed_text.strip())}")
-    ai_logger.info(f"[정리된 응답]: {repr(cleaned_text.strip())}")
+    ai_logger.debug(f"[질문 전체 응답 수신 완료] time {end_time - start_time:.3f} sec")
+    if ai_logger.isEnabledFor(logging.DEBUG):
+        ai_logger.debug(f"[원본 응답]: {repr(streamed_text.strip())}")
+        ai_logger.debug(f"[정리된 응답]: {repr(cleaned_text.strip())}")
 
     try:
         options = extract_options_from_stream(options_text)
@@ -244,7 +273,12 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 
     top_result = results[0]
     group_id = int(top_result["metadata"]["groupId"])
-    group_text = top_result["text"]
+    raw_group_text = top_result["text"]
+    
+    # Clean the group text to remove potential tags, code blocks, and unwanted formatting
+    import re
+    group_text = clean_group_text(raw_group_text)
+    group_text = _clean_group_text_for_recommendation(group_text)
 
     prompt = f"""[RECOMMEND]
 사용자와의 대화:
@@ -262,12 +296,13 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
 - "설명:", "추천 이유:" 같은 접두어 없이 바로 설명 문장으로 시작하세요.
 - 사용자의 관심사와 모임의 특징을 연결해서 설명하세요.
 - 마지막에 물음표(?)를 사용하지 마세요.
+- 태그나 메타데이터는 언급하지 마세요.
 
 예시 형식: "이 모임은 당신이 찾고 있는 [관심사]와 정말 잘 맞을 것 같아요. [모임의 특징]을 통해 [기대효과]를 얻으실 수 있을 거예요."
 """.strip()
 
     messages_for_vllm = [
-        {"role": "system", "text": "당신은 모임을 추천하는 한국어 챗봇입니다. 질문을 하지 말고 추천 이유만 설명하세요. 영어를 절대 사용하지 마세요."},
+        {"role": "system", "text": "당신은 모임을 추천하는 한국어 챗봇입니다. 질문을 하지 말고 추천 이유만 설명하세요. 영어를 절대 사용하지 마세요. 태그나 메타데이터는 언급하지 마세요."},
         {"role": "user", "text": prompt}
     ]
 
@@ -277,13 +312,13 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     token_count = 0
 
     # Initialize prefix parser for recommendations
-    prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:"])
+    prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:", "**태그:**", "태그:", "**tags:**", "tags:"])
 
     try:
         async for chunk in stream_vllm_response(messages_for_vllm):
             if first:
                 first_chunk_time = time.time()
-                ai_logger.info(
+                ai_logger.debug(
                     f"[추천 vLLM 첫 chunk 수신] chunk: {repr(chunk)} time {first_chunk_time - start_time:.3f} sec"
                 )
                 first = False
@@ -292,6 +327,8 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
             processed_chunk = prefix_parser.process_chunk(chunk)
             if processed_chunk is None:
                 continue  # Still waiting for complete prefix
+            
+
             
             # Log the processing result for debugging
             if processed_chunk != chunk:
@@ -311,11 +348,12 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         end_time = time.time()
         total_time = end_time - start_time
         
-        ai_logger.info(
+        ai_logger.debug(
             f"[추천 응답 수신 완료] time {total_time:.3f} sec, tokens: {token_count}, "
-            f"tokens/sec: {token_count/total_time:.2f}",
-            extra={"full_reason": full_reason}
+            f"tokens/sec: {token_count/total_time:.2f}"
         )
+        if ai_logger.isEnabledFor(logging.DEBUG):
+            ai_logger.debug(f"[추천 전체 응답]: {full_reason}")
         yield ("RECOMMEND_DONE", group_id, None)
 
     except Exception as e:
@@ -329,6 +367,78 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         fallback_reason = "선택하신 관심사와 취향을 바탕으로 이 모임을 추천드립니다. 비슷한 관심사를 가진 분들과 함께 즐거운 시간을 보내실 수 있을 것 같아요!"
         yield (group_id, fallback_reason)
         yield ("RECOMMEND_DONE", group_id, None)
+
+
+def _clean_group_text_for_recommendation(raw_text: str) -> str:
+    """Clean group text to remove tags and metadata for recommendation"""
+    import re
+    
+    # Remove code blocks (``` ``` patterns)
+    text = re.sub(r'```[^`]*```', '', raw_text, flags=re.DOTALL)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    
+    # Remove common tag patterns
+    text = re.sub(r'태그[:：]\s*[^\n]*', '', text)
+    text = re.sub(r'tags[:：]\s*[^\n]*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'#\w+', '', text)  # Remove hashtags
+    text = re.sub(r'\[태그\][^\n]*', '', text)
+    text = re.sub(r'\[tags\][^\n]*', '', text, flags=re.IGNORECASE)
+    
+    # Remove metadata patterns
+    text = re.sub(r'메타데이터[:：][^\n]*', '', text)
+    text = re.sub(r'metadata[:：][^\n]*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'분류[:：]\s*[^\n]*', '', text)
+    text = re.sub(r'category[:：]\s*[^\n]*', '', text, flags=re.IGNORECASE)
+    
+    # Remove repeated whitespace and clean up
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
+
+def clean_group_text(text: str) -> str:
+    """General function to clean group text for parsing and processing"""
+    import re
+    
+    if not text:
+        return text
+    
+    # Remove code blocks (``` ``` patterns)
+    text = re.sub(r'```[^`]*```', '', text, flags=re.DOTALL)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    
+    # Remove triple quotes blocks (''' ''' patterns)
+    text = re.sub(r"'''[^']*'''", '', text, flags=re.DOTALL)
+    text = re.sub(r"'''.*?'''", '', text, flags=re.DOTALL)
+    
+    # Clean up extra whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
+
+def parse_group_information(group_data: dict) -> dict:
+    """Parse and clean group information from raw group data"""
+    if not group_data:
+        return group_data
+    
+    # Clean text fields that might contain unwanted formatting
+    text_fields = ['name', 'summary', 'description', 'plan']
+    
+    for field in text_fields:
+        if field in group_data and group_data[field]:
+            group_data[field] = clean_group_text(group_data[field])
+    
+    # Clean tags if they exist
+    if 'tags' in group_data and isinstance(group_data['tags'], list):
+        group_data['tags'] = [clean_group_text(tag) for tag in group_data['tags'] if tag]
+    
+    return group_data
+
+
+
 
 def extract_options_from_stream(raw: str) -> list[str] | None:
     import re

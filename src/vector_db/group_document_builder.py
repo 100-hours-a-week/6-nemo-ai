@@ -1,14 +1,56 @@
 from typing import Dict, Any
 from src.vector_db.chroma_client import get_chroma_client
 from src.models.e5_embeddings import embed
+import re
 
 GROUP_COLLECTION = "group-info"
 
+def clean_group_text(text: str) -> str:
+    """Clean group text by removing code blocks and unwanted formatting"""
+    if not text:
+        return text
+    
+    # Remove code blocks (``` ``` patterns)
+    text = re.sub(r'```[^`]*```', '', text, flags=re.DOTALL)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    
+    # Remove triple quotes blocks (''' ''' patterns)
+    text = re.sub(r"'''[^']*'''", '', text, flags=re.DOTALL)
+    text = re.sub(r"'''.*?'''", '', text, flags=re.DOTALL)
+    
+    # Clean up extra whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
+def parse_group_information(group_response: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse and clean group information from raw group data"""
+    if not group_response:
+        return group_response
+    
+    # Clean text fields that might contain unwanted formatting
+    text_fields = ['name', 'summary', 'description', 'plan', 'category', 'location']
+    
+    for field in text_fields:
+        if field in group_response and group_response[field]:
+            group_response[field] = clean_group_text(group_response[field])
+    
+    # Clean tags if they exist
+    if 'tags' in group_response and isinstance(group_response['tags'], list):
+        group_response['tags'] = [clean_group_text(tag) for tag in group_response['tags'] if tag]
+    
+    return group_response
+
 def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
+    # First parse and clean the group information
+    group_response = parse_group_information(group_response)
+    
     group_id = str(group_response.get("groupId"))
 
     if group_id in (None, "None", ""):
         raise ValueError(f"잘못된 groupId: {group_response.get('groupId')}")
+    
     name = group_response.get("name", "")
     summary = group_response.get("summary", "")
     description = group_response.get("description", "")
@@ -45,6 +87,9 @@ def build_group_document(group_response: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def build_document_from_partial(partial_update: Dict[str, Any], group_id: Any) -> Dict[str, Any]:
+    # Parse and clean the partial update data
+    partial_update = parse_group_information(partial_update)
+    
     text_parts = []
     if "name" in partial_update:
         text_parts.append(f"[모임 이름] {partial_update['name']}")
