@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import json
-from typing import Dict, Any, List, Optional
+from typing import Optional
 from datetime import datetime
 from app.core.ai_logger import get_ai_logger
 from app.config import (
@@ -171,8 +171,7 @@ class KafkaConsumerManager:
     
     async def _start_all_consumers(self):
         """Start all Kafka consumers with topic availability checking"""
-        from aiokafka import AIOKafkaConsumer
-        
+
         active_consumers = 0
         failed_mandatory = []
         
@@ -404,10 +403,10 @@ class KafkaConsumerManager:
                     
                     # Import here to avoid circular imports
                     from app.schemas.events.kafka_events import GroupEvent, GroupEventData, UserEventData
-                    from app.database.vector.group_document_builder import build_group_document
-                    from app.database.vector.user_document_builder import build_user_document
-                    from app.database.vector.vector_indexer import add_documents_to_vector_db
-                    from app.database.vector.chroma_client import get_chroma_client
+                    from app.database.group_document_builder import build_group_document
+                    from app.database.user_document_builder import build_user_document
+                    from app.database.vector_indexer import add_documents_to_vector_db
+                    from app.database.chroma_client import get_chroma_client
 
                     # Parse event type first to determine data structure
                     event_type = event_data.get('eventType')

@@ -1,17 +1,16 @@
 import asyncio
-import json
 from datetime import datetime
 from typing import Any
-from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+from aiokafka import AIOKafkaProducer
 from app.integrations.kafka.kafka_client import get_consumer, get_producer
 from app.core.ai_logger import get_ai_logger
 from app.core.websocket_manager import websocket_manager
 from app.services.v2.chatbot import handle_answer_analysis, handle_combined_question
 from app.services.v2.group_information import build_meeting_data
-from app.database.vector.group_document_builder import build_group_document
-from app.database.vector.user_document_builder import build_user_document
-from app.database.vector.vector_indexer import add_documents_to_vector_db
-from app.schemas.events.kafka_events import GroupEvent, GroupGenerateRequest, QuestionRequest, RecommendRequest, DLQMessage
+from app.database.group_document_builder import build_group_document
+from app.database.user_document_builder import build_user_document
+from app.database.vector_indexer import add_documents_to_vector_db
+from app.schemas.events.kafka_events import GroupEvent, GroupGenerateRequest, QuestionRequest, RecommendRequest
 
 logger = get_ai_logger()
 
@@ -61,7 +60,7 @@ async def process_group_events() -> None:
                     
                 elif event.eventType == "GROUP_DELETED":
                     # Remove group from ChromaDB
-                    from app.database.vector.chroma_client import get_chroma_client
+                    from app.database.chroma_client import get_chroma_client
                     from app.models.e5_embeddings import embed
                     client = get_chroma_client()
                     col = client.get_or_create_collection("group-info", embedding_function=embed)
@@ -76,7 +75,7 @@ async def process_group_events() -> None:
                         add_documents_to_vector_db(docs, "user-activity")
                         logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
                     else:  # GROUP_LEFT
-                        from app.database.vector.chroma_client import get_chroma_client
+                        from app.database.chroma_client import get_chroma_client
                         from app.models.e5_embeddings import embed
                         client = get_chroma_client()
                         col = client.get_or_create_collection("user-activity", embedding_function=embed)

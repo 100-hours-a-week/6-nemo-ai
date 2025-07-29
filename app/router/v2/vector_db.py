@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Body, Query, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
 from typing import Literal, Optional
 
-from app.database.vector.group_document_builder import build_group_document
-from app.database.vector.user_document_builder import build_user_document
-from app.database.vector.synthetic_document_builder import build_synthetic_documents
-from app.database.vector.vector_indexer import add_documents_to_vector_db
-from app.database.vector.chroma_client import get_chroma_client
-from app.database.vector.hybrid_search import hybrid_group_search
+from app.database.group_document_builder import build_group_document
+from app.database.user_document_builder import build_user_document
+from app.database.synthetic_document_builder import build_synthetic_documents
+from app.database.vector_indexer import add_documents_to_vector_db
+from app.database.chroma_client import get_chroma_client
+from app.database.hybrid_search import hybrid_group_search
 
 from app.schemas.groups.group_data import GroupSaveRequest, GroupDeleteRequest
 from app.schemas.users.user_data import UserParticipationRequest, UserRemoveRequest

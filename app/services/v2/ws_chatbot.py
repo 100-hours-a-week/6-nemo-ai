@@ -1,17 +1,14 @@
-import json
 from typing import Dict, Any
 from app.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
 from app.core.chat_cache import get_session_history
-from app.core.utils import is_similar_to_any
-from app.database.vector.vector_searcher import (
+from app.database.vector_searcher import (
     search_similar_documents,
     RECOMMENDATION_THRESHOLD,
 )
-from app.database.vector.hybrid_search import hybrid_group_search
+from app.database.hybrid_search import hybrid_group_search
 from app.core.ai_logger import get_ai_logger
 from app.prompts.prompt_loader import load_prompt_template
 import time
-import asyncio
 
 ai_logger = get_ai_logger()
 

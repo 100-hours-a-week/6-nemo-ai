@@ -40,11 +40,20 @@ class TestE5Embeddings:
         # Check embedding properties
         assert isinstance(embedding, list)
         assert len(embedding) == 1  # Should return one embedding
-        assert isinstance(embedding[0], list)  # Should be list of floats
+        
+        # ChromaDB returns numpy arrays, so check for that
+        assert isinstance(embedding[0], (list, np.ndarray))  # Should be list or numpy array
         assert len(embedding[0]) > 0   # Should have dimensions
         
-        # Test dimension consistency
-        assert len(embedding[0]) == 384  # E5-small has 384 dimensions
+        # Get actual dimension and verify it's reasonable for E5
+        actual_dim = len(embedding[0])
+        assert actual_dim == 384  # E5-small has 384 dimensions
+        
+        # Check that all values are numeric (float or numpy float)
+        if isinstance(embedding[0], np.ndarray):
+            assert embedding[0].dtype in [np.float32, np.float64]
+        else:
+            assert all(isinstance(val, (float, int)) for val in embedding[0])
 
     def test_batch_text_embeddings(self, embeddings_model):
         """Test generating embeddings for multiple texts."""
@@ -62,7 +71,7 @@ class TestE5Embeddings:
         assert len(embeddings) == len(texts)  # One embedding per text
         
         for embedding in embeddings:
-            assert isinstance(embedding, list)
+            assert isinstance(embedding, (list, np.ndarray))
             assert len(embedding) == 384  # Consistent dimensions
 
     def test_korean_text_embedding(self, embeddings_model):
@@ -79,7 +88,7 @@ class TestE5Embeddings:
         assert len(embeddings) == len(korean_texts)
         
         for embedding in embeddings:
-            assert isinstance(embedding, list)
+            assert isinstance(embedding, (list, np.ndarray))
             assert len(embedding) == 384
 
     def test_english_text_embedding(self, embeddings_model):
@@ -96,17 +105,17 @@ class TestE5Embeddings:
         assert len(embeddings) == len(english_texts)
         
         for embedding in embeddings:
-            assert isinstance(embedding, list)
+            assert isinstance(embedding, (list, np.ndarray))
             assert len(embedding) == 384
 
     def test_empty_input_handling(self, embeddings_model):
         """Test handling of empty input."""
         empty_texts = []
         
-        embeddings = embeddings_model(empty_texts)
-        
-        assert isinstance(embeddings, list)
-        assert len(embeddings) == 0
+        # ChromaDB's EmbeddingFunction raises an error for empty inputs
+        # This is actually the correct behavior for ChromaDB
+        with pytest.raises(ValueError, match="Expected Embeddings to be non-empty"):
+            embeddings_model(empty_texts)
 
     def test_global_embed_function(self):
         """Test the global embed function."""
@@ -116,7 +125,7 @@ class TestE5Embeddings:
         
         assert isinstance(embedding, list)
         assert len(embedding) == 1
-        assert isinstance(embedding[0], list)
+        assert isinstance(embedding[0], (list, np.ndarray))
         assert len(embedding[0]) == 384
 
     def test_model_name(self, embeddings_model):
@@ -132,7 +141,12 @@ class TestE5Embeddings:
         embedding1 = embeddings_model([text])
         embedding2 = embeddings_model([text])
         
-        assert embedding1 == embedding2
+        # Convert to numpy arrays for proper comparison
+        emb1_array = np.array(embedding1[0])
+        emb2_array = np.array(embedding2[0])
+        
+        # Use numpy.allclose for floating point comparison
+        assert np.allclose(emb1_array, emb2_array, rtol=1e-9, atol=1e-9)
 
     def test_different_inputs_different_embeddings(self, embeddings_model):
         """Test that different inputs produce different embeddings."""
@@ -142,7 +156,12 @@ class TestE5Embeddings:
         embedding1 = embeddings_model([text1])
         embedding2 = embeddings_model([text2])
         
-        assert embedding1 != embedding2
+        # Convert to numpy arrays for proper comparison
+        emb1_array = np.array(embedding1[0])
+        emb2_array = np.array(embedding2[0])
+        
+        # Use numpy.allclose with NOT to check they are different
+        assert not np.allclose(emb1_array, emb2_array, rtol=1e-5, atol=1e-5)
 
     def test_similarity_computation(self, embeddings_model):
         """Test computing similarity between embeddings."""
@@ -154,13 +173,95 @@ class TestE5Embeddings:
         
         # Compute cosine similarity
         def cosine_similarity(a, b):
-            return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+            a_array = np.array(a)
+            b_array = np.array(b)
+            return np.dot(a_array, b_array) / (np.linalg.norm(a_array) * np.linalg.norm(b_array))
         
         similar_score = cosine_similarity(similar_embeddings[0], similar_embeddings[1])
         different_score = cosine_similarity(different_embeddings[0], different_embeddings[1])
         
         # Similar texts should have higher similarity than different texts
         assert similar_score > different_score
+
+    def test_string_input_conversion(self, embeddings_model):
+        """Test that string input is properly converted to list."""
+        text = "단일 문자열 입력"
+        
+        # Test both string and list input give same result
+        embedding_from_string = embeddings_model(text)
+        embedding_from_list = embeddings_model([text])
+        
+        assert len(embedding_from_string) == 1
+        assert len(embedding_from_list) == 1
+        
+        # Convert to numpy arrays for comparison
+        emb1_array = np.array(embedding_from_string[0])
+        emb2_array = np.array(embedding_from_list[0])
+        
+        assert np.allclose(emb1_array, emb2_array, rtol=1e-9, atol=1e-9)
+
+    def test_invalid_input_type(self, embeddings_model):
+        """Test handling of invalid input types."""
+        with pytest.raises(ValueError, match="입력은 문자열 또는 문자열 리스트여야 합니다"):
+            embeddings_model(123)  # Invalid input type
+        
+        with pytest.raises(ValueError, match="입력은 문자열 또는 문자열 리스트여야 합니다"):
+            embeddings_model(None)  # None input
+
+    def test_prefix_addition(self, embeddings_model):
+        """Test that E5 models correctly add passage prefix."""
+        # This is more of an implementation detail test
+        # but important for E5 model performance
+        text = "개발 스터디"
+        
+        embedding = embeddings_model([text])
+        
+        # Should return valid embedding regardless of prefix logic
+        assert isinstance(embedding, list)
+        assert len(embedding) == 1
+        assert len(embedding[0]) == 384
+
+    def test_multilingual_capability(self, embeddings_model):
+        """Test multilingual embedding capability."""
+        multilingual_texts = [
+            "Hello world",           # English
+            "안녕하세요",            # Korean  
+            "こんにちは",            # Japanese
+            "Bonjour le monde",     # French
+            "Hola mundo"            # Spanish
+        ]
+        
+        embeddings = embeddings_model(multilingual_texts)
+        
+        # All should produce valid embeddings
+        assert len(embeddings) == len(multilingual_texts)
+        for embedding in embeddings:
+            assert isinstance(embedding, (list, np.ndarray))
+            assert len(embedding) == 384
+            
+        # Different languages should produce different embeddings
+        english_emb = np.array(embeddings[0])
+        korean_emb = np.array(embeddings[1])
+        
+        # Should be different but both valid
+        assert not np.allclose(english_emb, korean_emb, rtol=1e-3)
+
+    def test_embedding_vector_properties(self, embeddings_model):
+        """Test mathematical properties of embedding vectors."""
+        text = "벡터 속성 테스트"
+        
+        embedding = embeddings_model([text])
+        vector = np.array(embedding[0])
+        
+        # Check basic vector properties
+        assert len(vector) == 384
+        assert not np.isnan(vector).any()  # No NaN values
+        assert not np.isinf(vector).any()  # No infinite values
+        assert vector.dtype in [np.float32, np.float64]  # Proper numeric type
+        
+        # Embedding should have reasonable magnitude (not all zeros)
+        magnitude = np.linalg.norm(vector)
+        assert magnitude > 0.1  # Should have substantial magnitude
 
 
 if __name__ == "__main__":

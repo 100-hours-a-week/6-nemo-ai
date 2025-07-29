@@ -1,10 +1,8 @@
 # 표준 라이브러리
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 import asyncio
 # 외부 라이브러리
-import torch
 from fastapi import FastAPI
 # 미들웨어
 from app.middleware.http import log_requests, LogRequestsMiddleware
@@ -19,8 +17,8 @@ from app.core.ai_logger import get_ai_logger
 from app.core.exception_handler import setup_exception_handlers
 from app.core.chat_cache import clean_idle_sessions  # 저장 위치에 따라 조정
 # 벡터 DB 관련
-from app.database.vector.chroma_client import get_chroma_client, chroma_collection_exists
-from app.database.vector.sync import (
+from app.database.chroma_client import get_chroma_client, chroma_collection_exists
+from app.database.sync import (
     fetch_data_from_mysql,
     sync_group_documents,
     sync_user_documents,
@@ -122,7 +120,7 @@ ai_logger.info("[AI-v2] [라우터 등록 완료] v2 group_information 라우터
 if __name__ == "__main__":
     import uvicorn
     host = "0.0.0.0"
-    port = 8000
+    port = 8100
     ai_logger.info("[FastAPI 실행] 서버 시작 전 초기화")
     try:
         uvicorn.run(app, host=host, port=port)

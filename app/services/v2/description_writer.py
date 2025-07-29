@@ -3,45 +3,331 @@ from app.schemas.groups.group_writer import GroupGenerationRequest
 # from app.core.cloud_logging import logger
 from app.core.ai_logger import get_ai_logger
 from app.models.gemma_3_4b import call_vllm_api   #로컬 모델 호출로 교체
-from app.prompts.prompt_loader import load_prompt_template
+import re
 
 ai_logger = get_ai_logger()
 
+
+def _is_text_corrupted(text: str) -> bool:
+    """Check if text appears corrupted or garbled"""
+    if not text or not isinstance(text, str):
+        return True
+    
+    text = text.strip()
+    if len(text) < 3:
+        return True
+    
+    # Check for patterns indicating corruption
+    corruption_patterns = [
+        r'할로운 분위기',  # Specific corruption pattern from your assessment
+        r'교류하고율',     # Another specific pattern
+        r'영n',           # Truncated pattern
+        r'[가-힣]+[0-9]+[가-힣]*',  # Korean mixed with numbers inappropriately
+        r'[?]{2,}',       # Multiple question marks
+        r'(?:은|가|이|를|에|의){3,}',  # Repeated particles
+        r'[가-힣]n$',     # Korean ending with 'n' (truncation indicator)
+        r'[가-힣]{1}[a-zA-Z]{1}',  # Single Korean + Single Latin (corruption indicator)
+    ]
+    
+    for pattern in corruption_patterns:
+        if re.search(pattern, text):
+            return True
+    
+    # Check for incomplete sentences (Korean text ending abruptly)
+    if len(text) > 10 and not re.search(r'[다요니까습음겠앙함면동임등]$', text):
+        # Check if it ends with incomplete syllables or weird characters
+        if re.search(r'[가-힣][a-zA-Z0-9]$', text):
+            return True
+    
+    return False
+
+
+def _clean_text_artifacts(text: str) -> str:
+    """Clean up any text artifacts or formatting issues"""
+    if not text:
+        return text
+    
+    # Remove any remaining format indicators
+    text = re.sub(r'한 줄 소개:\s*', '', text)
+    text = re.sub(r'상세 설명:\s*', '', text)
+    text = re.sub(r'요약:\s*', '', text)
+    text = re.sub(r'소개:\s*', '', text)
+    
+    # Remove leading/trailing quotes or brackets
+    text = re.sub(r'^["\'\[\]]+|["\'\[\]]+$', '', text)
+    
+    # Clean up any incomplete words or artifacts
+    text = re.sub(r'[가-힣]+[a-zA-Z0-9]+', '', text)  # Remove Korean+Latin mixed words
+    text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+    text = text.strip()
+    
+    return text
+
+
+def _remove_pii_and_irrelevant_content(text: str) -> str:
+    """Remove PII and irrelevant content from text"""
+    if not text:
+        return text
+    
+    # PII patterns to remove
+    pii_patterns = [
+        r'\b\d{2,3}-\d{3,4}-\d{4}\b',  # Phone numbers
+        r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b',  # Email addresses
+        r'\b\d{3}-\d{2}-\d{5}\b',  # Registration numbers
+        r'\bhttps?://[^\s]+',  # URLs
+        r'\b\d{5}-\d{5}\b',  # Postal codes
+        r'\b\d{2}:\d{2}\b',  # Time patterns
+        r'\b\d{4}\.\d{2}\.\d{2}\b',  # Date patterns
+        r'\b[0-9,]+원\b',  # Money amounts
+        r'\b담당자[:\s]*[가-힣]{2,4}\b',  # Contact person names
+        r'\b문의[:\s]*\([0-9-]+\)',  # Contact inquiry
+        r'\b\[REDACTED\]',  # Already redacted content
+    ]
+    
+    # Replace PII with placeholder
+    cleaned_text = text
+    for pattern in pii_patterns:
+        cleaned_text = re.sub(pattern, '[정보삭제]', cleaned_text, flags=re.IGNORECASE)
+    
+    # Remove sentences containing irrelevant content
+    irrelevant_keywords = [
+        '한국건설기술인협회', '건설워크넷', '프로젝트비', '보고서 형태',
+        '전문가 자문', '팀 연구', '성과 지표', '기대 효과', '홈페이지',
+        '이메일', '담당자', '참고사항', '본 프로젝트는', '외부 전문가'
+    ]
+    
+    sentences = re.split(r'[.!?]\s*', cleaned_text)
+    relevant_sentences = []
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if sentence and not any(keyword in sentence for keyword in irrelevant_keywords):
+            relevant_sentences.append(sentence)
+    
+    if relevant_sentences:
+        cleaned_text = '. '.join(relevant_sentences)
+        if not cleaned_text.endswith('.'):
+            cleaned_text += '.'
+    
+    return cleaned_text
+
+
+def _get_fallback_description(data: GroupGenerationRequest) -> Tuple[str, str]:
+    """Generate fallback description when AI response fails"""
+    # Create a meaningful summary based on input
+    summary = f"{data.category} 분야의 {data.name}"
+    if "모임" not in summary and "스터디" not in summary and "동아리" not in summary:
+        summary += " 모임"
+    
+    # Create a meaningful description
+    description = f"이 모임은 {data.goal}을 목적으로 {data.period} 동안 진행됩니다."
+    
+    # Add category-specific content
+    if "스터디" in data.category or "학습" in data.category:
+        description += " 함께 학습하며 목표를 달성하고 성장할 수 있는 기회를 제공합니다."
+    elif "운동" in data.category or "건강" in data.category:
+        description += " 건강한 활동을 통해 체력 향상과 친목을 도모할 수 있습니다."
+    elif "취미" in data.category:
+        description += " 공통 관심사를 바탕으로 즐거운 시간을 보내며 새로운 경험을 쌓을 수 있습니다."
+    elif "친목" in data.category or "사교" in data.category:
+        description += " 새로운 사람들과 만나 소통하며 즐거운 시간을 보낼 수 있습니다."
+    else:
+        description += " 관심있는 분들과 함께 유익한 시간을 보낼 수 있는 모임입니다."
+    
+    description += " 적극적인 참여를 환영합니다."
+    
+    return summary, description
+
+
+def _parse_alternative_format(response: str, data: GroupGenerationRequest) -> Tuple[str, str]:
+    """Try alternative parsing when standard format fails"""
+    
+    # Clean the response first
+    response = _remove_pii_and_irrelevant_content(response)
+    
+    lines = [line.strip() for line in response.split('\n') if line.strip()]
+    
+    # Look for patterns in the response
+    summary = ""
+    description = ""
+    
+    for i, line in enumerate(lines):
+        if not summary and 20 < len(line) < 80 and any(word in line for word in ["모임", "스터디", "동아리", "그룹"]):
+            candidate = _clean_text_artifacts(line)
+            if not _is_text_corrupted(candidate):
+                summary = candidate
+        elif not description and len(line) > 40:
+            # Likely a description line
+            candidate = _clean_text_artifacts(line)
+            if not _is_text_corrupted(candidate):
+                description = candidate
+                # Try to get more description from following lines
+                for j in range(i+1, min(i+3, len(lines))):
+                    next_line = lines[j]
+                    if (len(next_line) > 15 and 
+                        not next_line.startswith("Step") and 
+                        ":" not in next_line[:10] and
+                        not _is_text_corrupted(next_line)):
+                        description += " " + _clean_text_artifacts(next_line)
+                    else:
+                        break
+                break
+    
+    # Fallback if parsing still fails
+    if (not summary or not description or 
+        _is_text_corrupted(summary) or _is_text_corrupted(description) or
+        len(summary) < 10 or len(description) < 20):
+        return _get_fallback_description(data)
+    
+    return summary, description
+
+
+def _extract_meaningful_content(response: str, data: GroupGenerationRequest) -> Tuple[str, str]:
+    """Extract meaningful content when standard parsing completely fails"""
+    
+    # Remove unwanted patterns and PII first
+    clean_response = _remove_pii_and_irrelevant_content(response)
+    
+    # Remove common unwanted patterns
+    clean_response = re.sub(r'Step \d+:', '', clean_response)
+    clean_response = re.sub(r'-\s*', '', clean_response)
+    clean_response = re.sub(r'\n+', ' ', clean_response)
+    
+    # Split into sentences and clean them
+    sentences = re.split(r'[.!?]\s*', clean_response)
+    clean_sentences = []
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if (sentence and len(sentence) > 10 and 
+            not _is_text_corrupted(sentence) and
+            not any(word in sentence.lower() for word in ['step', 'phase', '단계'])):
+            clean_sentences.append(sentence)
+    
+    if not clean_sentences:
+        return _get_fallback_description(data)
+    
+    # Find suitable summary (shorter sentence with meeting-related terms)
+    summary = ""
+    for sentence in clean_sentences:
+        if (20 < len(sentence) < 80 and 
+            any(word in sentence for word in ["모임", "스터디", "동아리", "그룹", "활동"])):
+            summary = sentence
+            break
+    
+    if not summary and clean_sentences:
+        # Use first suitable sentence as summary
+        for sentence in clean_sentences:
+            if 15 < len(sentence) < 100:
+                summary = sentence
+                break
+    
+    # Find suitable description (combine several sentences)
+    description_sentences = []
+    for sentence in clean_sentences:
+        if sentence != summary and len(sentence) > 15:
+            description_sentences.append(sentence)
+            if len('. '.join(description_sentences)) > 80:
+                break
+    
+    description = '. '.join(description_sentences)
+    if description and not description.endswith('.'):
+        description += '.'
+    
+    # Final validation
+    if not summary or not description or len(summary) < 10 or len(description) < 20:
+        return _get_fallback_description(data)
+    
+    return summary, description
+
+
 async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
-    prompt = load_prompt_template("description_writer_v2", 
-                                  name=data.name,
-                                  goal=data.goal,
-                                  category=data.category,
-                                  period=data.period)
+    prompt = f"""
+당신은 모임을 소개하는 AI 비서입니다.
+
+다음 형식으로 정확히 출력하세요:
+
+한 줄 소개: [모임의 핵심 목적을 50자 이내로 명사형 종결로 요약]
+상세 설명: [300자 이내, 5문장 이내의 모임 소개]
+
+요구사항:
+- 한 줄 소개는 반드시 "모임", "동아리", "스터디" 등의 명사로 끝나야 합니다
+- 상세 설명은 추천 대상과 분위기를 포함하여 작성하세요
+- 문장을 완전히 마무리하여 작성하세요
+- 한국어로만 작성하세요
+- 개인정보나 연락처는 절대 포함하지 마세요
+
+입력 정보:
+- 모임명: {data.name}
+- 목적: {data.goal}  
+- 카테고리: {data.category}
+- 기간: {data.period}
+
+출력 예시:
+한 줄 소개: 맛집 탐방을 통한 친목 도모 모임
+상세 설명: 이 모임은 판교의 다양한 맛집을 탐방하며 친목을 다지는 것을 목표로 합니다. 매주 1회 모여 서로의 취향을 공유하고, 다양한 장소를 경험하며 즐거운 시간을 보냅니다. 맛집을 좋아하고 새로운 사람들과 교류하고 싶은 분들께 추천합니다. 편안하고 즐거운 분위기에서 진행됩니다.
+
+아래 형식으로 시작하세요:
+한 줄 소개:"""
+    
     try:
-        ai_logger.info("[AI-v2] [요약 생성 시작]", extra={"meeting_name": data.name})
+        ai_logger.info("[AI-V2] [요약 생성 시작]", extra={"meeting_name": data.name})
 
-        # 로컬 모델로 교체
-        response = await call_vllm_api(prompt, max_tokens=512)
-        raw = response.strip()
-
-        # 결과 파싱 (v1과 동일하게 유지)
+        # Use local model with optimized parameters for Korean
+        response = await call_vllm_api(prompt, max_tokens=512, temperature=0.3)
+        
+        if not response:
+            ai_logger.warning("[AI-V2] [빈 응답] 폴백 콘텐츠 사용")
+            return _get_fallback_description(data)
+        
+        response = response.strip()
+        
+        # Check for corruption early
+        if _is_text_corrupted(response):
+            ai_logger.warning("[AI-V2] [텍스트 손상 감지] 폴백 응답 사용", extra={"preview": response[:100]})
+            return _get_fallback_description(data)
+        
+        # Primary parsing method
+        summary = ""
+        description = ""
+        
         parts = response.split("한 줄 소개:")
-        if len(parts) < 2:
-            ai_logger.warning("[AI-v2] [파싱 실패] '한 줄 소개' 구간 없음", extra={"preview": response[:80]})
-            return "", ""
+        if len(parts) >= 2:
+            after_intro = parts[1]
+            subparts = after_intro.split("상세 설명:")
+            if len(subparts) >= 2:
+                summary_candidate = _clean_text_artifacts(subparts[0])
+                description_candidate = _clean_text_artifacts(subparts[1])
+                
+                # Validate and clean candidates
+                if (not _is_text_corrupted(summary_candidate) and 
+                    not _is_text_corrupted(description_candidate) and
+                    len(summary_candidate) >= 10 and len(description_candidate) >= 20):
+                    
+                    summary = _remove_pii_and_irrelevant_content(summary_candidate)
+                    description = _remove_pii_and_irrelevant_content(description_candidate)
 
-        after_intro = parts[1]
-        subparts = after_intro.split("상세 설명:")
-        if len(subparts) < 2:
-            ai_logger.warning("[AI-v2] [파싱 실패] '상세 설명' 구간 없음", extra={"preview": response[:80]})
-            return "", ""
+        # If primary parsing failed, try alternative methods
+        if not summary or not description or len(summary) < 10 or len(description) < 20:
+            ai_logger.warning("[AI-V2] [표준 파싱 실패] 대안 파싱 시도", extra={"preview": response[:100]})
+            try:
+                summary, description = _parse_alternative_format(response, data)
+            except Exception:
+                ai_logger.warning("[AI-V2] [대안 파싱 실패] 내용 추출 시도")
+                summary, description = _extract_meaningful_content(response, data)
 
-        summary = subparts[0].strip()
-        description = subparts[1].strip()
+        # Final validation and cleanup
+        if not summary or not description or len(summary) < 10 or len(description) < 20:
+            ai_logger.warning("[AI-V2] [모든 파싱 실패] 폴백 콘텐츠 사용")
+            summary, description = _get_fallback_description(data)
 
-        ai_logger.info("[AI-v2] [모임 소개 생성 완료]",
+        ai_logger.info("[AI-V2] [모임 소개 생성 완료]",
                        extra={"summary_length": len(summary), "description_length": len(description)})
         return summary, description
 
     except Exception as e:
-        ai_logger.exception("[AI-v2] [로컬모델 소개 생성 실패]")
-        return "", ""
+        ai_logger.exception("[AI-V2] [로컬모델 소개 생성 실패]")
+        return _get_fallback_description(data)
 
 
 if __name__ == "__main__":

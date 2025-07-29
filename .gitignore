@@ -32,7 +32,8 @@ data/chroma/
 nemo-v2-ai.json
 
 xlm-roberta-flash-implementation/
-database/
+/database/
+!/app/database/
 
 # Monitoring & Observability
 monitoring/grafana-data/
@@ -43,3 +44,6 @@ ssh_servers/
 
 # Prompts (contains business logic and IP)
 app/prompts/*.txt
+app/prompts/*
+!app/prompts/__init__.py
+!app/prompts/prompt_loader.py
