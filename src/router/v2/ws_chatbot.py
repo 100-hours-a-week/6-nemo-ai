@@ -70,7 +70,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "text": chunk
                             }
                         })
-                        ai_logger.debug(f"[질문 청크 전송] {chunk}", extra={
+                        ai_logger.debug(f"[질문 청크 전송] {chunk[:50]}{'...' if len(chunk) > 50 else ''}", extra={
                             "session_id": session_id,
                         })
 
@@ -155,7 +155,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "reason": partial_text
                         }
                     })
-                    ai_logger.debug(f"[추천 청크 전송] {chunk}", extra={
+                    ai_logger.debug(f"[추천 청크 전송] {str(chunk)[:50]}{'...' if len(str(chunk)) > 50 else ''}", extra={
                         "session_id": session_id
                     })
     except WebSocketDisconnect:

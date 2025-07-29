@@ -86,16 +86,21 @@ class KafkaConsumerManager:
         try:
             import socket
             
-            # First do a simple socket test
-            host, port = KAFKA_BOOTSTRAP_SERVER.split(':')
-            port = int(port)
+            # Test all bootstrap servers
+            servers = [s.strip() for s in KAFKA_BOOTSTRAP_SERVER.split(',')]
+            for server in servers:
+                host, port = server.split(':')
+                port = int(port)
+                
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2.0)  # 2 second timeout
+                result = sock.connect_ex((host, port))
+                sock.close()
+                
+                if result == 0:
+                    return True
             
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2.0)  # 2 second timeout
-            result = sock.connect_ex((host, port))
-            sock.close()
-            
-            return result == 0
+            return False
             
         except Exception:
             return False
