@@ -100,14 +100,24 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
                     if isinstance(chunk, tuple) and chunk[0] == "RECOMMEND_DONE":
+                        # chunk[1] contains group_id, chunk[2] contains final message if any
+                        final_group_id = chunk[1] if len(chunk) > 1 else None
+                        final_message = chunk[2] if len(chunk) > 2 else None
+                        
                         await websocket.send_json({
                             "type": "RECOMMEND_DONE",
                             "payload": {
                                 "sessionId": session_id,
-                                "reason": None
+                                "groupId": final_group_id,
+                                "reason": final_message,
+                                "success": final_group_id != -1
                             }
                         })
-                        ai_logger.info("[추천 완료 시그널 전송 및 처리 종료]", extra={"session_id": session_id})
+                        ai_logger.info("[추천 완료 시그널 전송 및 처리 종료]", extra={
+                            "session_id": session_id,
+                            "group_id": final_group_id,
+                            "success": final_group_id != -1
+                        })
                         break
 
                     if isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
@@ -136,7 +146,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     if isinstance(chunk, tuple):
                         group_id, partial_text = chunk
-                        if not group_id_sent and group_id is not None:
+                        if not group_id_sent and group_id is not None and group_id != -1:
                             await websocket.send_json({
                                 "type": "RECOMMEND_ID",
                                 "payload": {
@@ -145,6 +155,15 @@ async def websocket_endpoint(websocket: WebSocket):
                                 }
                             })
                             group_id_sent = True
+                            ai_logger.info("[추천 그룹 ID 전송]", extra={
+                                "session_id": session_id,
+                                "group_id": group_id
+                            })
+                        elif group_id == -1:
+                            ai_logger.info("[추천 실패 - 적합한 모임 없음]", extra={
+                                "session_id": session_id,
+                                "group_id": group_id
+                            })
                     else:
                         partial_text = chunk
 

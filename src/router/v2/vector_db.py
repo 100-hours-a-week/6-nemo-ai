@@ -130,6 +130,7 @@ def list_collection_items(
         offset: int = 0
 ):
     try:
+        from src.models.e5_embeddings import embed
         client = get_chroma_client()
         col = client.get_or_create_collection(name=collection, embedding_function=embed)
         results = col.get(include=["documents", "metadatas"])
@@ -165,6 +166,7 @@ def get_single_document(
         collection: Literal["group-info", "user-activity", "group-synthetic"] = Query(..., description="조회할 컬렉션 이름"),
         id: str = Query(..., description="조회할 문서 ID")
 ):
+    from src.models.e5_embeddings import embed
     client = get_chroma_client()
     col = client.get_or_create_collection(name=collection, embedding_function=embed)
 
