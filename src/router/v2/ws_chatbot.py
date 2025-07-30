@@ -193,6 +193,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "error_type": type(recommend_error).__name__
                     }, exc_info=True)
                     raise  # Re-raise to be caught by outer exception handler
+                    
     except WebSocketDisconnect:
         ai_logger.info("[WS 연결 종료]", extra={"session_id": session_id})
     except Exception as e:
