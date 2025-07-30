@@ -297,14 +297,142 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     })
 
     if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
-        ai_logger.warning("[추천 모임 없음]", extra={
+        ai_logger.info("[추천 모임 없음] 랜덤 모임 선택 시도", extra={
             "session_id": session_id,
             "user_id": user_id,
             "results_count": len(results) if results else 0,
             "best_score": results[0].get("score", 0) if results else 0,
             "threshold": RECOMMENDATION_THRESHOLD
         })
-        # Send the message as question chunks first
+        
+        # Try to get a random group instead of returning -1
+        from src.vector_db.vector_searcher import get_random_group_for_user
+        random_group = get_random_group_for_user(user_id)
+        
+        if random_group:
+            group_id = int(random_group["metadata"]["groupId"])
+            raw_group_text = random_group["text"]
+            
+            ai_logger.info("[랜덤 모임 선택됨]", extra={
+                "session_id": session_id,
+                "user_id": user_id,
+                "group_id": group_id,
+                "origin": "random_selection"
+            })
+            
+            # Clean the group text to remove potential tags, code blocks, and unwanted formatting
+            import re
+            group_text = clean_group_text(raw_group_text)
+            group_text = _clean_group_text_for_recommendation(group_text)
+
+            prompt = f"""[RECOMMEND]
+사용자와의 대화:
+{combined_text}
+
+추천할 모임:
+{group_text.strip()}
+
+사용자의 조건과 완벽히 맞는 모임을 찾지 못했지만, 새로운 경험의 기회로 위 모임을 추천합니다.
+이 상황을 자연스럽게 설명해주세요.
+
+중요한 규칙:
+- 질문을 하지 마세요. 추천 이유만 설명하세요.
+- 한국어로만 작성하세요. 영어 단어는 사용하지 마세요.
+- 150~250자의 자연스럽고 친근한 설명을 작성하세요.
+- "설명:", "추천 이유:" 같은 접두어 없이 바로 설명 문장으로 시작하세요.
+- 첫 문장에서 완벽한 매칭은 없었지만 새로운 경험을 제안한다는 내용을 자연스럽게 포함하세요.
+- 새로운 경험과 만남의 기회로써 이 모임을 추천한다는 톤으로 작성하세요.
+- 마지막에 물음표(?)를 사용하지 마세요.
+- 태그나 메타데이터는 언급하지 마세요.
+
+예시 형식: "말씀하신 조건과 완벽히 맞는 모임은 찾지 못했지만, 새로운 경험을 해보시는 건 어떨까요? [모임의 특징]을 통해 [기대효과]를 얻으실 수 있을 거예요."
+""".strip()
+
+            messages_for_vllm = [
+                {"role": "system", "text": "당신은 모임을 추천하는 한국어 챗봇입니다. 질문을 하지 말고 추천 이유만 설명하세요. 영어를 절대 사용하지 마세요. 태그나 메타데이터는 언급하지 마세요."},
+                {"role": "user", "text": prompt}
+            ]
+
+            full_reason = ""
+            first = True
+            start_time = time.time()
+            token_count = 0
+
+            # Initialize prefix parser and buffer parser for recommendations
+            prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:", "**태그:**", "태그:", "**tags:**", "tags:"])
+            buffer_parser = BufferParser()
+
+            try:
+                async for chunk in stream_vllm_response(messages_for_vllm):
+                    if first:
+                        first_chunk_time = time.time()
+                        ai_logger.debug(
+                            f"[랜덤 추천 vLLM 첫 chunk 수신] chunk: {repr(chunk)} time {first_chunk_time - start_time:.3f} sec"
+                        )
+                        first = False
+
+                    # Use buffer parser to handle context repetition in recommendations
+                    processed_chunk, context_found = buffer_parser.parse_streaming_chunk(chunk)
+                    
+                    if processed_chunk is None:
+                        continue  # Skip this chunk (waiting for context separator or processing)
+                    
+                    if context_found:
+                        ai_logger.info(f"[랜덤 추천 컨텍스트 처리됨] 버퍼 파서가 컨텍스트 반복을 처리함")
+                        chunk = processed_chunk
+                    else:
+                        chunk = processed_chunk
+
+                    # Process chunk through prefix parser
+                    processed_chunk = prefix_parser.process_chunk(chunk)
+                    if processed_chunk is None:
+                        continue  # Still waiting for complete prefix
+                    
+                    # Log the processing result for debugging
+                    if processed_chunk != chunk:
+                        ai_logger.debug(f"[랜덤 추천 청크 처리] 원본: {repr(chunk)} → 처리됨: {repr(processed_chunk)}")
+                    
+                    chunk = processed_chunk  # Use the cleaned chunk
+
+                    full_reason += chunk
+                    token_count += 1
+                    
+                    # Send the cleaned chunk
+                    if chunk:
+                        yield (group_id, chunk)
+
+                full_reason = full_reason.strip()
+                end_time = time.time()
+                total_time = end_time - start_time
+                
+                ai_logger.debug(
+                    f"[랜덤 추천 응답 수신 완료] time {total_time:.3f} sec, tokens: {token_count}, "
+                    f"tokens/sec: {token_count/total_time:.2f}"
+                )
+                if ai_logger.isEnabledFor(logging.DEBUG):
+                    ai_logger.debug(f"[랜덤 추천 전체 응답]: {full_reason}")
+                yield ("RECOMMEND_DONE", group_id, None)
+                return
+
+            except Exception as e:
+                ai_logger.error("[랜덤 추천 스트리밍 중 오류]", extra={
+                    "error": str(e), 
+                    "session_id": session_id,
+                    "group_id": group_id
+                })
+                
+                # Provide fallback recommendation text
+                fallback_reason = "말씀하신 조건과 완벽히 맞는 모임을 찾지 못했지만, 새로운 경험을 해보시는 건 어떨까요? 이 모임에서 새로운 인연과 재미있는 활동을 만나보세요!"
+                for char in fallback_reason:
+                    yield (group_id, char)
+                yield ("RECOMMEND_DONE", group_id, fallback_reason)
+                return
+        
+        # If no random group available either, return the original message
+        ai_logger.warning("[랜덤 모임도 없음]", extra={
+            "session_id": session_id,
+            "user_id": user_id
+        })
         message = "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
         for char in message:
             yield (-1, char)
