@@ -124,6 +124,8 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     capturing_options = False
     first = True
     start_time = time.time()
+    context_detected = False
+    context_processed = False
     
     # Initialize prefix parser
     prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
@@ -137,6 +139,48 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
             first = False
 
         streamed_text += chunk  # Keep original for logging
+
+        # Check if we detect context patterns (이전 질문, 사용자 답변, etc.)
+        if not context_detected and any(pattern in streamed_text for pattern in [
+            "이전 질문:", "사용자 답변:", "Previous question:", "User answer:"
+        ]):
+            context_detected = True
+            ai_logger.info(f"[컨텍스트 반복 감지] AI가 컨텍스트를 반복 출력중")
+
+        # If context was detected, wait for \n\n to separate context from actual question
+        if context_detected and not context_processed:
+            if "\n\n" in streamed_text:
+                # Find the position of \n\n and take everything after it
+                context_end_pos = streamed_text.find("\n\n") + 2
+                actual_content = streamed_text[context_end_pos:]
+                
+                ai_logger.info(f"[컨텍스트 분리] \\n\\n으로 컨텍스트와 질문 분리됨")
+                
+                # Reset our processing with only the actual content
+                streamed_text = actual_content
+                cleaned_text = ""
+                full_question = ""
+                options_text = ""
+                capturing_options = False
+                context_processed = True
+                
+                # Reset prefix parser for the actual content
+                prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
+                
+                # Process the actual content
+                if actual_content:
+                    chunk = actual_content
+                else:
+                    continue
+            else:
+                # Still waiting for \n\n separator, don't process yet
+                continue
+        elif context_detected and context_processed:
+            # We've already separated context, continue normal processing
+            pass
+        elif not context_detected:
+            # No context detected, proceed with normal streaming immediately
+            pass
 
         # Process chunk through prefix parser
         processed_chunk = prefix_parser.process_chunk(chunk)
@@ -263,12 +307,19 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         )
 
     if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
+        ai_logger.warning("[추천 모임 없음]", extra={
+            "session_id": session_id,
+            "user_id": user_id,
+            "results_count": len(results) if results else 0,
+            "best_score": results[0].get("score", 0) if results else 0,
+            "threshold": RECOMMENDATION_THRESHOLD
+        })
         # Send the message as question chunks first
         message = "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
         for char in message:
             yield (-1, char)
-        # Then send Recommend done
-        yield ("RECOMMEND_DONE", -1, None)
+        # Then send Recommend done with proper -1 group_id
+        yield ("RECOMMEND_DONE", -1, message)
         return
 
     top_result = results[0]
@@ -365,8 +416,9 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         
         # Provide fallback recommendation text
         fallback_reason = "선택하신 관심사와 취향을 바탕으로 이 모임을 추천드립니다. 비슷한 관심사를 가진 분들과 함께 즐거운 시간을 보내실 수 있을 것 같아요!"
-        yield (group_id, fallback_reason)
-        yield ("RECOMMEND_DONE", group_id, None)
+        for char in fallback_reason:
+            yield (group_id, char)
+        yield ("RECOMMEND_DONE", group_id, fallback_reason)
 
 
 def _clean_group_text_for_recommendation(raw_text: str) -> str:
