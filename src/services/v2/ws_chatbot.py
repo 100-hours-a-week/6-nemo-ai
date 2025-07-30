@@ -499,6 +499,78 @@ def parse_group_information(group_data: dict) -> dict:
 
 
 
+
+def _clean_group_text_for_recommendation(raw_text: str) -> str:
+    """Clean group text to remove tags and metadata for recommendation"""
+    import re
+    
+    # Remove code blocks (``` ``` patterns)
+    text = re.sub(r'```[^`]*```', '', raw_text, flags=re.DOTALL)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    
+    # Remove common tag patterns
+    text = re.sub(r'태그[:：]\s*[^\n]*', '', text)
+    text = re.sub(r'tags[:：]\s*[^\n]*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'#\w+', '', text)  # Remove hashtags
+    text = re.sub(r'\[태그\][^\n]*', '', text)
+    text = re.sub(r'\[tags\][^\n]*', '', text, flags=re.IGNORECASE)
+    
+    # Remove metadata patterns
+    text = re.sub(r'메타데이터[:：][^\n]*', '', text)
+    text = re.sub(r'metadata[:：][^\n]*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'분류[:：]\s*[^\n]*', '', text)
+    text = re.sub(r'category[:：]\s*[^\n]*', '', text, flags=re.IGNORECASE)
+    
+    # Remove repeated whitespace and clean up
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
+
+def clean_group_text(text: str) -> str:
+    """General function to clean group text for parsing and processing"""
+    import re
+    
+    if not text:
+        return text
+    
+    # Remove code blocks (``` ``` patterns)
+    text = re.sub(r'```[^`]*```', '', text, flags=re.DOTALL)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    
+    # Remove triple quotes blocks (''' ''' patterns)
+    text = re.sub(r"'''[^']*'''", '', text, flags=re.DOTALL)
+    text = re.sub(r"'''.*?'''", '', text, flags=re.DOTALL)
+    
+    # Clean up extra whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    return text
+
+
+def parse_group_information(group_data: dict) -> dict:
+    """Parse and clean group information from raw group data"""
+    if not group_data:
+        return group_data
+    
+    # Clean text fields that might contain unwanted formatting
+    text_fields = ['name', 'summary', 'description', 'plan']
+    
+    for field in text_fields:
+        if field in group_data and group_data[field]:
+            group_data[field] = clean_group_text(group_data[field])
+    
+    # Clean tags if they exist
+    if 'tags' in group_data and isinstance(group_data['tags'], list):
+        group_data['tags'] = [clean_group_text(tag) for tag in group_data['tags'] if tag]
+    
+    return group_data
+
+
+
+
 def extract_options_from_stream(raw: str) -> list[str] | None:
     import re
     import json

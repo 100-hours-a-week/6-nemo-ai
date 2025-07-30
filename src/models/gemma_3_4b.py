@@ -57,9 +57,6 @@ async def get_vllm_health_metrics():
     }
 
 
-
-
-
 async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, temperature: float = 0.7) -> Union[
     str, List[str]]:
     """Enhanced vLLM API call with retry logic and circuit breaker"""
