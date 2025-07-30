@@ -9,6 +9,7 @@ from src.vector_db.vector_searcher import (
 )
 from src.vector_db.hybrid_search import hybrid_group_search
 from src.core.ai_logger import get_ai_logger
+from src.core.buffer_parser import BufferParser, remove_previous_question_from_text, clean_prompt_context
 import time
 import asyncio
 
@@ -127,8 +128,9 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     context_detected = False
     context_processed = False
     
-    # Initialize prefix parser
+    # Initialize prefix parser and buffer parser
     prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
+    buffer_parser = BufferParser()
 
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
@@ -140,47 +142,23 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
         streamed_text += chunk  # Keep original for logging
 
-        # Check if we detect context patterns (이전 질문, 사용자 답변, etc.)
-        if not context_detected and any(pattern in streamed_text for pattern in [
-            "이전 질문:", "사용자 답변:", "Previous question:", "User answer:"
-        ]):
-            context_detected = True
-            ai_logger.info(f"[컨텍스트 반복 감지] AI가 컨텍스트를 반복 출력중")
-
-        # If context was detected, wait for \n\n to separate context from actual question
-        if context_detected and not context_processed:
-            if "\n\n" in streamed_text:
-                # Find the position of \n\n and take everything after it
-                context_end_pos = streamed_text.find("\n\n") + 2
-                actual_content = streamed_text[context_end_pos:]
-                
-                ai_logger.info(f"[컨텍스트 분리] \\n\\n으로 컨텍스트와 질문 분리됨")
-                
-                # Reset our processing with only the actual content
-                streamed_text = actual_content
-                cleaned_text = ""
-                full_question = ""
-                options_text = ""
-                capturing_options = False
-                context_processed = True
-                
-                # Reset prefix parser for the actual content
-                prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
-                
-                # Process the actual content
-                if actual_content:
-                    chunk = actual_content
-                else:
-                    continue
-            else:
-                # Still waiting for \n\n separator, don't process yet
-                continue
-        elif context_detected and context_processed:
-            # We've already separated context, continue normal processing
-            pass
-        elif not context_detected:
-            # No context detected, proceed with normal streaming immediately
-            pass
+        # Use buffer parser to handle context repetition
+        processed_chunk, context_found = buffer_parser.parse_streaming_chunk(chunk)
+        
+        if processed_chunk is None:
+            continue  # Skip this chunk (waiting for context separator or processing)
+        
+        if context_found:
+            ai_logger.info(f"[컨텍스트 처리됨] 버퍼 파서가 컨텍스트 반복을 처리함")
+            # Reset other processing state when context is detected
+            cleaned_text = ""
+            full_question = ""
+            options_text = ""
+            capturing_options = False
+            prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
+            chunk = processed_chunk
+        else:
+            chunk = processed_chunk
 
         # Process chunk through prefix parser
         processed_chunk = prefix_parser.process_chunk(chunk)
@@ -261,7 +239,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
         "- 자연스럽고 중립적인 말투로 질문을 시작하세요. (예: \"모임에 참여하신다면 어떤 분위기를 선호하시나요?\")"
     )
 
-    return f"""[QUESTION]
+    base_prompt = f"""[QUESTION]
 {context}
 당신은 질문을 생성을 하는 모임 추천을 위한 챗봇이지만, 이 단계에서는 추천하지 마세요.  
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
@@ -278,9 +256,12 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 - 반드시 **이전 질문과는 다른 주제나 방향**의 질문을 작성하세요.
 - 문장 앞뒤가 매끄럽게 이어지도록 하며, **반말이나 명령형은 피하고**, 정중하고 부드러운 말투를 사용하세요.
 - 선택지는 총 4개이며, **각각 1~3단어 이내의 표현으로 구성**하세요.
+- 응답에서 "이전 질문:", "사용자 답변:" 등의 컨텍스트를 반복하지 마세요.
 질문 다음에 바로 아래 JSON 형식으로 출력하세요: 
   "options": ["...", "...", "...", "..."]
 """.strip()
+
+    return clean_prompt_context(base_prompt)
 
 
 async def stream_recommendation_chunks(messages: list[dict], user_id: str, session_id: str):
@@ -306,6 +287,15 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
             user_id=user_id,
         )
 
+    ai_logger.info("[검색 결과]", extra={
+        "session_id": session_id,
+        "user_id": user_id,
+        "results_count": len(results) if results else 0,
+        "best_score": results[0].get("score", 0) if results else None,
+        "best_group_id": results[0].get("metadata", {}).get("groupId") if results else None,
+        "threshold": RECOMMENDATION_THRESHOLD
+    })
+
     if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
         ai_logger.warning("[추천 모임 없음]", extra={
             "session_id": session_id,
@@ -325,6 +315,14 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     top_result = results[0]
     group_id = int(top_result["metadata"]["groupId"])
     raw_group_text = top_result["text"]
+    
+    ai_logger.info("[추천 모임 선택됨]", extra={
+        "session_id": session_id,
+        "user_id": user_id,
+        "group_id": group_id,
+        "score": top_result.get("score", 0),
+        "origin": top_result.get("origin", "unknown")
+    })
     
     # Clean the group text to remove potential tags, code blocks, and unwanted formatting
     import re
@@ -362,8 +360,9 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     start_time = time.time()
     token_count = 0
 
-    # Initialize prefix parser for recommendations
+    # Initialize prefix parser and buffer parser for recommendations
     prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:", "**태그:**", "태그:", "**tags:**", "tags:"])
+    buffer_parser = BufferParser()
 
     try:
         async for chunk in stream_vllm_response(messages_for_vllm):
@@ -374,12 +373,22 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
                 )
                 first = False
 
+            # Use buffer parser to handle context repetition in recommendations
+            processed_chunk, context_found = buffer_parser.parse_streaming_chunk(chunk)
+            
+            if processed_chunk is None:
+                continue  # Skip this chunk (waiting for context separator or processing)
+            
+            if context_found:
+                ai_logger.info(f"[추천 컨텍스트 처리됨] 버퍼 파서가 컨텍스트 반복을 처리함")
+                chunk = processed_chunk
+            else:
+                chunk = processed_chunk
+
             # Process chunk through prefix parser
             processed_chunk = prefix_parser.process_chunk(chunk)
             if processed_chunk is None:
                 continue  # Still waiting for complete prefix
-            
-
             
             # Log the processing result for debugging
             if processed_chunk != chunk:

@@ -72,8 +72,11 @@ async def test_application_streaming():
     """Test streaming with actual application prompts that are failing"""
     print("\n🔍 Testing application-specific streaming...")
     
+    # Clean the prompt before sending to remove any context patterns
+    from src.core.buffer_parser import clean_prompt_context
+    
     # This is the exact prompt your application uses for question generation
-    app_prompt = """
+    app_prompt = clean_prompt_context("""
 사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요.
 당신은 질문을 생성을 하는 모임 추천을 위한 챗봇이지만, 이 단계에서는 추천하지 마세요.  
 다음 질문은 한국어로 자연스럽고 친근한 말투로 작성해주세요.
@@ -90,9 +93,10 @@ async def test_application_streaming():
 - 반드시 **이전 질문과는 다른 주제나 방향**의 질문을 작성하세요.
 - 문장 앞뒤가 매끄럽게 이어지도록 하며, **반말이나 명령형은 피하고**, 정중하고 부드러운 말투를 사용하세요.
 - 선택지는 총 4개이며, **각각 1~3단어 이내의 표현으로 구성**하세요.
+- 응답에서 "이전 질문:", "사용자 답변:" 등의 컨텍스트를 반복하지 마세요.
 질문 다음에 바로 아래 JSON 형식으로 출력하세요: 
   "options": ["...", "...", "...", "..."]
-""".strip()
+""".strip())
     
     messages = [
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
