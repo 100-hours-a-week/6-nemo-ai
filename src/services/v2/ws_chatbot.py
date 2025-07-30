@@ -125,6 +125,8 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     capturing_options = False
     first = True
     start_time = time.time()
+    context_detected = False
+    context_processed = False
     
     # Initialize prefix parser and buffer parser
     prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
