@@ -5,6 +5,7 @@ from src.models.gemma_3_4b import call_vllm_api
 from src.vector_db.vector_searcher import search_similar_documents, get_user_joined_group_ids
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any  # 유사 질문 비교
+from src.core.buffer_parser import remove_previous_question_from_text, clean_prompt_context
 
 ai_logger = get_ai_logger()
 
@@ -35,7 +36,15 @@ async def handle_combined_question(
         raw_response = await call_vllm_api(prompt)
         ai_logger.info("[Chatbot] 원시 응답", extra={"response": raw_response})
 
-        json_match = re.search(r"\{[\s\S]+?\}", raw_response)
+        # Clean the response to remove any "이전 질문" patterns that might have been echoed
+        cleaned_response = remove_previous_question_from_text(raw_response)
+        if cleaned_response != raw_response:
+            ai_logger.info("[Chatbot] 응답에서 이전 질문 패턴 제거됨", extra={
+                "original": raw_response[:100] + "..." if len(raw_response) > 100 else raw_response,
+                "cleaned": cleaned_response[:100] + "..." if len(cleaned_response) > 100 else cleaned_response
+            })
+
+        json_match = re.search(r"\{[\s\S]+?\}", cleaned_response)
         if not json_match:
             raise ValueError("JSON 부분 추출 실패")
 
@@ -89,7 +98,8 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
     else:
         context = "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
-    return f"""[QUESTION]
+    # Clean the prompt to avoid context repetition in responses
+    base_prompt = f"""[QUESTION]
 {context}
 
 - 질문은 75~120자 이내의 자연스럽고 대화체 말투로 작성하세요.
@@ -97,6 +107,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 - 질문 내용은 모임의 성격, 분위기, 규모, 목적 등 사용자에게 맞는 '모임 유형'을 파악하는 데 집중하세요.
 - 선택지는 4개 작성하세요.
 - 각 선택지는 1-3개 단어로 구성하세요.
+- 응답에서 "이전 질문:", "사용자 답변:" 등의 컨텍스트를 반복하지 마세요.
 
 다음 형식의 JSON으로만 출력하세요:
 {{
@@ -104,6 +115,8 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
   "options": ["...", "...", "...", "..."]
 }}
 """.strip()
+
+    return clean_prompt_context(base_prompt)
 
 
 async def handle_answer_analysis(
