@@ -517,12 +517,20 @@ def get_random_group_for_user(user_id: str) -> Optional[Dict[str, Any]]:
         documents = result.get("documents", [])
         metadatas = result.get("metadatas", [])
         
+        logger.info(f"[AI] Database stats - Total documents: {len(documents)}, Total metadatas: {len(metadatas)}")
+        
         if not documents or not metadatas:
-            logger.warning(f"[AI] No groups available for random selection")
+            logger.warning(f"[AI] No groups available for random selection - documents: {len(documents) if documents else 0}, metadatas: {len(metadatas) if metadatas else 0}")
             return None
+        
+        # Log first few groups for debugging
+        if logger.isEnabledFor(logging.DEBUG):
+            for i, (doc, meta) in enumerate(zip(documents[:3], metadatas[:3])):
+                logger.debug(f"[AI] Sample group {i+1}: groupId={meta.get('groupId')}, text_preview={doc[:50]}...")
         
         # Get user's joined groups
         joined_ids = get_user_joined_group_ids(user_id)
+        logger.info(f"[AI] User {user_id} joined groups: {joined_ids}")
         
         # Filter out joined groups
         available_groups = []
@@ -536,8 +544,10 @@ def get_random_group_for_user(user_id: str) -> Optional[Dict[str, Any]]:
                     "origin": "real"
                 })
         
+        logger.info(f"[AI] Available groups for user {user_id}: {len(available_groups)} out of {len(documents)} total")
+        
         if not available_groups:
-            logger.warning(f"[AI] No available groups for user {user_id} - all groups joined")
+            logger.warning(f"[AI] No available groups for user {user_id} - all {len(documents)} groups joined")
             return None
         
         # Select random group
