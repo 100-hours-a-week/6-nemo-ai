@@ -20,6 +20,10 @@ CREDENTIAL_PATH = os.path.join(BASE_DIR, JSON_FILENAME) #json needs to be on the
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
+# Discord Configuration
+DISCORD_ENABLED = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
+DISCORD_LOG_LEVEL = os.getenv("DISCORD_LOG_LEVEL", "WARNING").upper()
+
 APP_ENV = os.getenv("APP_ENV", "development")
 CHROMA_DB_PATH = str((BASE_DIR / "database" / APP_ENV).resolve())
 EMBED_MODEL = os.getenv("EMBED_MODEL_NAME")
@@ -57,6 +61,10 @@ KAFKA_MAX_POLL_INTERVAL_MS = int(os.getenv("KAFKA_MAX_POLL_INTERVAL_MS", "300000
 
 if not PERSPECTIVE_API_KEY:
     raise ValueError("PERSPECTIVE_API_KEY가 .env에 설정되어 있지 않습니다.")
+
+# Discord validation
+if DISCORD_ENABLED and not WEBHOOK_URL:
+    raise ValueError("DISCORD_ENABLED가 활성화되었지만 WEBHOOK_URL이 설정되어 있지 않습니다.")
 
 # if not EMBED_MODEL:
 #     raise ValueError("EMBED_MODEL이 .env에 설정되어 있지 않습니다.")
