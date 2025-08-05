@@ -93,7 +93,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
     else:
         context = "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
-    return load_prompt_template("chatbot_question_generation", context=context)
+    return load_prompt_template("chatbot_question_generation", "v2", context=context)
 
 
 async def handle_answer_analysis(
@@ -179,7 +179,7 @@ async def handle_answer_analysis(
 async def generate_explaination(messages: list[dict], group_text: str, debug: bool = True) -> str:
     conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
-    prompt = load_prompt_template("chatbot_recommendation_explanation", 
+    prompt = load_prompt_template("chatbot_recommendation_explanation", "v2", 
                                   conversation=conversation, 
                                   group_text=group_text.strip())
 
@@ -203,7 +203,7 @@ async def generate_random_explaination(messages: list[dict], group_text: str, de
     """랜덤 모임 추천 설명 생성"""
     conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
-    prompt = load_prompt_template("chatbot_random_recommendation", 
+    prompt = load_prompt_template("chatbot_random_recommendation", "v2", 
                                   conversation=conversation, 
                                   group_text=group_text.strip())
 

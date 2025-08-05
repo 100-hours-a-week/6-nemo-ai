@@ -221,7 +221,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
         "- 자연스럽고 중립적인 말투로 질문을 시작하세요. (예: \"모임에 참여하신다면 어떤 분위기를 선호하시나요?\")"
     )
 
-    return load_prompt_template("ws_chatbot_question_generation", 
+    return load_prompt_template("ws_chatbot_question_generation", "v3", 
                                 context=context, 
                                 connect_instruction=connect_instruction)
 
@@ -263,7 +263,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
                 yield (-1, char)
             
             # 랜덤 모임 추천 로직 실행
-            prompt = load_prompt_template("ws_chatbot_random_recommendation",
+            prompt = load_prompt_template("ws_chatbot_random_recommendation", "v3",
                                           conversation=combined_text,
                                           group_text=group_text.strip())
 
@@ -314,7 +314,7 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     group_id = int(top_result["metadata"]["groupId"])
     group_text = top_result["text"]
 
-    prompt = load_prompt_template("ws_chatbot_recommendation",
+    prompt = load_prompt_template("ws_chatbot_recommendation", "v3",
                                   conversation=combined_text,
                                   group_text=group_text.strip())
 

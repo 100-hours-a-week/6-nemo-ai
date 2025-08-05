@@ -155,7 +155,7 @@ def _generate_fallback_plan(data: GroupGenerationRequest) -> str:
     return '\n'.join(plan_parts)
 
 async def generate_plan(data: GroupGenerationRequest) -> str:
-    prompt = load_prompt_template("plan_writer_v2",
+    prompt = load_prompt_template("plan_writer_v2", "v2",
                                   name=data.name,
                                   goal=data.goal,
                                   category=data.category,

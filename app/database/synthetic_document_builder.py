@@ -27,15 +27,15 @@ async def build_synthetic_documents(
 
     # Create diverse prompts for semantic variety
     prompt_templates = [
-        load_prompt_template("synthetic_review", 
+        load_prompt_template("synthetic_review", "v3", 
                            name=name, category=category, location=location, 
                            description=description, tags=tags),
         
-        load_prompt_template("synthetic_recommendation",
+        load_prompt_template("synthetic_recommendation", "v3",
                            name=name, summary=summary, plan=plan, 
                            location=location, tags=tags),
         
-        load_prompt_template("synthetic_introduction",
+        load_prompt_template("synthetic_introduction", "v3",
                            name=name, category=category, description=description, 
                            location=location)
     ]

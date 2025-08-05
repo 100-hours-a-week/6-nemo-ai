@@ -43,7 +43,4 @@ scripts/
 ssh_servers/
 
 # Prompts (contains business logic and IP)
-app/prompts/*.txt
-app/prompts/*
-!app/prompts/__init__.py
-!app/prompts/prompt_loader.py
+app/prompts/v*/

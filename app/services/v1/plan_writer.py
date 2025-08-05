@@ -149,7 +149,7 @@ def _generate_fallback_plan(data: GroupGenerationRequest) -> str:
 
 
 async def generate_plan(data: GroupGenerationRequest) -> str:
-    prompt = load_prompt_template("plan_writer_v1",
+    prompt = load_prompt_template("plan_writer_v1", "v1",
                                   name=data.name,
                                   goal=data.goal,
                                   category=data.category,
