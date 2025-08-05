@@ -219,6 +219,13 @@ def get_user_joined_group_ids(user_id: str) -> Set[str]:
         client = get_chroma_client()
         col = client.get_or_create_collection(name=USER_COLLECTION, embedding_function=embed)
 
+        # Log database statistics
+        try:
+            count_result = col.count()
+            logger.info(f"[AI] User collection 문서 수: {count_result}")
+        except Exception as e:
+            logger.warning(f"[AI] Failed to get collection count: {str(e)}")
+
         # Convert user_id to string first, then create variations
         user_id_str = str(user_id)
         user_variations = [user_id_str]
@@ -247,12 +254,87 @@ def get_user_joined_group_ids(user_id: str) -> Set[str]:
         joined_groups.discard('')
         joined_groups.discard(None)
 
-        logger.info(f"[AI] User {user_id} joined groups: {len(joined_groups)}")
+        logger.info(f"[AI] User {user_id} 가입한 모임 수: {len(joined_groups)}")
+        if joined_groups:
+            logger.debug(f"[AI] 가입한 모임 ID들: {list(joined_groups)[:5]}{'...' if len(joined_groups) > 5 else ''}")
+            
         return joined_groups
 
     except Exception as e:
         logger.warning(f"[AI] Failed to get user joined groups: {str(e)}")
         return set()
+
+def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """랜덤 모임 추천 함수 - 사용자가 가입하지 않은 모임 중 하나를 랜덤으로 선택"""
+    try:
+        client = get_chroma_client()
+        col = client.get_or_create_collection(name=GROUP_COLLECTION, embedding_function=embed)
+        
+        # 데이터베이스 통계
+        try:
+            count_result = col.count()
+            logger.info(f"[AI] 총 모임 데이터베이스 문서 수: {count_result}")
+        except Exception as e:
+            logger.warning(f"[AI] Failed to get collection count: {str(e)}")
+        
+        # 사용자 가입 모임 가져오기
+        joined_ids = set()
+        if user_id:
+            joined_ids = get_user_joined_group_ids(user_id)
+            logger.info(f"[AI] 사용자 {user_id}의 가입 모임 수: {len(joined_ids)}")
+        
+        # 모든 모임 가져오기
+        result = col.get(include=["documents", "metadatas"])
+        documents = result.get("documents", [])
+        metadatas = result.get("metadatas", [])
+        
+        if not documents:
+            logger.warning(f"[AI] 데이터베이스에 모임이 없습니다. 문서 수: {len(documents)}, 메타데이터 수: {len(metadatas)}")
+            return None
+        
+        logger.info(f"[AI] 검색된 총 모임 수: {len(documents)}")
+        
+        # 가입하지 않은 모임 필터링
+        available_groups = []
+        for doc, meta in zip(documents, metadatas):
+            group_id = str(meta.get("groupId", ""))
+            if user_id and group_id in joined_ids:
+                continue
+            available_groups.append({"text": doc, "metadata": meta})
+        
+        logger.info(f"[AI] 사용자가 가입하지 않은 사용 가능한 모임 수: {len(available_groups)}")
+        
+        if not available_groups:
+            logger.warning(f"[AI] 사용자가 가입할 수 있는 모임이 없습니다. 총 모임: {len(documents)}, 가입한 모임: {len(joined_ids)}")
+            return None
+        
+        # 랜덤 선택
+        import random
+        selected_group = random.choice(available_groups)
+        
+        # 샘플 모임들 로그 (디버깅용)
+        sample_groups = available_groups[:3]
+        logger.debug(f"[AI] 사용 가능한 모임 샘플 (총 {len(available_groups)}개 중 3개):")
+        for i, group in enumerate(sample_groups):
+            group_id = group["metadata"].get("groupId", "N/A")
+            category = group["metadata"].get("category", "N/A")
+            logger.debug(f"[AI]   {i+1}. 모임 {group_id} - {category}")
+        
+        selected_id = selected_group["metadata"].get("groupId", "N/A")
+        selected_category = selected_group["metadata"].get("category", "N/A")
+        logger.info(f"[AI] 랜덤 선택된 모임: ID {selected_id}, 카테고리: {selected_category}")
+        
+        return {
+            "id": selected_group["metadata"].get("id"),
+            "text": selected_group["text"],
+            "metadata": selected_group["metadata"],
+            "score": 0.5,  # 랜덤이므로 중간 점수
+            "origin": "random"
+        }
+        
+    except Exception as e:
+        logger.exception(f"[AI] 랜덤 모임 선택 중 오류 발생: {str(e)}")
+        return None
 
 def search_similar_documents(
     query: str,

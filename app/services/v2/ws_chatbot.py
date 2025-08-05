@@ -3,10 +3,12 @@ from app.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
 from app.core.chat_cache import get_session_history
 from app.database.vector_searcher import (
     search_similar_documents,
+    get_random_group_for_user,
     RECOMMENDATION_THRESHOLD,
 )
 from app.database.hybrid_search import hybrid_group_search
 from app.core.ai_logger import get_ai_logger
+from app.core.buffer_parser import BufferParser
 from app.prompts.prompt_loader import load_prompt_template
 import time
 
@@ -122,8 +124,9 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
     first = True
     start_time = time.time()
     
-    # Initialize prefix parser
+    # Initialize prefix parser and buffer parser
     prefix_parser = PrefixParser(["**질문:**", "질문:", "**Question:**", "Question:"])
+    buffer_parser = BufferParser()
 
     async for chunk in stream_vllm_response([
         {"role": "system", "text": "당신은 한국어로 대화하는 친근한 모임 추천 챗봇입니다."},
@@ -135,8 +138,13 @@ async def stream_question_chunks(answer: str | None, user_id: str, session_id: s
 
         streamed_text += chunk  # Keep original for logging
 
-        # Process chunk through prefix parser
-        processed_chunk = prefix_parser.process_chunk(chunk)
+        # First process through buffer parser to remove context repetition
+        buffer_processed = buffer_parser.process_chunk(chunk)
+        if not buffer_processed:
+            continue  # Skip if buffer parser filtered out context
+        
+        # Then process through prefix parser
+        processed_chunk = prefix_parser.process_chunk(buffer_processed)
         if processed_chunk is None:
             continue  # Still waiting for complete prefix
         
@@ -242,11 +250,63 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
         )
 
     if not results or results[0].get("score", 0) < RECOMMENDATION_THRESHOLD:
-        # Send the message as question chunks first
+        ai_logger.info("[추천] 매칭 모임 없음 - 랜덤 모임 시도", extra={"session_id": session_id})
+        # 랜덤 모임 추천 시도
+        random_group = get_random_group_for_user(user_id)
+        if random_group:
+            group_id = int(random_group["metadata"]["groupId"])
+            group_text = random_group["text"]
+            
+            # 랜덤 모임 추천 메시지 스트리밍
+            message = "조건에 완전히 맞는 모임은 없지만, 새로운 경험을 위해 이런 모임은 어떨까요?"
+            for char in message:
+                yield (-1, char)
+            
+            # 랜덤 모임 추천 로직 실행
+            prompt = load_prompt_template("ws_chatbot_random_recommendation",
+                                          conversation=combined_text,
+                                          group_text=group_text.strip())
+
+            messages_for_vllm = [
+                {"role": "system", "text": "당신은 한국어로 대화하는 친절한 모임 추천 챗봇입니다."},
+                {"role": "user", "text": prompt}
+            ]
+
+            # Initialize parsers for random recommendation
+            prefix_parser = PrefixParser(["**설명:**", "설명:", "**추천:**", "추천:"])
+            buffer_parser = BufferParser()
+
+            try:
+                async for chunk in stream_vllm_response(messages_for_vllm):
+                    # Process through buffer parser first
+                    buffer_processed = buffer_parser.process_chunk(chunk)
+                    if not buffer_processed:
+                        continue
+                    
+                    # Then through prefix parser
+                    processed_chunk = prefix_parser.process_chunk(buffer_processed)
+                    if processed_chunk is None:
+                        continue
+                    
+                    if processed_chunk:
+                        yield (group_id, processed_chunk)
+
+                yield ("RECOMMEND_DONE", group_id, None)
+                return
+                
+            except Exception as e:
+                ai_logger.error("[랜덤 추천 스트리밍 중 오류]", extra={"error": str(e)})
+                # 폴백 랜덤 추천
+                fallback_reason = "새로운 모임을 경험해보는 것도 좋은 선택입니다!"
+                for char in fallback_reason:
+                    yield (group_id, char)
+                yield ("RECOMMEND_DONE", group_id, None)
+                return
+        
+        # 완전한 실패 시
         message = "조건에 맞는 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
         for char in message:
             yield (-1, char)
-        # Then send Recommend done
         yield ("RECOMMEND_DONE", -1, None)
         return
 
@@ -268,8 +328,9 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
     start_time = time.time()
     token_count = 0
 
-    # Initialize prefix parser for recommendations
+    # Initialize prefix parser and buffer parser for recommendations
     prefix_parser = PrefixParser(["**설명:**", "설명:", "**Description:**", "Description:", "**추천:**", "추천:"])
+    buffer_parser = BufferParser()
 
     try:
         async for chunk in stream_vllm_response(messages_for_vllm):
@@ -280,8 +341,13 @@ async def stream_recommendation_chunks(messages: list[dict], user_id: str, sessi
                 )
                 first = False
 
-            # Process chunk through prefix parser
-            processed_chunk = prefix_parser.process_chunk(chunk)
+            # First process through buffer parser to remove context repetition
+            buffer_processed = buffer_parser.process_chunk(chunk)
+            if not buffer_processed:
+                continue  # Skip if buffer parser filtered out context
+            
+            # Then process through prefix parser
+            processed_chunk = prefix_parser.process_chunk(buffer_processed)
             if processed_chunk is None:
                 continue  # Still waiting for complete prefix
             

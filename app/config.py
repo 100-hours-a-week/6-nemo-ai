@@ -55,6 +55,10 @@ KAFKA_SESSION_TIMEOUT_MS = int(os.getenv("KAFKA_SESSION_TIMEOUT_MS", "30000"))
 KAFKA_HEARTBEAT_INTERVAL_MS = int(os.getenv("KAFKA_HEARTBEAT_INTERVAL_MS", "10000"))
 KAFKA_MAX_POLL_INTERVAL_MS = int(os.getenv("KAFKA_MAX_POLL_INTERVAL_MS", "300000"))
 
+# Discord Logger Configuration
+DISCORD_ENABLED = os.getenv("DISCORD_ENABLED", "true").lower() == "true"
+DISCORD_LOG_LEVEL = os.getenv("DISCORD_LOG_LEVEL", "WARNING").upper()
+
 if not PERSPECTIVE_API_KEY:
     raise ValueError("PERSPECTIVE_API_KEY가 .env에 설정되어 있지 않습니다.")
 
