@@ -1,0 +1,2 @@
+# This file was removed as v2 does not support random recommendations
+# Random recommendation functionality is only available in v3

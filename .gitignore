@@ -28,9 +28,6 @@ data/chroma/
 /src/data/chroma/chroma.sqlite3
 /naemo-project-admin-key.json
 
-# GCP 서비스 계정 키
-nemo-v2-ai.json
-
 xlm-roberta-flash-implementation/
 /database/
 !/app/database/
@@ -41,6 +38,3 @@ monitoring/prometheus-data/
 
 scripts/
 ssh_servers/
-
-# Prompts (contains business logic and IP)
-app/prompts/v*/
