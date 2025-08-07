@@ -1,7 +1,6 @@
 import httpx, json
 import asyncio
 import time
-import re
 from app.core.ai_logger import get_ai_logger
 from app.config import (
     vLLM_URL,

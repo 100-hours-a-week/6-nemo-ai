@@ -4,9 +4,8 @@ Tests HTTP and WebSocket chatbot functionality.
 """
 
 import pytest
-import asyncio
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 # Import from app instead of src
 try:

@@ -4,10 +4,6 @@ Migrated from src/tests/test_vector_system.py
 """
 
 import pytest
-import sys
-import os
-from typing import List, Dict
-from pprint import pprint
 import time
 
 

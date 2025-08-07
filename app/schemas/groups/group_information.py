@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import List, Optional
-import re
 
 # 사용자 요청 스키마
 class MeetingInput(BaseModel):

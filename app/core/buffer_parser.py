@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from app.core.ai_logger import get_ai_logger
 
 logger = get_ai_logger()

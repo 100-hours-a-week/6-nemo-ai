@@ -1,4 +1,3 @@
-import json
 import requests
 from datetime import datetime, UTC
 from app.config import PERSPECTIVE_API_KEY

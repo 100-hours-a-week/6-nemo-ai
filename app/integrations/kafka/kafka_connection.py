@@ -1,5 +1,4 @@
 import asyncio
-import json
 import uuid
 
 from app.integrations.kafka.kafka_client import get_producer, get_consumer

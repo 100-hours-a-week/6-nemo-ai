@@ -1,6 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Literal, Union, Any
-from datetime import datetime
+from typing import List, Optional, Literal, Union
 
 class GroupEventData(BaseModel):
     groupId: int

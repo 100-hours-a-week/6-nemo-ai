@@ -23,18 +23,13 @@ from app.database.sync import (
     sync_group_documents,
     sync_user_documents,
 )
-# from app.tests.rate_test import router as rate_test_router
-from app.router.v2.ws_chatbot import router as ws_chatbot_router
+from app.router.v3.ws_chatbot import router as ws_chatbot_router
 from app.integrations.kafka.kafka_consumer_manager import KafkaConsumerManager
 
-# 로거 초기화
 ai_logger = get_ai_logger()
 ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
 
-# 로깅 레벨 설정
 logging.getLogger("chromadb").setLevel(logging.WARNING)
-
-# Suppress Kafka logging completely to prevent connection error spam
 logging.getLogger('aiokafka').setLevel(logging.CRITICAL)
 logging.getLogger('aiokafka.consumer').setLevel(logging.CRITICAL)
 logging.getLogger('aiokafka.producer').setLevel(logging.CRITICAL)
@@ -77,9 +72,9 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(chroma_and_kafka())
     yield
     # Shutdown logic
-    if kafka_manager:
+    if kafka_manager and hasattr(kafka_manager, 'stop_consumers'):
         await kafka_manager.stop_consumers()
-        ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
+        ai_logger.info("[Kafka] Lifespan 종료 - 앱 shutdown")
 
 app = FastAPI(
     title="NE:MO AI API",

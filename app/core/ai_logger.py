@@ -1,5 +1,4 @@
 import logging
-import os
 import requests
 from app.config import WEBHOOK_URL, DISCORD_ENABLED, DISCORD_LOG_LEVEL
 from pathlib import Path

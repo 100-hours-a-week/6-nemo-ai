@@ -4,8 +4,6 @@ Tests for app/core/rate_limiter.py
 """
 
 import pytest
-import time
-from unittest.mock import patch, MagicMock
 
 # Import from app instead of src
 try:

@@ -1,7 +1,7 @@
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 from enum import Enum
 import httpx
 from app.core.ai_logger import get_ai_logger

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Literal, Optional
+from typing import Literal
 
 
 class StreamChunk(BaseModel):

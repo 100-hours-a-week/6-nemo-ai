@@ -3,6 +3,7 @@ import logging
 import json
 from typing import Optional
 from datetime import datetime
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from app.core.ai_logger import get_ai_logger
 from app.config import (
     KAFKA_ENABLED, 
@@ -110,7 +111,6 @@ class KafkaConsumerManager:
         try:
             # For aiokafka 0.10.0, the admin client has limited functionality
             # Instead, try to create a consumer and see if it fails
-            from aiokafka import AIOKafkaConsumer
             
             test_consumer = AIOKafkaConsumer(
                 topic,
@@ -238,10 +238,8 @@ class KafkaConsumerManager:
         else:
             logger.warning("[Kafka] No consumers could be started")
     
-    async def _create_consumer(self, topic: str, is_dlq: bool = False) -> Optional['AIOKafkaConsumer']:
+    async def _create_consumer(self, topic: str, is_dlq: bool = False) -> Optional[AIOKafkaConsumer]:
         try:
-            from aiokafka import AIOKafkaConsumer
-            
             group_id = f"{self.consumer_group_id}-dlq" if is_dlq else self.consumer_group_id
             
             consumer = AIOKafkaConsumer(
@@ -342,7 +340,6 @@ class KafkaConsumerManager:
                 logger.error(f"[Kafka-DLQ] Failed message from {source_topic}: {error_type} - {error_message}")
                 return
             
-            from aiokafka import AIOKafkaProducer
             from app.schemas.events.kafka_events import DLQMessage
             
             dlq_message = DLQMessage(

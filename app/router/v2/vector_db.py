@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
 from typing import Literal, Optional
+import traceback
 
 from app.database.group_document_builder import build_group_document
 from app.database.user_document_builder import build_user_document
@@ -33,7 +34,6 @@ async def save_group_to_chroma_route(payload: GroupSaveRequest, background_tasks
             "data": None
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -45,7 +45,6 @@ async def generate_synthetic_documents_route(payload: GroupSaveRequest, count: i
         add_documents_to_vector_db(docs, collection="group-synthetic")
         return {"code": 200, "message": "synthetic documents saved", "data": None}
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -65,7 +64,6 @@ def add_user_document(payload: UserParticipationRequest):
             "data": None
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -85,7 +83,6 @@ def delete_group_from_chroma_route(payload: GroupDeleteRequest):
             "data": None
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -108,7 +105,6 @@ def remove_user_from_chroma_route(payload: UserRemoveRequest):
             "data": None
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -119,7 +115,6 @@ def hybrid_search_route(query: str = Query(...), top_k: int = 5, userId: Optiona
         results = hybrid_group_search(query, top_k=top_k, user_id=userId)
         return {"code": 200, "message": "검색 성공", "data": results}
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -157,7 +152,6 @@ def list_collection_items(
             }
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()  # 콘솔에 전체 오류 출력
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -180,6 +174,5 @@ def get_single_document(
             "metadata": result["metadatas"][0]
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

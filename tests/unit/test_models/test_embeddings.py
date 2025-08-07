@@ -5,7 +5,6 @@ Tests for app/models/embedding_model.py
 
 import pytest
 import numpy as np
-from typing import List, Union
 
 # Import from app instead of src
 try:

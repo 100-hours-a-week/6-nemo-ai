@@ -4,7 +4,6 @@ from app.schemas.groups.group_writer import GroupGenerationRequest
 from app.core.ai_logger import get_ai_logger
 from app.core.vertex_client import smart_generate
 from app.prompts.prompt_loader import load_prompt_template
-import asyncio
 import re
 
 ai_logger = get_ai_logger()

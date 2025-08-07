@@ -5,7 +5,6 @@ Migrated from src/tests/kafka/comprehensive_test.py
 
 import asyncio
 import pytest
-from typing import List, Dict, Tuple
 
 # Import from app instead of src
 try:

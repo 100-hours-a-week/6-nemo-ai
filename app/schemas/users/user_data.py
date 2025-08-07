@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List
 
 class UserParticipationRequest(BaseModel):
     userId: int

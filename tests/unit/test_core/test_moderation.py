@@ -4,7 +4,6 @@ Tests for app/core/moderation.py
 """
 
 import pytest
-from typing import Dict, List
 
 # Import from app instead of src
 try:

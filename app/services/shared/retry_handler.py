@@ -1,6 +1,6 @@
 import asyncio
 import re
-from typing import List, Optional, Tuple, Any, Callable
+from typing import List, Tuple, Any, Callable
 from app.core.ai_logger import get_ai_logger
 
 ai_logger = get_ai_logger()

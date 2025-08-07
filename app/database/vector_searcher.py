@@ -1,8 +1,4 @@
 from typing import List, Dict, Any, Literal, Optional, Set, Tuple
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
 from app.database.chroma_client import get_chroma_client
 from app.models.embedding_model import embed
 from app.core.ai_logger import get_ai_logger

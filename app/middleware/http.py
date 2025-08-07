@@ -1,9 +1,6 @@
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from starlette.types import Message
-import json
-import io
 
 async def log_requests(request: Request, call_next):
     print(f"📥 Incoming {request.method} request to {request.url.path}")

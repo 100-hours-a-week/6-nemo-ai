@@ -33,7 +33,10 @@ async def ping_loop(websocket: WebSocket, stop_event: asyncio.Event, interval: i
             await asyncio.sleep(interval)
             if websocket.client_state == WebSocketState.CONNECTED:
                 try:
-                    await websocket.send_ping()
+                    if hasattr(websocket, 'websocket'):
+                        await websocket.websocket.ping()
+                    else:
+                        await websocket.send_json({"type": "ping"})
                     ai_logger.debug("[WebSocket] ping 프레임 전송됨")
                 except Exception as e:
                     ai_logger.debug("[WebSocket] ping 전송 실패 - 연결 종료 추정", extra={"error": str(e)})
