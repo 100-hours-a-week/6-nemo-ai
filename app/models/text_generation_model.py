@@ -50,62 +50,14 @@ async def get_vllm_health_metrics():
     """Get current vLLM health metrics including queue status"""
     base_metrics = vllm_manager.get_health_metrics()
     queue_status = queued_executor.get_queue_status()
-    
+
     return {
         **base_metrics,
         "queue_status": queue_status
     }
 
 
-def _is_korean_text_garbled(text: str) -> bool:
-    """Check if Korean text appears to be garbled or corrupted"""
-    if not text or not isinstance(text, str):
-        return True
-    
-    text = text.strip()
-    if len(text) < 3:
-        return True
-    
-    # Check for patterns that indicate garbled Korean text
-    garbled_patterns = [
-        r'할로운 분위기',   # Specific corruption from assessment
-        r'교류하고율',      # Another specific pattern  
-        r'영n',            # Truncated pattern
-        r'[가-힣]+[0-9]+[가-힣]*',  # Korean mixed with numbers inappropriately
-        r'[?]{2,}',        # Multiple question marks
-        r'(?:은|가|이|를|에|의){3,}',  # Repeated particles
-        r'[가-힣][a-zA-Z0-9]$',  # Korean ending with Latin chars (truncation)
-        r'7은',            # Common pattern from assessment
-        r'[0-9]+은',       # Numbers followed by 은
-        r'은[0-9]+',       # 은 followed by numbers
-    ]
-    
-    for pattern in garbled_patterns:
-        if re.search(pattern, text):
-            return True
-    
-    # Check for incomplete sentences (Korean text ending abruptly)
-    if len(text) > 10:
-        # Korean should end with proper sentence endings
-        if not re.search(r'[다요니까습음겠앙함면동]$', text):
-            # If it doesn't end properly and has mixed characters, likely garbled
-            if re.search(r'[a-zA-Z0-9]$', text):
-                return True
-    
-    # If text has Korean but very little meaningful content
-    korean_chars = len([c for c in text if ord(c) >= 0xAC00 and ord(c) <= 0xD7AF])
-    total_chars = len(text.strip())
-    if korean_chars > 0 and total_chars > 0:
-        # If more than 30% of characters are numbers/symbols mixed with Korean, likely garbled
-        non_korean_count = len([c for c in text if c.isdigit() or c in '?은율'])
-        if non_korean_count / total_chars > 0.3:
-            return True
-        
-        # Check if Korean ratio is too low (might be garbled)
-        if korean_chars / total_chars < 0.3:
-            return True
-    
-    return False
+
 
 
 async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, temperature: float = 0.7) -> Union[
@@ -134,18 +86,9 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
 
             if isinstance(prompt, list):
                 generated_texts = [c.get("text", "").strip() for c in result.get("choices", [])]
-                # Check for garbled Korean text in batch responses
-                for i, text in enumerate(generated_texts):
-                    if _is_korean_text_garbled(text):
-                        ai_logger.warning(f"[vLLM] Detected garbled Korean text in batch response {i}: {text[:100]}")
-                        generated_texts[i] = ""  # Will trigger fallback
                 return generated_texts
             else:
                 generated_text = result.get("choices", [{}])[0].get("text", "").strip()
-                # Check for garbled Korean text
-                if _is_korean_text_garbled(generated_text):
-                    ai_logger.warning(f"[vLLM] Detected garbled Korean text: {generated_text[:100]}")
-                    return ""  # Will trigger fallback handling
                 return generated_text
 
     try:
@@ -162,16 +105,12 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         # Check for empty response and retry if needed
         retry_count = 0
         max_empty_retries = 2
-        
-        while (not generated or (isinstance(generated, str) and generated.strip() == "") or 
-               (isinstance(generated, str) and _is_korean_text_garbled(generated))) and retry_count < max_empty_retries:
-            if isinstance(generated, str) and _is_korean_text_garbled(generated):
-                ai_logger.warning(f"[vLLM] Garbled Korean detected, retrying {retry_count + 1}/{max_empty_retries}")
-            else:
-                ai_logger.warning(f"[vLLM] 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
+
+        while (not generated or (isinstance(generated, str) and generated.strip() == "")) and retry_count < max_empty_retries:
+            ai_logger.warning(f"[vLLM] 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
             retry_count += 1
             await asyncio.sleep(1.0)  # Wait before retry
-            
+
             try:
                 generated = await queued_executor.submit(
                     vllm_manager.execute_with_retry,
@@ -182,12 +121,8 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
                 ai_logger.warning(f"[vLLM] 재시도 중 오류: {e}")
                 break
 
-        if (not generated or (isinstance(generated, str) and generated.strip() == "") or
-            (isinstance(generated, str) and _is_korean_text_garbled(generated))):
-            if isinstance(generated, str) and _is_korean_text_garbled(generated):
-                ai_logger.warning("[vLLM] 모든 재시도 후에도 한국어 출력이 깨져있습니다.")
-            else:
-                ai_logger.warning("[vLLM] 모든 재시도 후에도 응답이 비어 있습니다.")
+        if (not generated or (isinstance(generated, str) and generated.strip() == "")):
+            ai_logger.warning("[vLLM] 모든 재시도 후에도 응답이 비어 있습니다.")
             return await _get_fallback_response(prompt)
 
         if isinstance(generated, list):
@@ -278,7 +213,7 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
 
     # Check circuit breaker before starting stream
     if not await vllm_manager.circuit_breaker.is_request_allowed():
-        ai_logger.warning("[vLLM 스트리밍] Circuit breaker is OPEN, using fallback")
+        ai_logger.warning("[vLLM 스트리밍] 회로 차단기가 OPEN 상태, 대체 응답 사용")
         fallback_text = "죄송합니다. 일시적인 오류로 응답을 생성할 수 없습니다."
         for char in fallback_text:
             yield char
@@ -292,26 +227,26 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
         # Execute streaming request with basic retry for connection errors
         retry_count = 0
         max_retries = 2
-        
+
         while retry_count <= max_retries:
             try:
                 start_time = time.time()
                 token_yielded = False
-                
+
                 async for token in stream_request():
                     token_yielded = True
                     yield token
-                
+
                 # If we got here, the stream completed successfully
                 await vllm_manager.circuit_breaker.record_success()
                 response_time = time.time() - start_time
                 vllm_manager.health_monitor.record_success(response_time)
                 break
-                
+
             except (httpx.ConnectError, httpx.TimeoutException) as e:
                 await vllm_manager.circuit_breaker.record_failure()
                 vllm_manager.health_monitor.record_failure()
-                
+
                 if retry_count < max_retries and not token_yielded:
                     retry_count += 1
                     delay = 2 ** (retry_count - 1)  # 1s, 2s delays
@@ -378,20 +313,20 @@ if __name__ == "__main__":
     async def test_streaming():
         messages = [{"role": "user", "text": "안녕하세요"}]
         async for token in stream_vllm_response(messages):
-            ai_logger.info(f"Token: {token}")
+            ai_logger.info(f"토큰: {token}")
 
 
     async def test_health_metrics():
         await start_health_monitoring()
         await asyncio.sleep(2)  # Let health check run
         metrics = await get_vllm_health_metrics()
-        ai_logger.info(f"Health Metrics: {json.dumps(metrics, indent=2)}")
+        ai_logger.info(f"건강 상태 지표: {json.dumps(metrics, indent=2)}")
 
 
     async def main():
-        ai_logger.info("Testing streaming...")
+        ai_logger.info("스트리밍 테스트 중...")
         await test_streaming()
-        ai_logger.info("Testing health metrics...")
+        ai_logger.info("건강 상태 지표 테스트 중...")
         await test_health_metrics()
 
 

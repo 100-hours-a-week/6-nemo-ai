@@ -61,7 +61,7 @@ async def process_group_events() -> None:
                 elif event.eventType == "GROUP_DELETED":
                     # Remove group from ChromaDB
                     from app.database.chroma_client import get_chroma_client
-                    from app.models.e5_embeddings import embed
+                    from app.models.embedding_model import embed
                     client = get_chroma_client()
                     col = client.get_or_create_collection("group-info", embedding_function=embed)
                     col.delete(ids=[f"group-{event.groupId}"])
@@ -76,7 +76,7 @@ async def process_group_events() -> None:
                         logger.info(f"[ChromaDB] Added user {user_data.userId} to group {user_data.groupId}")
                     else:  # GROUP_LEFT
                         from app.database.chroma_client import get_chroma_client
-                        from app.models.e5_embeddings import embed
+                        from app.models.embedding_model import embed
                         client = get_chroma_client()
                         col = client.get_or_create_collection("user-activity", embedding_function=embed)
                         col.delete(ids=[f"user-{user_data.userId}-{user_data.groupId}"])

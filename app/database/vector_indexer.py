@@ -1,6 +1,6 @@
 from typing import List, Literal
 from app.database.chroma_client import get_chroma_client
-from app.models.e5_embeddings import embed
+from app.models.embedding_model import embed
 from app.core.ai_logger import get_ai_logger
 
 GROUP_COLLECTION = "group-info"

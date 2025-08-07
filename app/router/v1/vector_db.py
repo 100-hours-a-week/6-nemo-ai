@@ -3,7 +3,7 @@ from app.database.vector_indexer import add_documents_to_vector_db
 from app.database.vector_searcher import search_similar_documents
 from app.database.chroma_client import get_chroma_client
 from app.schemas.vectors.vector_db import Document
-from app.models.embedding_model import e5_embedding_function
+from app.models.embedding_model import embed
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ def search_document(query: str):
 @router.post("/debug/show-db")
 def show_all_documents():
     client = get_chroma_client()
-    collection = client.get_or_create_collection(name="group-info", embedding_function=e5_embedding_function)
+    collection = client.get_or_create_collection(name="group-info", embedding_function=embed)
     result = collection.get(include=["documents", "metadatas"])
     docs = []
     for doc_id, doc_text in zip(result["ids"], result["documents"]):

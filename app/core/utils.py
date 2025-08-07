@@ -10,10 +10,10 @@ def is_similar_to_any(new_text: str, past_texts: List[str], threshold: float = 0
 
     try:
         # Import here to avoid circular imports
-        from app.models.embedding_model import e5_embedding_function
+        from app.models.embedding_model import embed
 
         all_texts = past_texts + [new_text]
-        vectors = e5_embedding_function(all_texts)
+        vectors = embed(all_texts)
         if len(vectors) != len(all_texts):
             return False
 

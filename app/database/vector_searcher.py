@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database.chroma_client import get_chroma_client
-from app.models.e5_embeddings import embed
+from app.models.embedding_model import embed
 from app.core.ai_logger import get_ai_logger
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity

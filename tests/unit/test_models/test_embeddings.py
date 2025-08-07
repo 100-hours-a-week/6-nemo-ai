@@ -1,6 +1,6 @@
 """
 Unit tests for embedding models.
-Tests for app/models/e5_embeddings.py
+Tests for app/models/embedding_model.py
 """
 
 import pytest
@@ -9,7 +9,7 @@ from typing import List, Union
 
 # Import from app instead of src
 try:
-    from app.models.e5_embeddings import E5EmbeddingFunction, embed
+    from app.models.embedding_model import E5EmbeddingFunction, embed
 except ImportError:
     pytest.skip("E5 embeddings model not available", allow_module_level=True)
 

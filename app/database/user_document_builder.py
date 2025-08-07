@@ -1,5 +1,5 @@
 from app.database.chroma_client import get_chroma_client
-from app.models.e5_embeddings import embed
+from app.models.embedding_model import embed
 
 def build_user_document(userId: str, groupId: str) -> list[dict]:
     if not userId or not groupId:

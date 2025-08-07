@@ -76,7 +76,7 @@ def mock_vector_service():
 @pytest.fixture(scope="function")
 def mock_llm_service():
     """Mock LLM service for fast tests."""
-    with patch('app.models.gemma_3_4b.call_vllm_api') as mock:
+    with patch('app.models.text_generation_model.call_gemma_vllm_api') as mock:
         mock.return_value = '{"question": "Test question", "options": ["Option 1", "Option 2"]}'
         yield mock
 

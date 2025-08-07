@@ -4,7 +4,7 @@ import json, re
 import asyncio
 
 from app.core.ai_logger import get_ai_logger
-from app.models.gemma_3_4b import call_vllm_api
+from app.models.text_generation_model import call_vllm_api
 from app.prompts.prompt_loader import load_prompt_template
 
 ai_logger = get_ai_logger()
