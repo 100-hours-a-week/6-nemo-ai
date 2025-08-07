@@ -129,7 +129,7 @@ def _try_alternative_parsing(response: str, data: GroupGenerationRequest) -> Tup
     return potential_summary, potential_description
 
 async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
-    prompt = load_prompt_template("description_writer_v1", "v1",
+    prompt = load_prompt_template("description_writer", "v1",
                                   name=data.name,
                                   goal=data.goal,
                                   category=data.category,

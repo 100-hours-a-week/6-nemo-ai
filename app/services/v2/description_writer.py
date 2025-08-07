@@ -2,44 +2,11 @@ from typing import Tuple
 from app.schemas.groups.group_writer import GroupGenerationRequest
 # from app.core.cloud_logging import logger
 from app.core.ai_logger import get_ai_logger
-from app.models.gemma_3_4b import call_vllm_api   #로컬 모델 호출로 교체
+from app.models.text_generation_model import call_vllm_api   #로컬 모델 호출로 교체
+from app.prompts.prompt_loader import load_prompt_template
 import re
 
 ai_logger = get_ai_logger()
-
-
-def _is_text_corrupted(text: str) -> bool:
-    """Check if text appears corrupted or garbled"""
-    if not text or not isinstance(text, str):
-        return True
-    
-    text = text.strip()
-    if len(text) < 3:
-        return True
-    
-    # Check for patterns indicating corruption
-    corruption_patterns = [
-        r'할로운 분위기',  # Specific corruption pattern from your assessment
-        r'교류하고율',     # Another specific pattern
-        r'영n',           # Truncated pattern
-        r'[가-힣]+[0-9]+[가-힣]*',  # Korean mixed with numbers inappropriately
-        r'[?]{2,}',       # Multiple question marks
-        r'(?:은|가|이|를|에|의){3,}',  # Repeated particles
-        r'[가-힣]n$',     # Korean ending with 'n' (truncation indicator)
-        r'[가-힣]{1}[a-zA-Z]{1}',  # Single Korean + Single Latin (corruption indicator)
-    ]
-    
-    for pattern in corruption_patterns:
-        if re.search(pattern, text):
-            return True
-    
-    # Check for incomplete sentences (Korean text ending abruptly)
-    if len(text) > 10 and not re.search(r'[다요니까습음겠앙함면동임등]$', text):
-        # Check if it ends with incomplete syllables or weird characters
-        if re.search(r'[가-힣][a-zA-Z0-9]$', text):
-            return True
-    
-    return False
 
 
 def _clean_text_artifacts(text: str) -> str:
@@ -154,29 +121,24 @@ def _parse_alternative_format(response: str, data: GroupGenerationRequest) -> Tu
     for i, line in enumerate(lines):
         if not summary and 20 < len(line) < 80 and any(word in line for word in ["모임", "스터디", "동아리", "그룹"]):
             candidate = _clean_text_artifacts(line)
-            if not _is_text_corrupted(candidate):
-                summary = candidate
+            summary = candidate
         elif not description and len(line) > 40:
             # Likely a description line
             candidate = _clean_text_artifacts(line)
-            if not _is_text_corrupted(candidate):
-                description = candidate
-                # Try to get more description from following lines
-                for j in range(i+1, min(i+3, len(lines))):
-                    next_line = lines[j]
-                    if (len(next_line) > 15 and 
-                        not next_line.startswith("Step") and 
-                        ":" not in next_line[:10] and
-                        not _is_text_corrupted(next_line)):
-                        description += " " + _clean_text_artifacts(next_line)
-                    else:
-                        break
-                break
+            description = candidate
+            # Try to get more description from following lines
+            for j in range(i+1, min(i+3, len(lines))):
+                next_line = lines[j]
+                if (len(next_line) > 15 and 
+                    not next_line.startswith("Step") and 
+                    ":" not in next_line[:10]):
+                    description += " " + _clean_text_artifacts(next_line)
+                else:
+                    break
+            break
     
     # Fallback if parsing still fails
-    if (not summary or not description or 
-        _is_text_corrupted(summary) or _is_text_corrupted(description) or
-        len(summary) < 10 or len(description) < 20):
+    if not summary or not description or len(summary) < 10 or len(description) < 20:
         return _get_fallback_description(data)
     
     return summary, description
@@ -199,8 +161,7 @@ def _extract_meaningful_content(response: str, data: GroupGenerationRequest) -> 
     
     for sentence in sentences:
         sentence = sentence.strip()
-        if (sentence and len(sentence) > 10 and 
-            not _is_text_corrupted(sentence) and
+        if (sentence and len(sentence) > 10 and
             not any(word in sentence.lower() for word in ['step', 'phase', '단계'])):
             clean_sentences.append(sentence)
     
@@ -242,33 +203,8 @@ def _extract_meaningful_content(response: str, data: GroupGenerationRequest) -> 
 
 
 async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
-    prompt = f"""
-당신은 모임을 소개하는 AI 비서입니다.
-
-다음 형식으로 정확히 출력하세요:
-
-한 줄 소개: [모임의 핵심 목적을 50자 이내로 명사형 종결로 요약]
-상세 설명: [300자 이내, 5문장 이내의 모임 소개]
-
-요구사항:
-- 한 줄 소개는 반드시 "모임", "동아리", "스터디" 등의 명사로 끝나야 합니다
-- 상세 설명은 추천 대상과 분위기를 포함하여 작성하세요
-- 문장을 완전히 마무리하여 작성하세요
-- 한국어로만 작성하세요
-- 개인정보나 연락처는 절대 포함하지 마세요
-
-입력 정보:
-- 모임명: {data.name}
-- 목적: {data.goal}  
-- 카테고리: {data.category}
-- 기간: {data.period}
-
-출력 예시:
-한 줄 소개: 맛집 탐방을 통한 친목 도모 모임
-상세 설명: 이 모임은 판교의 다양한 맛집을 탐방하며 친목을 다지는 것을 목표로 합니다. 매주 1회 모여 서로의 취향을 공유하고, 다양한 장소를 경험하며 즐거운 시간을 보냅니다. 맛집을 좋아하고 새로운 사람들과 교류하고 싶은 분들께 추천합니다. 편안하고 즐거운 분위기에서 진행됩니다.
-
-아래 형식으로 시작하세요:
-한 줄 소개:"""
+    prompt = load_prompt_template("description_writer", "v2",
+                                  data=data)
     
     try:
         ai_logger.info("[AI-V2] [요약 생성 시작]", extra={"meeting_name": data.name})
@@ -280,12 +216,8 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
             ai_logger.warning("[AI-V2] [빈 응답] 폴백 콘텐츠 사용")
             return _get_fallback_description(data)
         
-        response = response.strip()
-        
         # Check for corruption early
-        if _is_text_corrupted(response):
-            ai_logger.warning("[AI-V2] [텍스트 손상 감지] 폴백 응답 사용", extra={"preview": response[:100]})
-            return _get_fallback_description(data)
+        response = response.strip()
         
         # Primary parsing method
         summary = ""
@@ -300,9 +232,7 @@ async def generate_description(data: GroupGenerationRequest) -> Tuple[str, str]:
                 description_candidate = _clean_text_artifacts(subparts[1])
                 
                 # Validate and clean candidates
-                if (not _is_text_corrupted(summary_candidate) and 
-                    not _is_text_corrupted(description_candidate) and
-                    len(summary_candidate) >= 10 and len(description_candidate) >= 20):
+                if (len(summary_candidate) >= 10 and len(description_candidate) >= 20):
                     
                     summary = _remove_pii_and_irrelevant_content(summary_candidate)
                     description = _remove_pii_and_irrelevant_content(description_candidate)

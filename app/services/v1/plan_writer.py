@@ -9,17 +9,14 @@ ai_logger = get_ai_logger()
 
 
 def _clean_plan_text(text: str) -> str:
-    """Clean and validate plan text"""
     if not text or not isinstance(text, str):
         return ""
     
     text = text.strip()
     
-    # Remove any metadata or description that shouldn't be in the plan
     lines = text.split('\n')
     clean_lines = []
     
-    # Skip lines that look like meeting metadata (these should be in other fields)
     skip_patterns = [
         r'^모임명:',
         r'^목적:',
@@ -54,20 +51,16 @@ def _clean_plan_text(text: str) -> str:
 
 
 def _extract_plan_from_mixed_content(text: str) -> str:
-    """Extract only the plan content from mixed response"""
     if not text:
         return ""
     
-    # Look for step-based content
     step_pattern = r'(Step \d+:.*?)(?=Step \d+:|$)'
     steps = re.findall(step_pattern, text, re.DOTALL | re.IGNORECASE)
     
     if steps:
-        # Join all steps
         plan_content = '\n\n'.join(step.strip() for step in steps)
         return _clean_plan_text(plan_content)
     
-    # If no clear steps found, look for structured content
     lines = text.split('\n')
     plan_lines = []
     
@@ -77,15 +70,13 @@ def _extract_plan_from_mixed_content(text: str) -> str:
         if not line:
             continue
             
-        # Start capturing when we see plan-like content
-        if (line.startswith('Step ') or 
+        if (line.startswith('Step ') or
             line.startswith('단계 ') or
             '진행 방법' in line or
             '계획' in line and ':' in line):
             in_plan_section = True
         
         if in_plan_section:
-            # Skip metadata lines even in plan section
             if not any(re.match(pattern, line, re.IGNORECASE) for pattern in [
                 r'^모임명:', r'^목적:', r'^카테고리:', r'^기간:']):
                 plan_lines.append(line)
@@ -97,9 +88,6 @@ def _extract_plan_from_mixed_content(text: str) -> str:
 
 
 def _generate_fallback_plan(data: GroupGenerationRequest) -> str:
-    """Generate a basic fallback plan when AI generation fails"""
-    
-    # Create a simple plan based on the input data
     plan_parts = []
     
     plan_parts.append(f"Step 1: 모임 시작 및 목표 설정")
@@ -149,7 +137,7 @@ def _generate_fallback_plan(data: GroupGenerationRequest) -> str:
 
 
 async def generate_plan(data: GroupGenerationRequest) -> str:
-    prompt = load_prompt_template("plan_writer_v1", "v1",
+    prompt = load_prompt_template("plan_writer", "v1",
                                   name=data.name,
                                   goal=data.goal,
                                   category=data.category,
@@ -162,14 +150,11 @@ async def generate_plan(data: GroupGenerationRequest) -> str:
             ai_logger.warning("[AI-V1] [빈 응답] 폴백 계획 사용")
             return _generate_fallback_plan(data)
         
-        # Clean and extract plan content
         result = response.strip()
         
-        # First, try to extract only plan content (not metadata)
         cleaned_plan = _extract_plan_from_mixed_content(result)
         
         if not cleaned_plan:
-            # If extraction failed, clean the full response
             cleaned_plan = _clean_plan_text(result)
         
         if not cleaned_plan:

@@ -1,6 +1,6 @@
 from app.schemas.groups.group_writer import GroupGenerationRequest
 from app.core.ai_logger import get_ai_logger
-from app.models.gemma_3_4b import call_vllm_api  # 로컬 모델 호출로 교체
+from app.models.text_generation_model import call_vllm_api  # 로컬 모델 호출로 교체
 from app.prompts.prompt_loader import load_prompt_template
 import asyncio
 import re
@@ -155,7 +155,7 @@ def _generate_fallback_plan(data: GroupGenerationRequest) -> str:
     return '\n'.join(plan_parts)
 
 async def generate_plan(data: GroupGenerationRequest) -> str:
-    prompt = load_prompt_template("plan_writer_v2", "v2",
+    prompt = load_prompt_template("plan_writer", "v2",
                                   name=data.name,
                                   goal=data.goal,
                                   category=data.category,

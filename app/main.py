@@ -1,61 +1,129 @@
-#!/usr/bin/env python3
-import os
-import shutil
-import sys
+# 표준 라이브러리
+import logging
+from contextlib import asynccontextmanager
+import asyncio
+# 외부 라이브러리
+from fastapi import FastAPI
+# 미들웨어
+from app.middleware.http import log_requests, LogRequestsMiddleware
+from app.middleware.ai_logger import AILoggingMiddleware
+# 라우터
+from app.router.v1 import health
+from app.router.v1 import group_information as v1_group_information
+from app.router.v2 import group_information as v2_group_information
+from app.router.v2 import vector_db, chatbot
+# 코어 유틸
+from app.core.ai_logger import get_ai_logger
+from app.core.exception_handler import setup_exception_handlers
+from app.core.chat_cache import clean_idle_sessions  # 저장 위치에 따라 조정
+# 벡터 DB 관련
+from app.database.chroma_client import get_chroma_client, chroma_collection_exists
+from app.database.sync import (
+    fetch_data_from_mysql,
+    sync_group_documents,
+    sync_user_documents,
+)
+# from app.tests.rate_test import router as rate_test_router
+from app.router.v2.ws_chatbot import router as ws_chatbot_router
+from app.integrations.kafka.kafka_consumer_manager import KafkaConsumerManager
 
-print("Starting cleanup...")
+# 로거 초기화
+ai_logger = get_ai_logger()
+ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
 
-# Change to project directory
-os.chdir(r"C:\Users\picasso\PycharmProjects\6-nemo-ai")
+# 로깅 레벨 설정
+logging.getLogger("chromadb").setLevel(logging.WARNING)
 
-# Remove the root prompts directory
-try:
-    if os.path.exists("prompts"):
-        shutil.rmtree("prompts")
-        print("✓ Removed root prompts/ directory")
-    else:
-        print("- Root prompts/ directory not found")
-except Exception as e:
-    print(f"✗ Failed to remove prompts/: {e}")
+# Suppress Kafka logging completely to prevent connection error spam
+logging.getLogger('aiokafka').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.consumer').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.producer').setLevel(logging.CRITICAL)
+logging.getLogger('aiokafka.cluster').setLevel(logging.CRITICAL)
+logging.getLogger('kafka').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.cluster').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.protocol').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.consumer').setLevel(logging.CRITICAL)
+logging.getLogger('kafka.producer').setLevel(logging.CRITICAL)
 
-# Remove app/prompts/old
-try:
-    if os.path.exists("app/prompts/old"):
-        shutil.rmtree("app/prompts/old")
-        print("✓ Removed app/prompts/old/ directory")
-    else:
-        print("- app/prompts/old/ directory not found")
-except Exception as e:
-    print(f"✗ Failed to remove app/prompts/old/: {e}")
+kafka_manager = None
 
-# Remove app/prompts/shared  
-try:
-    if os.path.exists("app/prompts/shared"):
-        shutil.rmtree("app/prompts/shared")
-        print("✓ Removed app/prompts/shared/ directory")
-    else:
-        print("- app/prompts/shared/ directory not found")
-except Exception as e:
-    print(f"✗ Failed to remove app/prompts/shared/: {e}")
-
-# Clean up temp files
-temp_files = ["cleanup_dirs.py", "test_prompt_loading.py", "verify_setup.py", "test_prompt_fix.py"]
-for f in temp_files:
-    try:
-        if os.path.exists(f):
-            os.remove(f)
-            print(f"✓ Removed temp file: {f}")
-    except Exception as e:
-        print(f"✗ Failed to remove {f}: {e}")
-
-print("\n=== Final Directory Structure ===")
-if os.path.exists("app/prompts"):
-    print("app/prompts contents:")
-    for item in os.listdir("app/prompts"):
-        path = os.path.join("app/prompts", item)
-        if os.path.isdir(path):
-            print(f"  [DIR] {item}")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global kafka_manager
+    # Start Chroma sync and Kafka in the background after FastAPI is up
+    async def chroma_and_kafka():
+        chroma = get_chroma_client()
+        should_sync_user = not chroma_collection_exists("user-activity", chroma)
+        should_sync_group = not chroma_collection_exists("group-info", chroma)
+        if not (should_sync_user or should_sync_group):
+            ai_logger.info("[Chroma] 모든 컬렉션 존재 → 동기화 생략")
         else:
-            print(f"  [FILE] {item}")
+            ai_logger.info("[Chroma] 일부 컬렉션 누락 → MySQL에서 데이터 불러오는 중")
+            user_participation, group_infos = fetch_data_from_mysql()
+            if should_sync_user:
+                ai_logger.info(f"[Chroma] 유저 문서 {len(user_participation)}건 동기화 중")
+                sync_user_documents(user_participation)
+            if should_sync_group:
+                ai_logger.info(f"[Chroma] 그룹 문서 {len(group_infos)}건 동기화 중")
+                await sync_group_documents(group_infos)
+            ai_logger.info("[Chroma] 필요한 항목 동기화 완료")
+        clean_idle_sessions()
+        # Kafka (after Chroma sync)
+        kafka_manager_local = KafkaConsumerManager()
+        await kafka_manager_local.start_consumers()
+        global kafka_manager
+        kafka_manager = kafka_manager_local
+    # Start the background task
+    asyncio.create_task(chroma_and_kafka())
+    yield
+    # Shutdown logic
+    if kafka_manager:
+        await kafka_manager.stop_consumers()
+        ai_logger.info("[Chroma] Lifespan 종료 - 앱 shutdown")
 
-print("\nCleanup complete!")
+app = FastAPI(
+    title="NE:MO AI API",
+    description="네가 찾는 모임: 네모",
+    version="2.0.0",
+    lifespan=lifespan
+)
+
+setup_exception_handlers(app)
+
+# [AI] 성능 로깅 미들웨어 등록
+app.add_middleware(AILoggingMiddleware)
+app.middleware("http")(log_requests)
+app.add_middleware(LogRequestsMiddleware)
+
+@app.get("/")
+def root():
+    return {"message": "Ne:Mo AI Server Running!"}
+
+
+app.include_router(health.router)
+# app.include_router(rate_test_router)
+app.include_router(vector_db.router, prefix="/ai/v2")
+app.include_router(chatbot.router, prefix="/ai/v2")
+# app.include_router(ws_chatbot.router)
+app.include_router(ws_chatbot_router, prefix="/ai/v2")
+
+# [AI] v1 라우터 등록
+ai_logger.info("[AI] [라우터 등록 시작] v1 group_information 라우터 준비 중")
+app.include_router(v1_group_information.router, prefix="/ai/v1")
+ai_logger.info("[AI] [라우터 등록 완료] v1 group_information 라우터 활성화")
+# [AI] v2 라우터 등록
+ai_logger.info("[AI-v2] [라우터 등록 시작] v2 group_information 라우터 준비 중")
+app.include_router(v2_group_information.router, prefix="/ai/v2")
+ai_logger.info("[AI-v2] [라우터 등록 완료] v2 group_information 라우터 활성화")
+
+# 서버 실행
+if __name__ == "__main__":
+    import uvicorn
+    host = "0.0.0.0"
+    port = 8000
+    ai_logger.info("[FastAPI 실행] 서버 시작 전 초기화")
+    try:
+        uvicorn.run(app, host=host, port=port)
+        ai_logger.info("[FastAPI 실행 완료] 서버가 정상적으로 실행되었습니다.")
+    except Exception as e:
+        ai_logger.error("[FastAPI 실행 오류] 서버 실행 중 예외 발생", exc_info=True)

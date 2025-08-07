@@ -1,23 +1,52 @@
 from fastapi import APIRouter
-from app.services.v1.vector_db import add_to_chroma, search_chroma, collection
+from app.database.vector_indexer import add_documents_to_vector_db
+from app.database.vector_searcher import search_similar_documents
+from app.database.chroma_client import get_chroma_client
 from app.schemas.vectors.vector_db import Document
+from app.models.embedding_model import e5_embedding_function
+
 router = APIRouter()
 
 @router.post("/add/")
 def add_document(doc: Document):
-    add_to_chroma(doc.id, doc.text)
+    docs = [{
+        "id": doc.id,
+        "text": doc.text,
+        "metadata": {"document_id": doc.id}
+    }]
+    add_documents_to_vector_db(docs, collection="group-info")
     return {"status": "added", "id": doc.id}
+
 @router.post("/add-batch/")
 def add_batch(docs: list[Document]):
-    for doc in docs:
-        add_to_chroma(doc.id, doc.text)
+    doc_list = [{
+        "id": doc.id,
+        "text": doc.text,
+        "metadata": {"document_id": doc.id}
+    } for doc in docs]
+    add_documents_to_vector_db(doc_list, collection="group-info")
     return {"added": len(docs)}
+
 @router.get("/search/")
 def search_document(query: str):
-    return search_chroma(query)
+    results = search_similar_documents(query, top_k=5, collection="group-info")
+    return {
+        "query": query,
+        "results": [
+            {
+                "id": r["id"],
+                "text": r["text"],
+                "metadata": r["metadata"],
+                "score": r["score"]
+            }
+            for r in results
+        ]
+    }
 
 @router.post("/debug/show-db")
 def show_all_documents():
+    client = get_chroma_client()
+    collection = client.get_or_create_collection(name="group-info", embedding_function=e5_embedding_function)
     result = collection.get(include=["documents", "metadatas"])
     docs = []
     for doc_id, doc_text in zip(result["ids"], result["documents"]):

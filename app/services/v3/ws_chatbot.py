@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from app.models.gemma_3_4b import stream_vllm_response, get_vllm_health_metrics
+from app.models.text_generation_model import stream_vllm_response, get_vllm_health_metrics
 from app.core.chat_cache import get_session_history
 from app.database.vector_searcher import (
     search_similar_documents,
@@ -16,16 +16,11 @@ ai_logger = get_ai_logger()
 
 
 async def process_websocket_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Generic WebSocket message processing function for tests.
-    This is a simplified wrapper around the existing WebSocket functionality.
-    """
     try:
         message_type = message_data.get("type", "chat_message")
         user_message = message_data.get("message", "")
         session_id = message_data.get("sessionId", "default")
         
-        # For testing purposes, return a simple response
         return {
             "type": "chat_response",
             "response": f"WebSocket 처리된 메시지: {user_message}",
@@ -41,8 +36,6 @@ async def process_websocket_message(message_data: Dict[str, Any]) -> Dict[str, A
 
 
 class PrefixParser:
-    """Helper class to handle prefix removal in streaming responses"""
-    
     def __init__(self, prefixes: list[str], max_prefix_length: int = 12):
         self.prefixes = prefixes
         self.max_prefix_length = max_prefix_length
@@ -72,7 +65,6 @@ class PrefixParser:
         
         self.buffer += chunk
         
-        # Check for complete prefix match at the beginning
         prefix_found = False
         prefix_length = 0
         

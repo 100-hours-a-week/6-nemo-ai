@@ -4,11 +4,11 @@ import asyncio
 from app.core.websocket_manager import websocket_manager
 from app.core.ai_logger import get_ai_logger
 from app.middleware import authenticate_websocket, validate_session_message, ping_loop
-from app.services.v2.ws_chatbot import (
+from app.services.v3.ws_chatbot import (
     stream_question_chunks,
     stream_recommendation_chunks,
 )
-from app.models.gemma_3_4b import get_vllm_health_metrics
+from app.models.text_generation_model import get_vllm_health_metrics
 
 router = APIRouter(prefix="/chatbot", tags=["WebSocket"])
 ai_logger = get_ai_logger()

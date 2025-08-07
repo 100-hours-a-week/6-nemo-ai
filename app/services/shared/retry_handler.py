@@ -1,8 +1,3 @@
-"""
-Retry handler and content validator for AI-generated content
-Ensures quality and prevents PII/irrelevant content from being returned
-"""
-
 import asyncio
 import re
 from typing import List, Optional, Tuple, Any, Callable
@@ -12,7 +7,7 @@ ai_logger = get_ai_logger()
 
 class ContentValidator:
     """Validates and cleans AI-generated content"""
-    
+
     # PII and sensitive information patterns
     PII_PATTERNS = [
         r'\b\d{2,3}-\d{3,4}-\d{4}\b',  # Phone numbers
@@ -27,7 +22,7 @@ class ContentValidator:
         r'\b문의[:\s]*\([0-9-]+\)',  # Contact inquiry
         r'\b\[REDACTED\]',  # Already redacted content
     ]
-    
+
     # Irrelevant content indicators
     IRRELEVANT_PATTERNS = [
         r'한국건설기술인협회',
@@ -46,64 +41,64 @@ class ContentValidator:
         r'본\s*프로젝트는',
         r'외부\s*전문가',
     ]
-    
+
     @classmethod
     def is_empty_or_invalid(cls, text: str) -> bool:
         """Check if text is empty or invalid"""
         if not text or not isinstance(text, str):
             return True
-        
+
         text = text.strip()
         if len(text) < 3:
             return True
-            
+
         # Check for placeholder values (but NOT "string" since that's a valid meeting name)
         if text.lower() in ['none', 'null', 'undefined', '']:
             return True
-            
+
         return False
-    
+
     @classmethod
     def contains_pii(cls, text: str) -> bool:
         """Check if text contains PII or sensitive information"""
         if not text:
             return False
-            
+
         for pattern in cls.PII_PATTERNS:
             if re.search(pattern, text, re.IGNORECASE):
                 return True
         return False
-    
+
     @classmethod
     def contains_irrelevant_content(cls, text: str, topic_context: str = "") -> bool:
         """Check if text contains irrelevant content based on context"""
         if not text:
             return False
-            
+
         # If topic context doesn't match construction but content is about construction
         if topic_context and "건설" not in topic_context.lower():
             for pattern in cls.IRRELEVANT_PATTERNS:
                 if re.search(pattern, text, re.IGNORECASE):
                     return True
         return False
-    
+
     @classmethod
     def clean_content(cls, text: str, topic_context: str = "") -> str:
         """Clean content by removing PII and irrelevant information"""
         if not text:
             return text
-            
+
         cleaned_text = text
-        
+
         # Remove PII patterns
         for pattern in cls.PII_PATTERNS:
             cleaned_text = re.sub(pattern, '[정보삭제]', cleaned_text, flags=re.IGNORECASE)
-        
+
         # Remove irrelevant sentences if topic doesn't match
         if topic_context and "건설" not in topic_context.lower():
             sentences = re.split(r'[.!?]\s*', cleaned_text)
             relevant_sentences = []
-            
+
             for sentence in sentences:
                 is_irrelevant = any(
                     re.search(pattern, sentence, re.IGNORECASE) 
@@ -111,22 +106,22 @@ class ContentValidator:
                 )
                 if not is_irrelevant and sentence.strip():
                     relevant_sentences.append(sentence.strip())
-            
+
             if relevant_sentences:
                 cleaned_text = '. '.join(relevant_sentences)
                 if not cleaned_text.endswith('.'):
                     cleaned_text += '.'
-        
+
         # Clean up multiple spaces and normalize
         cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
-        
+
         return cleaned_text
-    
+
     @classmethod
     def validate_meeting_data(cls, name: str, summary: str, description: str, tags: List[str], topic_context: str = "") -> Tuple[bool, List[str]]:
         """Validate all meeting data fields"""
         issues = []
-        
+
         # Check for empty required fields
         if cls.is_empty_or_invalid(name):
             issues.append("Name is empty or invalid")
@@ -136,31 +131,31 @@ class ContentValidator:
             issues.append("Description is empty or invalid")
         if not tags or len(tags) == 0:
             issues.append("Tags list is empty")
-        
+
         # Check for PII in content
         if summary and cls.contains_pii(summary):
             issues.append("Summary contains PII")
         if description and cls.contains_pii(description):
             issues.append("Description contains PII")
-        
+
         # Check for irrelevant content
         if summary and cls.contains_irrelevant_content(summary, topic_context):
             issues.append("Summary contains irrelevant content")
         if description and cls.contains_irrelevant_content(description, topic_context):
             issues.append("Description contains irrelevant content")
-        
+
         # Check for minimum content quality
         if summary and len(summary.strip()) < 10:
             issues.append("Summary too short")
         if description and len(description.strip()) < 20:
             issues.append("Description too short")
-            
+
         # Check for maximum reasonable lengths
         if summary and len(summary.strip()) > 200:
             issues.append("Summary too long")
         if description and len(description.strip()) > 1000:
             issues.append("Description too long")
-        
+
         # Check tags quality
         if tags:
             for tag in tags:
@@ -168,17 +163,17 @@ class ContentValidator:
                     issues.append(f"Tag contains PII: {tag}")
                 if cls.contains_irrelevant_content(tag, topic_context):
                     issues.append(f"Tag contains irrelevant content: {tag}")
-        
+
         return len(issues) == 0, issues
 
 
 class RetryHandler:
     """Handles retry logic with exponential backoff"""
-    
+
     def __init__(self, max_retries: int = 3, base_delay: float = 1.0):
         self.max_retries = max_retries
         self.base_delay = base_delay
-    
+
     async def retry_with_validation(
         self,
         operation: Callable,
@@ -188,47 +183,47 @@ class RetryHandler:
         **kwargs
     ) -> Any:
         """Retry operation with validation"""
-        
+
         last_exception = None
         last_validation_issues = []
-        
+
         for attempt in range(self.max_retries):
             try:
-                ai_logger.info(f"[RETRY] {operation_name} attempt {attempt + 1}/{self.max_retries}")
-                
+                ai_logger.info(f"[재시도] {operation_name} 시도 {attempt + 1}/{self.max_retries}")
+
                 # Execute operation
                 result = await operation(*args, **kwargs)
-                
+
                 # Validate result
                 is_valid, issues = validator(result)
-                
+
                 if is_valid:
-                    ai_logger.info(f"[RETRY] {operation_name} succeeded on attempt {attempt + 1}")
+                    ai_logger.info(f"[재시도] {operation_name} {attempt + 1}번째 시도 성공")
                     return result
                 else:
                     last_validation_issues = issues
-                    ai_logger.warning(f"[RETRY] {operation_name} validation failed on attempt {attempt + 1}: {issues}")
-                    
+                    ai_logger.warning(f"[재시도] {operation_name} {attempt + 1}번째 시도 유효성 검사 실패: {issues}")
+
                     # Wait before retry (exponential backoff)
                     if attempt < self.max_retries - 1:
                         delay = self.base_delay * (2 ** attempt)
                         await asyncio.sleep(delay)
-                        
+
             except Exception as e:
                 last_exception = e
-                ai_logger.error(f"[RETRY] {operation_name} failed on attempt {attempt + 1}: {str(e)}")
-                
+                ai_logger.error(f"[재시도] {operation_name} {attempt + 1}번째 시도 실패: {str(e)}")
+
                 # Wait before retry
                 if attempt < self.max_retries - 1:
                     delay = self.base_delay * (2 ** attempt)
                     await asyncio.sleep(delay)
-        
+
         # All retries failed
         error_msg = f"All {self.max_retries} attempts failed for {operation_name}"
         if last_validation_issues:
             error_msg += f". Last validation issues: {last_validation_issues}"
         if last_exception:
             error_msg += f". Last exception: {str(last_exception)}"
-            
+
         ai_logger.error(error_msg)
         raise Exception(error_msg)

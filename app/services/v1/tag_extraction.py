@@ -9,7 +9,7 @@ import asyncio
 ai_logger = get_ai_logger()
 
 async def extract_tags(text: str) -> list[str]:
-    prompt = load_prompt_template("tag_extraction_v1", "v1", text=text)
+    prompt = load_prompt_template("tag_extraction", "v1", text=text)
 
     try:
         ai_logger.info("[AI] [태그 추출 시작]", extra={"text_length": len(text)})

@@ -1,8 +1,3 @@
-"""
-V1 Group Information Service - Simple retry logic implementation
-Builds meeting data from user input with basic retry mechanism
-"""
-
 from app.schemas.groups.group_information import MeetingInput, MeetingData
 from app.schemas.groups.group_writer import GroupGenerationRequest
 from app.services.v1.tag_extraction import extract_tags
@@ -14,16 +9,7 @@ import asyncio
 ai_logger = get_ai_logger()
 
 async def build_meeting_data(input: MeetingInput) -> MeetingData:
-    """
-    V1 build_meeting_data with basic retry logic
-    
-    Args:
-        input (MeetingInput): User input containing meeting requirements
-        
-    Returns:
-        MeetingData: Generated meeting data
-    """
-    
+
     ai_logger.info("[AI] [모임 정보 생성 시작]", extra={
         "meeting_name": input.name,
         "has_plan": input.isPlanCreated
@@ -80,7 +66,6 @@ async def build_meeting_data(input: MeetingInput) -> MeetingData:
 
 
 if __name__ == "__main__":
-    """Test the V1 group information service"""
     test_input = MeetingInput(
         name="딥러닝 실전 스터디",
         goal="딥러닝 실전 프로젝트 완수와 포트폴리오 제작",

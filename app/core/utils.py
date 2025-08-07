@@ -5,26 +5,15 @@ import re
 
 
 def is_similar_to_any(new_text: str, past_texts: List[str], threshold: float = 0.9) -> bool:
-    """
-    Check if new text is similar to any text in a list of past texts.
-
-    Args:
-        new_text: The text to check for similarity
-        past_texts: List of texts to compare against
-        threshold: Similarity threshold (0.0-1.0), default 0.9
-
-    Returns:
-        True if new_text is similar to any past text above threshold
-    """
     if not past_texts:
         return False
 
     try:
         # Import here to avoid circular imports
-        from app.models.e5_embeddings import embed
+        from app.models.embedding_model import e5_embedding_function
 
         all_texts = past_texts + [new_text]
-        vectors = embed(all_texts)
+        vectors = e5_embedding_function(all_texts)
         if len(vectors) != len(all_texts):
             return False
 
@@ -35,15 +24,6 @@ def is_similar_to_any(new_text: str, past_texts: List[str], threshold: float = 0
 
 
 def clean_text(text: str) -> str:
-    """
-    Clean and normalize Korean/English text input.
-
-    Args:
-        text: Raw text input
-
-    Returns:
-        Cleaned and normalized text
-    """
     if not text:
         return ""
 
@@ -57,43 +37,18 @@ def clean_text(text: str) -> str:
 
 
 def validate_non_empty(value: str, field_name: str = "field") -> str:
-    """
-    Validate that a string value is not empty.
-
-    Args:
-        value: The value to validate
-        field_name: Name of the field for error messages
-
-    Returns:
-        The validated value
-
-    Raises:
-        ValueError: If value is empty or None
-    """
     if not value or not value.strip():
         raise ValueError(f"{field_name} cannot be empty")
     return value.strip()
 
 
 def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
-    """
-    Extract keywords from Korean/English text.
-
-    Args:
-        text: Input text (Korean/English)
-        max_keywords: Maximum number of keywords to extract
-
-    Returns:
-        List of extracted keywords
-    """
     if not text:
         return []
 
-    # Clean text and extract meaningful terms
     text = re.sub(r'[^\w\s가-힣]', ' ', text.lower())
     words = text.split()
 
-    # Korean stopwords (common Korean particles and connectors)
     korean_stopwords = {
         '이', '그', '저', '의', '를', '을', '가', '는', '에', '에서',
         '로', '으로', '와', '과', '도', '만', '까지', '부터', '하고', 
@@ -103,7 +58,6 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
         '수', '것', '곳', '때', '중', '내', '외', '등', '및', '또', '더'
     }
 
-    # English stopwords (basic set for mixed content)
     english_stopwords = {
         'the', 'is', 'at', 'which', 'on', 'and', 'a', 'an', 'as', 'are', 
         'was', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 
@@ -112,7 +66,6 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
         'into', 'through', 'during', 'before', 'after', 'above', 'below'
     }
 
-    # Combine stopwords
     all_stopwords = korean_stopwords | english_stopwords
 
     keywords = []
@@ -135,15 +88,6 @@ def extract_keywords(text: str, max_keywords: int = 10) -> List[str]:
 
 
 def extract_meaningful_terms(text: str) -> List[str]:
-    """
-    Extract meaningful Korean/English terms from text.
-    
-    Args:
-        text: Input text
-        
-    Returns:
-        List of meaningful terms
-    """
     if not text:
         return []
         
@@ -169,17 +113,7 @@ def extract_meaningful_terms(text: str) -> List[str]:
 
 
 def truncate_text(text: str, max_length: int = 1000, suffix: str = "...") -> str:
-    """
-    Truncate text to maximum length with optional suffix.
 
-    Args:
-        text: Text to truncate
-        max_length: Maximum length
-        suffix: Suffix to add if truncated
-
-    Returns:
-        Truncated text
-    """
     if not text or len(text) <= max_length:
         return text
 
@@ -187,15 +121,6 @@ def truncate_text(text: str, max_length: int = 1000, suffix: str = "...") -> str
 
 
 def normalize_korean_text(text: str) -> str:
-    """
-    Normalize Korean text for better processing.
-    
-    Args:
-        text: Korean text to normalize
-        
-    Returns:
-        Normalized Korean text
-    """
     if not text:
         return ""
     
@@ -212,30 +137,12 @@ def normalize_korean_text(text: str) -> str:
 
 
 def contains_korean(text: str) -> bool:
-    """
-    Check if text contains Korean characters.
-    
-    Args:
-        text: Text to check
-        
-    Returns:
-        True if text contains Korean characters
-    """
     if not text:
         return False
     return bool(re.search(r'[가-힣]', text))
 
 
 def split_korean_english(text: str) -> tuple[List[str], List[str]]:
-    """
-    Split text into Korean and English words.
-    
-    Args:
-        text: Mixed Korean/English text
-        
-    Returns:
-        Tuple of (korean_words, english_words)
-    """
     if not text:
         return [], []
     

@@ -4,11 +4,10 @@ Migrated from src/tests/utils/test_prefix_parser.py
 """
 
 import pytest
-from typing import List
 
 # Import from app instead of src
 try:
-    from app.services.v2.ws_chatbot import PrefixParser
+    from app.services.v3.ws_chatbot import PrefixParser
 except ImportError:
     pytest.skip("PrefixParser not available", allow_module_level=True)
 
