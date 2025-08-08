@@ -1,0 +1,42 @@
+# Grafana Datasource Configuration
+# This file automatically configures Prometheus as a datasource in Grafana
+
+apiVersion: 1
+
+# List of datasources to insert/update
+datasources:
+  # Prometheus datasource
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    version: 1
+    
+    # JSON data for additional configuration
+    jsonData:
+      httpMethod: POST
+      prometheusType: Prometheus
+      prometheusVersion: 2.47.0
+      cacheLevel: 'High'
+      disableMetricsLookup: false
+      incrementalQuerying: false
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+      
+    # Security and performance settings
+    timeout: 60
+    withCredentials: false
+    
+    # Health check
+    basicAuth: false
+    basicAuthUser: ""
+    basicAuthPassword: ""
+    
+    # Organization settings
+    orgId: 1
+    
+    # UID for referencing in dashboards
+    uid: prometheus-uid

@@ -1,0 +1,128 @@
+# Prometheus Alert Rules for vLLM FastAPI Monitoring
+# These rules define when alerts should be triggered
+
+groups:
+  # Critical alerts that require immediate attention
+  - name: critical-alerts
+    rules:
+      - alert: ServiceDown
+        expr: up{job="nemo-ai-fastapi"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+          service: nemo-ai
+        annotations:
+          summary: "🚨 vLLM FastAPI service is down"
+          description: "The vLLM FastAPI service has been unreachable for more than 1 minute."
+          runbook_url: "https://github.com/your-org/runbooks/service-down"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m]) / 
+            rate(http_requests_total[5m])
+          ) * 100 > 10
+        for: 3m
+        labels:
+          severity: critical
+          team: backend
+          service: nemo-ai
+        annotations:
+          summary: "🚨 High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for more than 3 minutes."
+          runbook_url: "https://github.com/your-org/runbooks/high-error-rate"
+
+      - alert: VerySlowInference
+        expr: |
+          histogram_quantile(0.95, 
+            rate(vllm_inference_duration_seconds_bucket[5m])
+          ) > 30
+        for: 2m
+        labels:
+          severity: critical
+          team: ai
+          service: vllm
+        annotations:
+          summary: "🚨 Very slow vLLM inference detected"
+          description: "95th percentile inference time is {{ $value | humanizeDuration }} (>30s)."
+          runbook_url: "https://github.com/your-org/runbooks/slow-inference"
+
+  # Warning alerts that need attention but aren't critical
+  - name: warning-alerts
+    rules:
+      - alert: HighMemoryUsage
+        expr: system_memory_usage_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+          service: system
+        annotations:
+          summary: "⚠️ High memory usage detected"
+          description: "Memory usage is {{ $value | humanizePercentage }} for more than 5 minutes."
+          runbook_url: "https://github.com/your-org/runbooks/high-memory"
+
+      - alert: HighCPUUsage
+        expr: system_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+          service: system
+        annotations:
+          summary: "⚠️ High CPU usage detected"
+          description: "CPU usage is {{ $value | humanizePercentage }} for more than 5 minutes."
+          runbook_url: "https://github.com/your-org/runbooks/high-cpu"
+
+      - alert: SlowInference
+        expr: |
+          histogram_quantile(0.95, 
+            rate(vllm_inference_duration_seconds_bucket[5m])
+          ) > 10
+        for: 3m
+        labels:
+          severity: warning
+          team: ai
+          service: vllm
+        annotations:
+          summary: "⚠️ Slow vLLM inference detected"
+          description: "95th percentile inference time is {{ $value | humanizeDuration }} (>10s)."
+          runbook_url: "https://github.com/your-org/runbooks/slow-inference"
+
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+          service: nemo-ai
+        annotations:
+          summary: "⚠️ High request rate detected"
+          description: "Request rate is {{ $value | humanize }} req/sec for more than 5 minutes."
+          runbook_url: "https://github.com/your-org/runbooks/high-load"
+
+  # GPU-specific alerts (uncomment if using GPU monitoring)
+  # - name: gpu-alerts
+  #   rules:
+  #     - alert: HighGPUTemperature
+  #       expr: gpu_temperature_celsius > 85
+  #       for: 2m
+  #       labels:
+  #         severity: warning
+  #         team: infrastructure
+  #         service: gpu
+  #       annotations:
+  #         summary: "⚠️ High GPU temperature"
+  #         description: "GPU {{ $labels.gpu_id }} temperature is {{ $value }}°C."
+
+  #     - alert: HighGPUMemoryUsage
+  #       expr: (gpu_memory_usage_mb / gpu_memory_total_mb) * 100 > 90
+  #       for: 3m
+  #       labels:
+  #         severity: warning
+  #         team: ai
+  #         service: gpu
+  #       annotations:
+  #         summary: "⚠️ High GPU memory usage"
+  #         description: "GPU {{ $labels.gpu_id }} memory usage is {{ $value | humanizePercentage }}."

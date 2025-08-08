@@ -1,0 +1,32 @@
+# Grafana Dashboard Provisioning Configuration
+# This file tells Grafana where to find dashboard definitions
+
+apiVersion: 1
+
+# List of dashboard providers
+providers:
+  # Main dashboard provider
+  - name: 'vllm-dashboards'
+    orgId: 1
+    folder: 'vLLM Monitoring'
+    folderUid: 'vllm-folder'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
+
+  # System dashboards
+  - name: 'system-dashboards'
+    orgId: 1
+    folder: 'System Monitoring'
+    folderUid: 'system-folder'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

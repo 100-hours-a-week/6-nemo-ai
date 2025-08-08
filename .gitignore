@@ -28,9 +28,11 @@ data/chroma/
 /src/data/chroma/chroma.sqlite3
 /naemo-project-admin-key.json
 
+# GCP 서비스 계정 키
+nemo-v2-ai.json
+
 xlm-roberta-flash-implementation/
-/database/
-!/app/database/
+database/
 
 # Monitoring & Observability
 monitoring/grafana-data/
