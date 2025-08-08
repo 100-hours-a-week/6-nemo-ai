@@ -207,19 +207,44 @@ show_logs() {
 load_environment() {
     print_step "Loading environment configuration..."
     
-    if [[ -f .env ]]; then
-        set -a
-        # shellcheck source=/dev/null
-        source .env
-        set +a
-        print_success "Loaded configuration from .env file"
-    else
-        print_warning ".env file not found, using defaults"
+    # Look for .env file in multiple locations
+    local env_files=(
+        "../../../../.env"  # From docker directory
+        "../../../.env"     # From scripts directory  
+        "../../.env"        # From monitoring directory
+        "../.env"           # One level up
+        ".env"              # Current directory
+    )
+    
+    local env_found=false
+    for env_file in "${env_files[@]}"; do
+        if [[ -f "$env_file" ]]; then
+            set -a
+            # shellcheck source=/dev/null
+            source "$env_file"
+            set +a
+            print_success "Loaded configuration from $env_file"
+            env_found=true
+            break
+        fi
+    done
+    
+    if [[ "$env_found" == false ]]; then
+        print_warning ".env file not found in expected locations, using defaults"
     fi
     
-    # Set defaults
-    GRAFANA_ADMIN_USER="${GRAFANA_ADMIN_USER:-admin}"
-    GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-nemo_secure_2024}"
+    # Set required environment variables - fail if not set
+    if [[ -z "$GRAFANA_ADMIN_USER" ]]; then
+        print_error "GRAFANA_ADMIN_USER not set in .env file"
+        exit 1
+    fi
+    
+    if [[ -z "$GRAFANA_ADMIN_PASSWORD" ]]; then
+        print_error "GRAFANA_ADMIN_PASSWORD not set in .env file" 
+        exit 1
+    fi
+    
+    # Set other defaults only if not already set
     PROMETHEUS_RETENTION_TIME="${PROMETHEUS_RETENTION_TIME:-15d}"
     
     # Export for docker-compose

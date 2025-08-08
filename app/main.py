@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 import asyncio
 # 외부 라이브러리
 from fastapi import FastAPI
+# 모니터링
+from app.integrations.monitoring import PrometheusConfig, setup_monitoring_logging
 # 미들웨어
 from app.middleware.http import log_requests, LogRequestsMiddleware
 from app.middleware.ai_logger import AILoggingMiddleware
@@ -28,6 +30,10 @@ from app.integrations.kafka.kafka_consumer_manager import KafkaConsumerManager
 
 ai_logger = get_ai_logger()
 ai_logger.info("[시스템 시작] FastAPI 서버 초기화 및 Cloud Logging 활성화")
+
+# 모니터링 로깅 설정
+monitoring_logger = setup_monitoring_logging()
+monitoring_logger.info("[모니터링] 모니터링 시스템 초기화 시작")
 
 logging.getLogger("chromadb").setLevel(logging.WARNING)
 logging.getLogger('aiokafka').setLevel(logging.CRITICAL)
@@ -82,6 +88,17 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
+# 모니터링 설정
+prometheus_config = PrometheusConfig(
+    service_name="nemo-ai",
+    version="2.0.0",
+    environment="production"
+)
+
+# Prometheus 계측 설정 및 메트릭 엔드포인트 노출
+prometheus_config.setup_instrumentator(app).expose_metrics(app)
+monitoring_logger.info("[모니터링] Prometheus 메트릭 엔드포인트 활성화: /metrics")
 
 setup_exception_handlers(app)
 

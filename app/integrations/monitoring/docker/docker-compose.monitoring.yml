@@ -10,17 +10,17 @@ services:
     container_name: nemo-prometheus
     hostname: prometheus
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "${PROMETHEUS_PORT}:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus-data:/prometheus
-      - ./prometheus-rules.yml:/etc/prometheus/rules/prometheus-rules.yml:ro
+      - ../config/prometheus-rules.yml:/etc/prometheus/rules/prometheus-rules.yml:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME}'
       - '--storage.tsdb.retention.size=10GB'
       - '--web.enable-lifecycle'
       - '--web.enable-admin-api'
@@ -42,27 +42,34 @@ services:
     container_name: nemo-grafana
     hostname: grafana
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "${GRAFANA_PORT}:3000"
     volumes:
       - ./grafana-data:/var/lib/grafana
-      - ./grafana-provisioning:/etc/grafana/provisioning:ro
+      - ../grafana-provisioning:/etc/grafana/provisioning:ro
     environment:
-      # Security settings
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_USERS_ALLOW_ORG_CREATE=false
-      - GF_USERS_AUTO_ASSIGN_ORG=true
-      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
-      
-      # Disable anonymous access
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_AUTH_BASIC_ENABLED=true
-      
+      # Admin credentials - REQUIRED from .env file
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      # Security settings - REQUIRED from .env file
+      - GF_USERS_ALLOW_SIGN_UP=${GF_USERS_ALLOW_SIGN_UP}
+      - GF_USERS_ALLOW_ORG_CREATE=${GF_USERS_ALLOW_ORG_CREATE}
+      - GF_USERS_AUTO_ASSIGN_ORG=${GF_USERS_AUTO_ASSIGN_ORG}
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=${GF_USERS_AUTO_ASSIGN_ORG_ROLE}
+      - GF_AUTH_ANONYMOUS_ENABLED=${GF_AUTH_ANONYMOUS_ENABLED}
+      - GF_AUTH_BASIC_ENABLED=${GF_AUTH_BASIC_ENABLED}
+      - GF_AUTH_DISABLE_LOGIN_FORM=${GF_AUTH_DISABLE_LOGIN_FORM}
+      - GF_AUTH_DISABLE_SIGNOUT_MENU=${GF_AUTH_DISABLE_SIGNOUT_MENU}
+      - GF_SECURITY_DISABLE_GRAVATAR=${GF_SECURITY_DISABLE_GRAVATAR}
+      - GF_SECURITY_COOKIE_SECURE=${GF_SECURITY_COOKIE_SECURE}
+      - GF_SECURITY_COOKIE_SAMESITE=${GF_SECURITY_COOKIE_SAMESITE}
+      - GF_SECURITY_CONTENT_TYPE_PROTECTION=${GF_SECURITY_CONTENT_TYPE_PROTECTION}
+      - GF_SECURITY_X_CONTENT_TYPE_OPTIONS=${GF_SECURITY_X_CONTENT_TYPE_OPTIONS}
+      - GF_SECURITY_X_XSS_PROTECTION=${GF_SECURITY_X_XSS_PROTECTION}
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=${GF_SECURITY_STRICT_TRANSPORT_SECURITY}
       # Logging
-      - GF_LOG_LEVEL=info
-      - GF_LOG_MODE=console,file
-      
+      - GF_LOG_LEVEL=${GF_LOG_LEVEL}
+      - GF_LOG_MODE=${GF_LOG_MODE}
+      - GF_PATHS_LOGS=${GF_PATHS_LOGS}
       # Performance
       - GF_DATABASE_WAL=true
       - GF_DATABASE_CACHE_MODE=private
@@ -84,9 +91,9 @@ services:
     container_name: nemo-alertmanager
     hostname: alertmanager
     ports:
-      - "${ALERTMANAGER_PORT:-9093}:9093"
+      - "${ALERTMANAGER_PORT}:9093"
     volumes:
-      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ../config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - ./alertmanager-data:/alertmanager
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
@@ -110,7 +117,7 @@ services:
     container_name: nemo-node-exporter
     hostname: node-exporter
     ports:
-      - "${NODE_EXPORTER_PORT:-9100}:9100"
+      - "${NODE_EXPORTER_PORT}:9100"
     command:
       - '--web.listen-address=:9100'
       - '--path.procfs=/host/proc'
@@ -136,7 +143,7 @@ services:
 # Networks
 networks:
   monitoring:
-    name: ${MONITORING_NETWORK:-nemo-monitoring}
+    name: ${MONITORING_NETWORK}
     driver: bridge
     ipam:
       config:

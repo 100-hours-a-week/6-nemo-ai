@@ -9,7 +9,7 @@ This module sets up comprehensive Prometheus monitoring with:
 - GPU metrics (optional)
 
 Usage:
-    from src.monitoring.prometheus_config import PrometheusConfig
+    from app.integrations.monitoring.prometheus_config import PrometheusConfig
     
     prometheus_config = PrometheusConfig()
     prometheus_config.setup_instrumentator(app)
