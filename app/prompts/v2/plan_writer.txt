@@ -11,7 +11,7 @@
     - [설명 문장 3]
 
 # 입력 정보
-- 모임명: {data.name}
-- 목적: {data.goal}
-- 카테고리: {data.category}
-- 기간: {data.period}
+- 모임명: {name}
+- 목적: {goal}
+- 카테고리: {category}
+- 기간: {period}

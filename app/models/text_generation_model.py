@@ -72,14 +72,14 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         }
 
         timeout_config = httpx.Timeout(
-            connect=10.0,
+            connect=15.0,  # Increased for Windows/ngrok compatibility
             read=VLLM_READ_TIMEOUT,
             write=10.0,
             pool=VLLM_TIMEOUT
         )
 
         async with httpx.AsyncClient(timeout=timeout_config) as client:
-            response = await client.post(VLLM_API_URL, json=payload)
+            response = await client.post(VLLM_API_URL, json=payload, headers=headers)
             response.raise_for_status()
             result = response.json()
 
@@ -160,14 +160,14 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
 
     async def stream_request():
         timeout_config = httpx.Timeout(
-            connect=10.0,
+            connect=15.0,  # Increased for Windows/ngrok compatibility
             read=VLLM_READ_TIMEOUT,
             write=10.0,
             pool=None  # No pool timeout for streaming
         )
 
         async with httpx.AsyncClient(timeout=timeout_config) as client:
-            async with client.stream("POST", VLLM_API_URL, json=payload) as response:
+            async with client.stream("POST", VLLM_API_URL, json=payload, headers=headers) as response:
                 response.raise_for_status()
 
                 start_time = time.time()

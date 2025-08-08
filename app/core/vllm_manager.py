@@ -140,8 +140,8 @@ class VLLMHealthMonitor:
 
             for health_url in health_endpoints:
                 try:
-                    async with httpx.AsyncClient(timeout=5.0) as client:
-                        response = await client.get(health_url)
+                    async with httpx.AsyncClient(timeout=timeout_config) as client:
+                        response = await client.get(health_url, headers=headers)
                         if response.status_code in [200, 404]:  # 404 is also OK, means server is responding
                             self.is_healthy = True
                             self.last_health_check = time.time()

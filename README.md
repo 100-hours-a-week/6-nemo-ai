@@ -95,8 +95,8 @@
     │   │   └── websocket.py
     │   ├── models
     │   │   ├── __init__.py
-    │   │   ├── e5_embeddings.py
-    │   │   └── gemma_3_4b.py
+    │   │   ├── embedding_model.py
+    │   │   └── text_generation_model.py
     │   ├── router
     │   │   ├── __init__.py
     │   │   ├── v1
