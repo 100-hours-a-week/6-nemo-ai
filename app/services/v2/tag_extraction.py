@@ -94,19 +94,28 @@ async def extract_tags(text: str) -> list[str]:
             # Limit to 3-5 tags as specified in prompt
             tags = tags[:5]
 
-        ai_logger.info("[AI-v2] [태그 추출 완료]", extra={"tag_count": len(tags)})
+        # Strip periods from all tags
+        cleaned_tags = []
+        for tag in tags:
+            if isinstance(tag, str):
+                # Remove trailing periods and whitespace
+                cleaned_tag = tag.rstrip('. \n\r\t')
+                if cleaned_tag:  # Only add non-empty tags
+                    cleaned_tags.append(cleaned_tag)
+
+        ai_logger.info("[AI-v2] [태그 추출 완료]", extra={"tag_count": len(cleaned_tags)})
         
         # Validate tags and provide fallback if needed
-        if not tags or len(tags) == 0:
+        if not cleaned_tags or len(cleaned_tags) == 0:
             ai_logger.warning("[AI-v2] [태그 추출 실패] 폴백 태그 사용")
             return _get_fallback_tags(text)
         
         # Ensure we have 3-5 tags as required
-        if len(tags) < 3:
+        if len(cleaned_tags) < 3:
             fallback_tags = _get_fallback_tags(text)
-            tags.extend(fallback_tags[:5-len(tags)])
+            cleaned_tags.extend(fallback_tags[:5-len(cleaned_tags)])
         
-        return tags[:5]  # Limit to max 5 tags
+        return cleaned_tags[:5]  # Limit to max 5 tags
 
     except Exception as e:
         ai_logger.exception("[AI-v2] [로컬모델 태그 추출 실패]")

@@ -21,8 +21,17 @@ async def extract_tags(text: str) -> list[str]:
             ai_logger.info("[AI] [JSON 파싱 실패] 태그 정규식으로 대체 처리", extra={"raw_preview": raw[:80]})
             tags = re.findall(r'"(.*?)"', raw)
 
-        ai_logger.info("[AI] [태그 추출 완료]", extra={"tag_count": len(tags)})
-        return tags
+        # Strip periods from all tags
+        cleaned_tags = []
+        for tag in tags:
+            if isinstance(tag, str):
+                # Remove trailing periods and whitespace
+                cleaned_tag = tag.rstrip('. \n\r\t')
+                if cleaned_tag:  # Only add non-empty tags
+                    cleaned_tags.append(cleaned_tag)
+        
+        ai_logger.info("[AI] [태그 추출 완료]", extra={"tag_count": len(cleaned_tags)})
+        return cleaned_tags
 
     except Exception as e:
         ai_logger.exception("[AI] [Vertex Gemini 태그 추출 실패]")
