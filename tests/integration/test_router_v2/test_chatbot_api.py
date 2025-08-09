@@ -69,7 +69,7 @@ class TestChatbotHTTPAPI:
             "answer": None  # First question
         }
         
-        with patch('app.models.gemma_3_4b.call_vllm_api') as mock_call_vllm:
+        with patch('app.models.text_generation_model.call_vllm_api') as mock_call_vllm:
             # Mock the vLLM API response
             mock_call_vllm.return_value = '''{"question": "어떤 분야의 모임을 찾고 계신가요?", "options": ["개발/IT", "요리", "운동", "독서"]}'''
             
@@ -96,7 +96,7 @@ class TestChatbotHTTPAPI:
             "answer": "개발/IT"
         }
         
-        with patch('app.models.gemma_3_4b.call_vllm_api') as mock_call_vllm:
+        with patch('app.models.text_generation_model.call_vllm_api') as mock_call_vllm:
             mock_call_vllm.return_value = '''{"question": "어떤 개발 언어에 관심이 있으신가요?", "options": ["Python", "JavaScript", "Java", "기타"]}'''
             
             response = client.post(
@@ -167,7 +167,7 @@ class TestChatbotHTTPAPI:
             with patch('app.database.vector_searcher.get_user_joined_group_ids') as mock_joined:
                 mock_joined.return_value = set()
                 
-                with patch('app.models.gemma_3_4b.call_vllm_api') as mock_call_vllm:
+                with patch('app.models.text_generation_model.call_vllm_api') as mock_call_vllm:
                     mock_call_vllm.return_value = "Python 개발 스터디 그룹으로 초보자부터 고급자까지 모두 환영합니다."
                     
                     response = client.post(
@@ -208,7 +208,7 @@ class TestChatbotHTTPAPI:
             with patch('app.database.vector_searcher.get_user_joined_group_ids') as mock_joined:
                 mock_joined.return_value = set()
                 
-                with patch('app.models.gemma_3_4b.call_vllm_api') as mock_call_vllm:
+                with patch('app.models.text_generation_model.call_vllm_api') as mock_call_vllm:
                     mock_call_vllm.return_value = "한식 요리 모임으로 전통 요리를 배울 수 있습니다."
                     
                     response = client.post(
@@ -243,7 +243,7 @@ class TestChatbotHTTPAPI:
             "answer": None
         }
         
-        with patch('app.models.gemma_3_4b.call_vllm_api') as mock_call_vllm:
+        with patch('app.models.text_generation_model.call_vllm_api') as mock_call_vllm:
             mock_call_vllm.return_value = '''{"question": "테스트 질문", "options": ["옵션1", "옵션2"]}'''
             
             response = client.post(
@@ -263,7 +263,7 @@ class TestChatbotHTTPAPI:
             "answer": None
         }
         
-        with patch('app.models.gemma_3_4b.call_vllm_api') as mock_call_vllm:
+        with patch('app.models.text_generation_model.call_vllm_api') as mock_call_vllm:
             # Simulate service error
             mock_call_vllm.side_effect = Exception("Service error")
             
@@ -394,7 +394,7 @@ class TestChatbotAPIIntegration:
             "answer": "개발/IT"
         }
         
-        with patch('app.models.gemma_3_4b.call_vllm_api') as mock_vllm_2:
+        with patch('app.models.text_generation_model.call_vllm_api') as mock_vllm_2:
             mock_vllm_2.return_value = '''{"question": "어떤 개발 언어에 관심이 있으신가요?", "options": ["Python", "JavaScript", "Java"]}'''
             
             response2 = client.post(
@@ -426,7 +426,7 @@ class TestChatbotAPIIntegration:
             with patch('app.database.vector_searcher.get_user_joined_group_ids') as mock_joined:
                 mock_joined.return_value = set()
                 
-                with patch('app.models.gemma_3_4b.call_vllm_api') as mock_vllm_3:
+                with patch('app.models.text_generation_model.call_vllm_api') as mock_vllm_3:
                     mock_vllm_3.return_value = "Python 개발 스터디 그룹을 추천합니다."
                     
                     response3 = client.post(
