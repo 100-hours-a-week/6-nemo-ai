@@ -55,12 +55,12 @@ async def build_synthetic_documents(
             raise ValueError("empty response")
         except Exception as e:
             ai_logger.warning(
-                "[synthetic] 문서 생성 실패, 재시도",
+                "synthetic: 문서 생성 실패, 재시도",
                 extra={"attempt": attempt + 1, "error": str(e), "groupId": group_id}
             )
             if attempt >= max_retries:
                 ai_logger.error(
-                    "[synthetic] 재시도 후 실패",
+                    "synthetic: 재시도 후 실패",
                     extra={"groupId": group_id, "error": str(e)}
                 )
                 raise

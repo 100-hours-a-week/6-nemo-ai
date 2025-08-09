@@ -42,7 +42,7 @@ async def start_health_monitoring():
     global _health_check_task
     if _health_check_task is None or _health_check_task.done():
         _health_check_task = asyncio.create_task(vllm_manager.periodic_health_check())
-        ai_logger.info("[vLLM Manager] 건강 상태 모니터링 시작")
+        ai_logger.info("vLLM Manager: 건강 상태 모니터링 시작")
 
 
 async def get_vllm_health_metrics():
@@ -108,7 +108,7 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         max_empty_retries = 2
 
         while (not generated or (isinstance(generated, str) and generated.strip() == "")) and retry_count < max_empty_retries:
-            ai_logger.warning(f"[vLLM] 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
+            ai_logger.warning(f"vLLM: 응답이 비어 있습니다. 재시도 {retry_count + 1}/{max_empty_retries}")
             retry_count += 1
             await asyncio.sleep(1.0)  # Wait before retry
 
@@ -119,17 +119,17 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
                     timeout=VLLM_TIMEOUT + 10.0
                 )
             except Exception as e:
-                ai_logger.warning(f"[vLLM] 재시도 중 오류: {e}")
+                ai_logger.warning(f"vLLM: 재시도 중 오류: {e}")
                 break
 
         if (not generated or (isinstance(generated, str) and generated.strip() == "")):
-            ai_logger.warning("[vLLM] 모든 재시도 후에도 응답이 비어 있습니다.")
+            ai_logger.warning("vLLM: 모든 재시도 후에도 응답이 비어 있습니다.")
             return await _get_fallback_response(prompt)
 
         if isinstance(generated, list):
-            ai_logger.info("[vLLM] 배치 응답 수신 성공", extra={"count": len(generated)})
+            ai_logger.info("vLLM: 배치 응답 수신 성공", extra={"count": len(generated)})
         else:
-            ai_logger.info("[vLLM] 응답 수신 성공", extra={
+            ai_logger.info("vLLM: 응답 수신 성공", extra={
                 "length": len(generated),
                 "preview": generated[:100]
             })
@@ -137,7 +137,7 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
         return generated
 
     except Exception as e:
-        ai_logger.error("[vLLM] 응답 실패", extra={
+        ai_logger.error("vLLM: 응답 실패", extra={
             "error": str(e),
             "prompt_preview": str(prompt)[:100] if prompt else "None",
             "is_recommendation_prompt": "설명을 작성하세요" in str(prompt) if isinstance(prompt, str) else False
@@ -184,13 +184,13 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
                     # Check for overall stream timeout
                     if current_time - start_time > VLLM_STREAM_TIMEOUT:
                         ai_logger.warning(
-                            f"[vLLM 스트리밍] 전체 타임아웃 초과 ({VLLM_STREAM_TIMEOUT}초)"
+                            f"vLLM 스트리밍: 전체 타임아웃 초과 ({VLLM_STREAM_TIMEOUT}초)"
                         )
                         break
 
                     # Check for token timeout (no new tokens for 30 seconds)
                     if current_time - last_token_time > 30:
-                        ai_logger.warning("[vLLM 스트리밍] 토큰 수신 타임아웃 (30초 무응답)")
+                        ai_logger.warning("vLLM 스트리밍: 토큰 수신 타임아웃 (30초 무응답)")
                         break
 
                     if line.startswith("data:"):
@@ -208,15 +208,15 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
                                 yield token
                         except Exception as e:
                             ai_logger.warning(
-                                "[vLLM 스트리밍 파싱 실패]",
+                                "vLLM 스트리밍 파싱 실패",
                                 extra={"line": line[:100], "error": str(e)},
                             )
 
-                ai_logger.info(f"[vLLM 스트리밍] 완료 - 토큰 수: {token_count}, 소요 시간: {current_time - start_time:.2f}초")
+                ai_logger.info(f"vLLM 스트리밍: 완료 - 토큰 수: {token_count}, 소요 시간: {current_time - start_time:.2f}초")
 
     # Check circuit breaker before starting stream
     if not await vllm_manager.circuit_breaker.is_request_allowed():
-        ai_logger.warning("[vLLM 스트리밍] 회로 차단기가 OPEN 상태, 대체 응답 사용")
+        ai_logger.warning("vLLM 스트리밍: 회로 차단기가 OPEN 상태, 대체 응답 사용")
         fallback_text = "죄송합니다. 일시적인 오류로 응답을 생성할 수 없습니다."
         for char in fallback_text:
             yield char
@@ -253,13 +253,13 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
                 if retry_count < max_retries and not token_yielded:
                     retry_count += 1
                     delay = 2 ** (retry_count - 1)  # 1s, 2s delays
-                    ai_logger.warning(f"[vLLM 스트리밍] 재시도 {retry_count}/{max_retries} - {delay}초 후 재시도: {e}")
+                    ai_logger.warning(f"vLLM 스트리밍: 재시도 {retry_count}/{max_retries} - {delay}초 후 재시도: {e}")
                     await asyncio.sleep(delay)
                 else:
                     raise e
 
     except Exception as e:
-        ai_logger.error("[vLLM 스트리밍] 요청 실패", extra={"error": str(e)})
+        ai_logger.error("vLLM 스트리밍: 요청 실패", extra={"error": str(e)})
         await vllm_manager.circuit_breaker.record_failure()
         vllm_manager.health_monitor.record_failure()
 
@@ -282,22 +282,22 @@ async def _get_fallback_response(prompt: Union[str, List[str]]) -> Union[str, Li
             "선택지" in prompt):
             # This is likely a question generation request
             fallback_text = '{"question": "모임에 참여할 때 어떤 점을 가장 중요하게 생각하시나요?", "options": ["분위기", "활동 내용", "참여자", "일정"]}'
-            ai_logger.info("[vLLM Fallback] 질문 생성 fallback 사용")
+            ai_logger.info("vLLM Fallback: 질문 생성 fallback 사용")
         elif ("설명을 작성하세요" in prompt or 
               "추천" in prompt or 
               "이유" in prompt or
               "적합한" in prompt):
             # This is likely a recommendation explanation request
             fallback_text = "이 모임은 당신의 대화 내용과 잘 어울리는 것 같아서 추천드려요. 새로운 사람들과 함께 즐거운 시간을 보내실 수 있을 거예요!"
-            ai_logger.info("[vLLM Fallback] 추천 설명 fallback 사용")
+            ai_logger.info("vLLM Fallback: 추천 설명 fallback 사용")
         else:
             # Default to recommendation explanation
             fallback_text = "이 모임은 당신의 관심사와 잘 맞는 것 같아요. 참여해보시면 좋은 경험이 될 것 같습니다!"
-            ai_logger.info("[vLLM Fallback] 기본 추천 설명 fallback 사용")
+            ai_logger.info("vLLM Fallback: 기본 추천 설명 fallback 사용")
     else:
         # For list prompts, default to question format
         fallback_text = '{"question": "모임에 참여할 때 어떤 점을 가장 중요하게 생각하시나요?", "options": ["분위기", "활동 내용", "참여자", "일정"]}'
-        ai_logger.info("[vLLM Fallback] 배치 질문 생성 fallback 사용")
+        ai_logger.info("vLLM Fallback: 배치 질문 생성 fallback 사용")
 
     if isinstance(prompt, list):
         return [fallback_text for _ in prompt]

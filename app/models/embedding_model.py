@@ -12,7 +12,7 @@ class E5EmbeddingFunction(EmbeddingFunction):
         self._model_name = model_name
         self.device = "cpu"
         self.model = _MODEL
-        ai_logger.info(f"[AI] [임베딩 모델 로드 완료]: {model_name} ({self.device})")
+        ai_logger.info(f"임베딩 모델 로드 완료: {model_name} ({self.device})")
 
     def __call__(self, input: Union[List[str], str]) -> List[List[float]]:
         if isinstance(input, str):
@@ -21,7 +21,7 @@ class E5EmbeddingFunction(EmbeddingFunction):
             raise ValueError("입력은 문자열 또는 문자열 리스트여야 합니다.")
 
         try:
-            ai_logger.info("[AI] [임베딩 요청]", extra={"input_count": len(input)})
+            ai_logger.info("임베딩 요청", extra={"input_count": len(input)})
 
             # E5 models benefit from query prefixes for better performance
             # For general text embedding, we can use "passage: " prefix
@@ -30,15 +30,15 @@ class E5EmbeddingFunction(EmbeddingFunction):
             vectors = self.model.encode(prefixed_input, convert_to_numpy=True).tolist()
 
             if len(vectors) != len(input):
-                ai_logger.warning("[AI] [임베딩 수 불일치]", extra={
+                ai_logger.warning("임베딩 수 불일치", extra={
                     "input_count": len(input), "output_count": len(vectors)
                 })
 
-            ai_logger.info("[AI] [임베딩 완료]", extra={"vector_dim": len(vectors[0]) if vectors else 0})
+            ai_logger.info("임베딩 완료", extra={"vector_dim": len(vectors[0]) if vectors else 0})
             return vectors
 
         except Exception:
-            ai_logger.exception("[AI] [임베딩 실패]")
+            ai_logger.exception("임베딩 실패")
             return []
 
     def name(self) -> str:

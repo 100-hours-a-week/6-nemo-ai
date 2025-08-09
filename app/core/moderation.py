@@ -26,13 +26,13 @@ def get_harmfulness_scores_korean(text: str) -> dict:
         "requestedAttributes": REQUESTED_ATTRIBUTES
     }
 
-    ai_logger.info("[AI] [Moderation 시작] Perspective API 요청", extra={"text_length": len(text)})
+    ai_logger.info("Moderation 시작: Perspective API 요청", extra={"text_length": len(text)})
     start_time = datetime.now(UTC)
 
     response = requests.post(PERSPECTIVE_API_URL, json=payload)
 
     if response.status_code != 200:
-        ai_logger.error("[AI] [Moderation 실패] 응답 코드 오류", extra={"status_code": response.status_code})
+        ai_logger.error("Moderation 실패: 응답 코드 오류", extra={"status_code": response.status_code})
         raise Exception(f"Perspective API 오류: {response.status_code} - {response.text}")
 
     try:
@@ -42,20 +42,20 @@ def get_harmfulness_scores_korean(text: str) -> dict:
         }
 
         latency_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
-        ai_logger.info("[AI] [Moderation 성공] 유해성 점수 파싱 완료", extra={
+        ai_logger.info("Moderation 성공: 유해성 점수 파싱 완료", extra={
             "latency_ms": latency_ms,
             "scores": result
         })
         return result
 
     except KeyError:
-        ai_logger.error("[AI] [Moderation 파싱 실패] 응답 키 누락", exc_info=True)
+        ai_logger.error("Moderation 파싱 실패: 응답 키 누락", exc_info=True)
         raise
 
 def is_request_valid(scores: dict, threshold: float = THRESHOLD) -> bool:
     max_attr, max_score = max(scores.items(), key=lambda x: x[1])
     if max_score >= threshold:
-        ai_logger.warning("[AI] [Moderation 평가] 유해성 기준 초과", extra={
+        ai_logger.warning("Moderation 평가: 유해성 기준 초과", extra={
             "attribute": max_attr,
             "score": round(max_score, 3),
             "threshold": threshold
@@ -70,7 +70,7 @@ async def analyze_queued(text: str) -> dict:
         try:
             return get_harmfulness_scores_korean(text)
         except Exception as e:
-            ai_logger.warning("[AI] [Moderation fallback] 기본 점수 반환", extra={"error": str(e)})
+            ai_logger.warning("Moderation fallback: 기본 점수 반환", extra={"error": str(e)})
             return {
                 "TOXICITY": 0.0,
                 "INSULT": 0.0,

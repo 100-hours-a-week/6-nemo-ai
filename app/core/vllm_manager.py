@@ -47,7 +47,7 @@ class CircuitBreaker:
                 if (time.time() - self.last_failure_time) >= self.config.recovery_timeout:
                     self.state = CircuitBreakerState.HALF_OPEN
                     self.success_count = 0
-                    ai_logger.info("[Circuit Breaker] 상태 변경: OPEN -> HALF_OPEN")
+                    ai_logger.info("Circuit Breaker 상태 변경: OPEN -> HALF_OPEN")
                     return True
                 return False
             else:  # HALF_OPEN
@@ -60,7 +60,7 @@ class CircuitBreaker:
                 if self.success_count >= self.config.success_threshold:
                     self.state = CircuitBreakerState.CLOSED
                     self.failure_count = 0
-                    ai_logger.info("[Circuit Breaker] 상태 변경: HALF_OPEN -> CLOSED")
+                    ai_logger.info("Circuit Breaker 상태 변경: HALF_OPEN -> CLOSED")
             elif self.state == CircuitBreakerState.CLOSED:
                 self.failure_count = 0
 
@@ -72,10 +72,10 @@ class CircuitBreaker:
             if (self.state == CircuitBreakerState.CLOSED and 
                 self.failure_count >= self.config.failure_threshold):
                 self.state = CircuitBreakerState.OPEN
-                ai_logger.warning(f"[Circuit Breaker] 상태 변경: CLOSED -> OPEN (failures: {self.failure_count})")
+                ai_logger.warning(f"Circuit Breaker 상태 변경: CLOSED -> OPEN (failures: {self.failure_count})")
             elif self.state == CircuitBreakerState.HALF_OPEN:
                 self.state = CircuitBreakerState.OPEN
-                ai_logger.warning("[Circuit Breaker] 상태 변경: HALF_OPEN -> OPEN")
+                ai_logger.warning("Circuit Breaker 상태 변경: HALF_OPEN -> OPEN")
 
 
 class VLLMHealthMonitor:
@@ -126,7 +126,7 @@ class VLLMHealthMonitor:
         try:
             # Skip health check if URL is not properly configured
             if not vllm_url or vllm_url.strip() == "":
-                ai_logger.debug("[Health Check] vLLM URL이 설정되지 않았습니다.")
+                ai_logger.debug("Health Check: vLLM URL이 설정되지 않았습니다.")
                 self.is_healthy = False
                 self.last_health_check = time.time()
                 return False
@@ -147,23 +147,23 @@ class VLLMHealthMonitor:
                         if response.status_code in [200, 404]:  # 404 is also OK, means server is responding
                             self.is_healthy = True
                             self.last_health_check = time.time()
-                            ai_logger.debug(f"[Health Check] vLLM 응답 확인됨: {health_url} (status: {response.status_code})")
+                            ai_logger.debug(f"Health Check: vLLM 응답 확인됨: {health_url} (status: {response.status_code})")
                             return True
                 except httpx.TimeoutException:
-                    ai_logger.debug(f"[Health Check] 타임아웃: {health_url}")
+                    ai_logger.debug(f"Health Check: 타임아웃: {health_url}")
                     continue
                 except Exception as e:
-                    ai_logger.debug(f"[Health Check] 실패: {health_url} - {e}")
+                    ai_logger.debug(f"Health Check: 실패: {health_url} - {e}")
                     continue
 
             # All endpoints failed
             self.is_healthy = False
             self.last_health_check = time.time()
-            ai_logger.debug(f"[Health Check] 모든 엔드포인트 실패: {vllm_url}")
+            ai_logger.debug(f"Health Check: 모든 엔드포인트 실패: {vllm_url}")
             return False
 
         except Exception as e:
-            ai_logger.debug(f"[Health Check] 예외 발생: {e}")
+            ai_logger.debug(f"Health Check: 예외 발생: {e}")
             self.is_healthy = False
             self.last_health_check = time.time()
             return False
@@ -180,7 +180,7 @@ class VLLMManager:
     async def execute_with_retry(self, operation, *args, **kwargs):
         """Execute operation with retry logic and circuit breaker"""
         if not await self.circuit_breaker.is_request_allowed():
-            ai_logger.warning("[vLLM Manager] 회로 차단기가 OPEN 상태, 요청 거부")
+            ai_logger.warning("vLLM Manager: 회로 차단기가 OPEN 상태, 요청 거부")
             raise RuntimeError("vLLM 서비스가 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.")
 
         last_exception = None
@@ -195,7 +195,7 @@ class VLLMManager:
                 self.health_monitor.record_success(response_time)
 
                 if attempt > 0:
-                    ai_logger.info(f"[vLLM Manager] 재시도 성공 (attempt {attempt + 1})")
+                    ai_logger.info(f"vLLM Manager: 재시도 성공 (attempt {attempt + 1})")
 
                 return result
 
@@ -210,11 +210,11 @@ class VLLMManager:
                         self.retry_config.max_delay
                     )
                     ai_logger.warning(
-                        f"[vLLM Manager] 요청 실패 (attempt {attempt + 1}), {delay}초 후 재시도: {e}"
+                        f"vLLM Manager: 요청 실패 (attempt {attempt + 1}), {delay}초 후 재시도: {e}"
                     )
                     await asyncio.sleep(delay)
                 else:
-                    ai_logger.error(f"[vLLM Manager] 모든 재시도 실패: {e}")
+                    ai_logger.error(f"vLLM Manager: 모든 재시도 실패: {e}")
 
             except httpx.HTTPStatusError as e:
                 await self.circuit_breaker.record_failure()
@@ -226,18 +226,18 @@ class VLLMManager:
                         self.retry_config.max_delay
                     )
                     ai_logger.warning(
-                        f"[vLLM Manager] 서버 오류 (status: {e.response.status_code}), {delay}초 후 재시도"
+                        f"vLLM Manager: 서버 오류 (status: {e.response.status_code}), {delay}초 후 재시도"
                     )
                     await asyncio.sleep(delay)
                     last_exception = e
                 else:
-                    ai_logger.error(f"[vLLM Manager] HTTP 오류: {e.response.status_code}")
+                    ai_logger.error(f"vLLM Manager: HTTP 오류: {e.response.status_code}")
                     raise e
 
             except Exception as e:
                 await self.circuit_breaker.record_failure()
                 self.health_monitor.record_failure()
-                ai_logger.error(f"[vLLM Manager] 예상치 못한 오류: {e}")
+                ai_logger.error(f"vLLM Manager: 예상치 못한 오류: {e}")
                 raise e
 
         # All retries failed
@@ -269,5 +269,5 @@ class VLLMManager:
                 await self.health_monitor.health_check(self.vllm_url)
                 await asyncio.sleep(300)  # Check every 5 minutes instead of 30 seconds
             except Exception as e:
-                ai_logger.error(f"[Health Check] 정기 건강 상태 확인 중 오류: {e}")
+                ai_logger.error(f"Health Check: 정기 건강 상태 확인 중 오류: {e}")
                 await asyncio.sleep(600)  # Wait 10 minutes on error

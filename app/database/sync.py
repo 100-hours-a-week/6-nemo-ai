@@ -4,6 +4,9 @@ from app.database.group_document_builder import build_group_document
 from app.database.synthetic_document_builder import build_synthetic_documents
 from app.database.vector_indexer import add_documents_to_vector_db
 from app.config import HOST, PORT, DB_USER, PASSWORD, DATABASE
+from app.core.ai_logger import get_ai_logger
+
+ai_logger = get_ai_logger()
 
 def fetch_data_from_mysql():
     conn = pymysql.connect(
@@ -57,7 +60,7 @@ def sync_user_documents(user_participation):
         try:
             user_docs.extend(build_user_document(str(row["user_id"]), str(row["group_id"])))
         except Exception as e:
-            print(f"❌ 유저 문서 생성 실패: {row} - {e}")
+            ai_logger.error(f"유저 문서 생성 실패: {row} - {e}")
     add_documents_to_vector_db(user_docs, collection="user-activity")
 
 
@@ -75,9 +78,9 @@ async def sync_group_documents(group_infos):
                 syn = await build_synthetic_documents(group)
                 synthetic_docs.extend(syn)
             except Exception as se:
-                print(f"synthetic 문서 생성 실패: {group['groupId']} - {se}")
+                ai_logger.error(f"synthetic 문서 생성 실패: {group['groupId']} - {se}")
         except Exception as e:
-            print(f"그룹 문서 생성 실패: {group.get('id')} - {e}")
+            ai_logger.error(f"그룹 문서 생성 실패: {group.get('id')} - {e}")
 
     add_documents_to_vector_db(group_docs, collection="group-info")
     if synthetic_docs:
@@ -85,13 +88,13 @@ async def sync_group_documents(group_infos):
 
 
 if __name__ == "__main__":
-    print("📦 MySQL에서 데이터 불러오는 중...")
+    ai_logger.info("MySQL에서 데이터 불러오는 중...")
     user_participation, group_infos = fetch_data_from_mysql()
     #
-    # print(f"👥 유저 참여 문서: {len(user_participation)}건")
+    # ai_logger.info(f"유저 참여 문서: {len(user_participation)}건")
     # sync_user_documents(user_participation)
     #
-    # print(f"📘 그룹 문서: {len(group_infos)}건")
+    # ai_logger.info(f"그룹 문서: {len(group_infos)}건")
     # sync_group_documents(group_infos)
 
-    print("✅ ChromaDB 동기화 완료")
+    ai_logger.info("ChromaDB 동기화 완료")

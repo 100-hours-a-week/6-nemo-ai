@@ -46,11 +46,11 @@ class VectorBasedCategoryDiscovery:
             # Cluster similar categories
             category_clusters = self._cluster_similar_categories(categories_list)
 
-            logger.info(f"[AI] Discovered {len(category_clusters)} category clusters from {len(categories)} categories")
+            logger.info(f"Discovered {len(category_clusters)} category clusters from {len(categories)} categories")
             return category_clusters
 
         except Exception as e:
-            logger.warning(f"[AI] Failed to discover categories: {str(e)}")
+            logger.warning(f"Failed to discover categories: {str(e)}")
             return {}
 
     def _cluster_similar_categories(self, categories: List[str]) -> Dict[str, List[str]]:
@@ -106,7 +106,7 @@ class VectorBasedCategoryDiscovery:
             return category_scores[:3]  # Return top 3 matches
 
         except Exception as e:
-            logger.warning(f"[AI] Failed to infer categories for query '{query}': {str(e)}")
+            logger.warning(f"Failed to infer categories for query '{query}': {str(e)}")
             return []
 
 class SemanticBooster:
@@ -160,10 +160,10 @@ class SemanticBooster:
                 self.term_embeddings[term] = np.array(embedding)
 
             self._build_similarity_clusters(terms)
-            logger.info(f"[AI] Built semantic relationships for {len(terms)} terms")
+            logger.info(f"Built semantic relationships for {len(terms)} terms")
 
         except Exception as e:
-            logger.warning(f"[AI] Failed to generate term embeddings: {str(e)}")
+            logger.warning(f"Failed to generate term embeddings: {str(e)}")
 
     def _build_similarity_clusters(self, terms: List[str]) -> None:
         """Build clusters of semantically similar terms"""
@@ -202,7 +202,7 @@ class SemanticBooster:
             return related_terms
 
         except Exception as e:
-            logger.warning(f"[AI] Failed to get related terms: {str(e)}")
+            logger.warning(f"Failed to get related terms: {str(e)}")
             return {}
 
 # Global instances
@@ -218,9 +218,9 @@ def get_user_joined_group_ids(user_id: str) -> Set[str]:
         # Log database statistics
         try:
             count_result = col.count()
-            logger.info(f"[AI] User collection 문서 수: {count_result}")
+            logger.info(f"User collection 문서 수: {count_result}")
         except Exception as e:
-            logger.warning(f"[AI] Failed to get collection count: {str(e)}")
+            logger.warning(f"Failed to get collection count: {str(e)}")
 
         # Convert user_id to string first, then create variations
         user_id_str = str(user_id)
@@ -250,14 +250,14 @@ def get_user_joined_group_ids(user_id: str) -> Set[str]:
         joined_groups.discard('')
         joined_groups.discard(None)
 
-        logger.info(f"[AI] User {user_id} 가입한 모임 수: {len(joined_groups)}")
+        logger.info(f"User {user_id} 가입한 모임 수: {len(joined_groups)}")
         if joined_groups:
-            logger.debug(f"[AI] 가입한 모임 ID들: {list(joined_groups)[:5]}{'...' if len(joined_groups) > 5 else ''}")
+            logger.debug(f"가입한 모임 ID들: {list(joined_groups)[:5]}{'...' if len(joined_groups) > 5 else ''}")
             
         return joined_groups
 
     except Exception as e:
-        logger.warning(f"[AI] Failed to get user joined groups: {str(e)}")
+        logger.warning(f"Failed to get user joined groups: {str(e)}")
         return set()
 
 def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -269,15 +269,15 @@ def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[st
         # 데이터베이스 통계
         try:
             count_result = col.count()
-            logger.info(f"[AI] 총 모임 데이터베이스 문서 수: {count_result}")
+            logger.info(f"총 모임 데이터베이스 문서 수: {count_result}")
         except Exception as e:
-            logger.warning(f"[AI] Failed to get collection count: {str(e)}")
+            logger.warning(f"Failed to get collection count: {str(e)}")
         
         # 사용자 가입 모임 가져오기
         joined_ids = set()
         if user_id:
             joined_ids = get_user_joined_group_ids(user_id)
-            logger.info(f"[AI] 사용자 {user_id}의 가입 모임 수: {len(joined_ids)}")
+            logger.info(f"사용자 {user_id}의 가입 모임 수: {len(joined_ids)}")
         
         # 모든 모임 가져오기
         result = col.get(include=["documents", "metadatas"])
@@ -285,10 +285,10 @@ def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[st
         metadatas = result.get("metadatas", [])
         
         if not documents:
-            logger.warning(f"[AI] 데이터베이스에 모임이 없습니다. 문서 수: {len(documents)}, 메타데이터 수: {len(metadatas)}")
+            logger.warning(f"데이터베이스에 모임이 없습니다. 문서 수: {len(documents)}, 메타데이터 수: {len(metadatas)}")
             return None
         
-        logger.info(f"[AI] 검색된 총 모임 수: {len(documents)}")
+        logger.info(f"검색된 총 모임 수: {len(documents)}")
         
         # 가입하지 않은 모임 필터링
         available_groups = []
@@ -298,10 +298,10 @@ def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[st
                 continue
             available_groups.append({"text": doc, "metadata": meta})
         
-        logger.info(f"[AI] 사용자가 가입하지 않은 사용 가능한 모임 수: {len(available_groups)}")
+        logger.info(f"사용자가 가입하지 않은 사용 가능한 모임 수: {len(available_groups)}")
         
         if not available_groups:
-            logger.warning(f"[AI] 사용자가 가입할 수 있는 모임이 없습니다. 총 모임: {len(documents)}, 가입한 모임: {len(joined_ids)}")
+            logger.warning(f"사용자가 가입할 수 있는 모임이 없습니다. 총 모임: {len(documents)}, 가입한 모임: {len(joined_ids)}")
             return None
         
         # 랜덤 선택
@@ -310,15 +310,15 @@ def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[st
         
         # 샘플 모임들 로그 (디버깅용)
         sample_groups = available_groups[:3]
-        logger.debug(f"[AI] 사용 가능한 모임 샘플 (총 {len(available_groups)}개 중 3개):")
+        logger.debug(f"사용 가능한 모임 샘플 (총 {len(available_groups)}개 중 3개):")
         for i, group in enumerate(sample_groups):
             group_id = group["metadata"].get("groupId", "N/A")
             category = group["metadata"].get("category", "N/A")
-            logger.debug(f"[AI]   {i+1}. 모임 {group_id} - {category}")
+            logger.debug(f"  {i+1}. 모임 {group_id} - {category}")
         
         selected_id = selected_group["metadata"].get("groupId", "N/A")
         selected_category = selected_group["metadata"].get("category", "N/A")
-        logger.info(f"[AI] 랜덤 선택된 모임: ID {selected_id}, 카테고리: {selected_category}")
+        logger.info(f"랜덤 선택된 모임: ID {selected_id}, 카테고리: {selected_category}")
         
         return {
             "id": selected_group["metadata"].get("id"),
@@ -329,7 +329,7 @@ def get_random_group_for_user(user_id: Optional[str] = None) -> Optional[Dict[st
         }
         
     except Exception as e:
-        logger.exception(f"[AI] 랜덤 모임 선택 중 오류 발생: {str(e)}")
+        logger.exception(f"랜덤 모임 선택 중 오류 발생: {str(e)}")
         return None
 
 def search_similar_documents(
@@ -355,7 +355,7 @@ def search_similar_documents(
 
         # Infer categories from query using vector similarity
         category_matches = category_discovery.infer_query_categories(query)
-        logger.info(f"[AI] Query '{query}' matches categories: {[(cat, f'{score:.3f}') for cat, score in category_matches]}")
+        logger.info(f"Query '{query}' matches categories: {[(cat, f'{score:.3f}') for cat, score in category_matches]}")
 
         # Try category-specific search first
         category_results = []
@@ -363,7 +363,7 @@ def search_similar_documents(
             # Use the best matching category
             best_category, score = category_matches[0]
             if score > 0.5:  # Decent similarity threshold
-                logger.info(f"[AI] Searching in category: {best_category}")
+                logger.info(f"Searching in category: {best_category}")
                 category_where = {"category": best_category}
                 if where:
                     category_where.update(where)
@@ -374,7 +374,7 @@ def search_similar_documents(
 
         # If no good category results, do general search with semantic enhancement
         if not category_results:
-            logger.info(f"[AI] Performing enhanced general search")
+            logger.info(f"Performing enhanced general search")
 
             # Get semantically related terms
             related_terms = semantic_booster.get_related_terms(query, threshold=0.75)
@@ -386,7 +386,7 @@ def search_similar_documents(
                 enhancement = " ".join([term for term, score in top_related if score > 0.8])
                 if enhancement:
                     enhanced_query = f"{query} {enhancement}"
-                    logger.info(f"[AI] Enhanced query: '{enhanced_query}'")
+                    logger.info(f"Enhanced query: '{enhanced_query}'")
 
             category_results = _perform_vector_search(
                 col, enhanced_query, top_k * 3, where, joined_ids, user_id, related_terms
@@ -396,11 +396,11 @@ def search_similar_documents(
         category_results.sort(key=lambda x: x["score"], reverse=True)
         final_results = category_results[:top_k]
 
-        logger.info(f"[AI] Returning {len(final_results)} recommendations")
+        logger.info(f"Returning {len(final_results)} recommendations")
         return final_results
 
     except Exception as e:
-        logger.exception(f"[AI] Search failed: {str(e)}")
+        logger.exception(f"Search failed: {str(e)}")
         return []
 
 def _perform_vector_search(
@@ -440,7 +440,7 @@ def _perform_vector_search(
         if base_score < RECOMMENDATION_THRESHOLD:
             continue
         if user_id and group_id in joined_ids:
-            logger.debug(f"[AI] Excluding group {group_id} - user already joined")
+            logger.debug(f"Excluding group {group_id} - user already joined")
             continue
 
         # Calculate semantic boost if we have related terms
@@ -560,7 +560,7 @@ def keyword_search_documents(
         return results
 
     except Exception as e:
-        logger.exception(f"[AI] Keyword search failed: {str(e)}")
+        logger.exception(f"Keyword search failed: {str(e)}")
         return []
 
 def _bootstrap_learning(col) -> None:
@@ -577,10 +577,10 @@ def _bootstrap_learning(col) -> None:
             # Build semantic relationships
             semantic_booster.build_semantic_relationships(documents, metadatas)
 
-            logger.info(f"[AI] Bootstrapped learning from {len(documents)} documents")
+            logger.info(f"Bootstrapped learning from {len(documents)} documents")
 
     except Exception as e:
-        logger.warning(f"[AI] Bootstrap learning failed: {str(e)}")
+        logger.warning(f"Bootstrap learning failed: {str(e)}")
 
 def get_system_stats() -> Dict[str, Any]:
     """Get system statistics"""
@@ -593,7 +593,7 @@ def get_system_stats() -> Dict[str, Any]:
             "system_ready": bool(category_discovery.category_embeddings and semantic_booster.term_embeddings)
         }
     except Exception as e:
-        logger.warning(f"[AI] Failed to get stats: {str(e)}")
+        logger.warning(f"Failed to get stats: {str(e)}")
         return {"error": str(e)}
 
 # Convenience functions for backward compatibility

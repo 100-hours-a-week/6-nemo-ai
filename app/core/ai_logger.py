@@ -2,9 +2,9 @@ import logging
 import requests
 from app.config import WEBHOOK_URL, DISCORD_ENABLED, DISCORD_LOG_LEVEL
 from pathlib import Path
-# from google.cloud import logging as gcp_logging
-# from google.cloud.logging_v2.handlers import CloudLoggingHandler
-# from google.oauth2 import service_account
+import uvicorn.logging
+import sys
+from datetime import datetime
 
 DISCORD_WEBHOOK_URL = WEBHOOK_URL
 
@@ -15,27 +15,24 @@ def send_to_discord(message: str):
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json={"content": message})
         if response.status_code != 204:
-            print(f"[AI 로거] Discord 전송 실패: status={response.status_code}, response={response.text}")
+            # Use consistent format for Discord errors
+            ai_logger = get_ai_logger()
+            ai_logger.error(f"Discord 전송 실패: status={response.status_code}, response={response.text}")
     except Exception as e:
-        print(f"[AI 로거] Discord 예외 발생: {e}")
+        ai_logger = get_ai_logger()
+        ai_logger.error(f"Discord 예외 발생: {e}")
 
 class DiscordHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            # print("emit called")
             record_path = Path(record.pathname).resolve()
             src_root = Path(__file__).resolve().parent.parent  # → /.../src
 
-            # print("record path:", record_path)
-            # print("src root:", src_root)
-
             # src 내부에서 발생한 로그만 Discord로 전송
             if src_root not in record_path.parents:
-                # print("필터됨 (src 외 경로)")
                 return
 
             msg = self.format(record)
-            # print("메시지:", msg)
 
             # 필터링할 내용
             blocked_keywords = [
@@ -47,13 +44,29 @@ class DiscordHandler(logging.Handler):
                 "[Client Error]"
             ]
             if any(block in msg for block in blocked_keywords):
-                # print("필터됨 (내용 조건)")
                 return
 
-            # print("Discord 전송 시도 중...")
             send_to_discord(f"[AI LOG] {msg}")
         except Exception as e:
-            print(f"[emit 에러]: {e}")
+            # Use standard AI logger format for emit errors
+            ai_logger = get_ai_logger()
+            ai_logger.error(f"emit 에러: {e}")
+
+class AIFormatter(logging.Formatter):
+    """Custom formatter that ensures all logs follow [AI] timestamp LEVEL: message format"""
+    
+    def format(self, record):
+        # Create timestamp in consistent format
+        timestamp = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
+        
+        # Format: [AI] timestamp LEVEL: message
+        formatted_message = f"[AI] {timestamp} {record.levelname}: {record.getMessage()}"
+        
+        # Add exception info if present
+        if record.exc_info:
+            formatted_message += "\n" + self.formatException(record.exc_info)
+            
+        return formatted_message
 
 def get_ai_logger() -> logging.Logger:
     logger = logging.getLogger("ai")
@@ -62,7 +75,7 @@ def get_ai_logger() -> logging.Logger:
         # 콘솔 핸들러 (INFO 이상)
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.DEBUG) #Change to Debug if you want to see more logs in the console.
-        stream_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
+        stream_handler.setFormatter(AIFormatter())
         logger.addHandler(stream_handler)
 
         # Discord 핸들러 (동적 설정)
@@ -70,28 +83,60 @@ def get_ai_logger() -> logging.Logger:
             discord_handler = DiscordHandler()
             discord_level = getattr(logging, DISCORD_LOG_LEVEL, logging.WARNING)
             discord_handler.setLevel(discord_level)
-            discord_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
+            discord_handler.setFormatter(AIFormatter())
             logger.addHandler(discord_handler)
-            print(f"[AI 로거] Discord 핸들러 활성화됨 (레벨: {DISCORD_LOG_LEVEL})")
+            # Use standard format for Discord activation message
+            print(f"[AI] {datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO: Discord 핸들러 활성화됨 (레벨: {DISCORD_LOG_LEVEL})")
         else:
-            print("[AI 로거] Discord 핸들러 비활성화됨")
+            print(f"[AI] {datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} INFO: Discord 핸들러 비활성화됨")
 
         # 로거 기본 설정
         logger.setLevel(logging.DEBUG)
         logger.propagate = False
 
-        # GCP Cloud Logging (보존됨)
-        # try:
-        #     credentials = service_account.Credentials.from_service_account_file(CREDENTIAL_PATH)
-        #     client = gcp_logging.Client(credentials=credentials)
-        #     cloud_handler = CloudLoggingHandler(client)
-        #     cloud_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
-        #     logger.addHandler(cloud_handler)
-        #     print("[AI 로거] GCP Cloud Logging 연동 완료")
-        # except Exception as e:
-        #     print("[AI 로거] GCP Cloud Logging 연동 실패:", e)
-
     return logger
+
+def setup_uvicorn_logging():
+    """Configure uvicorn to keep its original format for server startup messages"""
+    # Keep uvicorn's original logging format for server startup messages
+    # We'll only standardize our application logs, not uvicorn's system messages
+    pass
+
+def setup_third_party_logging():
+    """Configure third-party libraries to use AI logger format or stay silent"""
+    # Libraries that should use AI format
+    ai_format_loggers = [
+        "telemetry",
+        "application"
+    ]
+    
+    # Libraries that should stay silent
+    silent_loggers = [
+        "chromadb",
+        "aiokafka", "aiokafka.consumer", "aiokafka.producer", "aiokafka.client",
+        "aiokafka.cluster", "aiokafka.coordinator", "aiokafka.coordinator.consumer",
+        "aiokafka.coordinator.group", "aiokafka.coordinator.assignors",
+        "aiokafka.protocol", "aiokafka.errors", "aiokafka.heartbeat",
+        "kafka", "kafka.cluster", "kafka.protocol", "kafka.consumer", 
+        "kafka.producer", "kafka.coordinator", "kafka.client", "kafka.errors",
+        "kafka.conn", "kafka.metrics"
+    ]
+    
+    # Apply AI format to specified loggers
+    for logger_name in ai_format_loggers:
+        logger = logging.getLogger(logger_name)
+        logger.handlers.clear()
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(AIFormatter())
+        logger.addHandler(console_handler)
+        logger.propagate = False
+    
+    # Silence specified loggers
+    for logger_name in silent_loggers:
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(logging.CRITICAL + 1)
+        logger.propagate = False
+        logger.disabled = True
 
 def toggle_discord_handler(enabled: bool = None) -> bool:
     """Discord 핸들러 동적 토글"""
@@ -109,18 +154,26 @@ def toggle_discord_handler(enabled: bool = None) -> bool:
         discord_handler = DiscordHandler()
         discord_level = getattr(logging, DISCORD_LOG_LEVEL, logging.WARNING)
         discord_handler.setLevel(discord_level)
-        discord_handler.setFormatter(logging.Formatter("[AI] %(asctime)s %(levelname)s: %(message)s"))
+        discord_handler.setFormatter(AIFormatter())
         logger.addHandler(discord_handler)
-        print(f"[AI 로거] Discord 핸들러 활성화됨 (레벨: {DISCORD_LOG_LEVEL})")
+        ai_logger = get_ai_logger()
+        ai_logger.info(f"Discord 핸들러 활성화됨 (레벨: {DISCORD_LOG_LEVEL})")
         return True
     elif not enabled and discord_handlers:
         # Discord 핸들러 제거
         for handler in discord_handlers:
             logger.removeHandler(handler)
-        print("[AI 로거] Discord 핸들러 비활성화됨")
+        ai_logger = get_ai_logger()
+        ai_logger.info("Discord 핸들러 비활성화됨")
         return False
     
     return len([h for h in logger.handlers if isinstance(h, DiscordHandler)]) > 0
+
+# Initialize all logging configurations
+def initialize_logging():
+    """Initialize all logging configurations consistently"""
+    setup_third_party_logging()
+    return get_ai_logger()
 
 if __name__ == "__main__":
     logger = get_ai_logger()

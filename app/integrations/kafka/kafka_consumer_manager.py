@@ -127,30 +127,30 @@ class KafkaConsumerManager:
                 
         except Exception as e:
             # For aiokafka 0.10.0, assume topic exists if we can't check reliably
-            logger.debug(f"[Kafka] Topic check failed for {topic}, assuming exists: {type(e).__name__}")
+            logger.debug(f"Topic check failed for {topic}, assuming exists: {type(e).__name__}")
             return True  # Fail-safe: assume topic exists
     
     async def start_consumers(self):
         """Start Kafka consumers with bulletproof error handling"""
         if not KAFKA_ENABLED:
-            logger.info("[Kafka] Kafka disabled in configuration")
+            logger.info("Kafka disabled in configuration")
             return
         
-        logger.info("[Kafka] Checking Kafka availability...")
+        logger.info("Checking Kafka availability...")
         
         # Test connection without any error output
         self.kafka_available = await self._test_kafka_connection()
         
         if not self.kafka_available:
-            logger.warning("[Kafka] Kafka cluster not available - running in standalone mode")
-            logger.info("[Kafka] Application will continue without async event processing")
+            logger.warning("Kafka cluster not available - running in standalone mode")
+            logger.info("Application will continue without async event processing")
             
             # Start background checker for when Kafka becomes available
             self.kafka_check_task = asyncio.create_task(self._background_kafka_checker())
             return
         
         # Kafka is available, start consumers
-        logger.info("[Kafka] Kafka cluster is available - starting consumers...")
+        logger.info("Kafka cluster is available - starting consumers...")
         await self._start_all_consumers()
     
     async def _background_kafka_checker(self):
@@ -160,7 +160,7 @@ class KafkaConsumerManager:
                 await asyncio.sleep(30)  # Check every 30 seconds
                 
                 if await self._test_kafka_connection():
-                    logger.info("[Kafka] Kafka cluster is now available! Starting consumers...")
+                    logger.info("Kafka cluster is now available! Starting consumers...")
                     self.kafka_available = True
                     await self._start_all_consumers()
                     break
@@ -181,7 +181,7 @@ class KafkaConsumerManager:
                 # Check if topic exists
                 topic_exists = await self._check_topic_exists(topic)
                 if not topic_exists:
-                    logger.warning(f"[Kafka] Mandatory topic {topic} does not exist")
+                    logger.warning(f"Mandatory topic {topic} does not exist")
                     failed_mandatory.append(topic)
                     continue
                 
@@ -189,10 +189,10 @@ class KafkaConsumerManager:
                 if consumer:
                     await self._start_consumer(consumer, consumer_func, topic)
                     active_consumers += 1
-                    logger.info(f"[Kafka] Started mandatory consumer for {topic}")
+                    logger.info(f"Started mandatory consumer for {topic}")
                     
             except Exception as e:
-                logger.error(f"[Kafka] Failed to start mandatory consumer for {topic}: {type(e).__name__}")
+                logger.error(f"Failed to start mandatory consumer for {topic}: {type(e).__name__}")
                 failed_mandatory.append(topic)
         
         # Start optional topic consumers
@@ -200,43 +200,43 @@ class KafkaConsumerManager:
             try:
                 topic_exists = await self._check_topic_exists(topic)
                 if not topic_exists:
-                    logger.info(f"[Kafka] Optional topic {topic} not available - skipping")
+                    logger.info(f"Optional topic {topic} not available - skipping")
                     continue
                 
                 consumer = await self._create_consumer(topic)
                 if consumer:
                     await self._start_consumer(consumer, consumer_func, topic)
                     active_consumers += 1
-                    logger.info(f"[Kafka] Started optional consumer for {topic}")
+                    logger.info(f"Started optional consumer for {topic}")
                     
             except Exception as e:
-                logger.debug(f"[Kafka] Could not start optional consumer for {topic}: {type(e).__name__}")
+                logger.debug(f"Could not start optional consumer for {topic}: {type(e).__name__}")
         
         # Start DLQ consumers (all optional)
         for topic, consumer_func in self.dlq_topics.items():
             try:
                 topic_exists = await self._check_topic_exists(topic)
                 if not topic_exists:
-                    logger.debug(f"[Kafka] DLQ topic {topic} not available - skipping")
+                    logger.debug(f"DLQ topic {topic} not available - skipping")
                     continue
                 
                 consumer = await self._create_consumer(topic, is_dlq=True)
                 if consumer:
                     await self._start_consumer(consumer, consumer_func, topic)
                     active_consumers += 1
-                    logger.info(f"[Kafka] Started DLQ consumer for {topic}")
+                    logger.info(f"Started DLQ consumer for {topic}")
                     
             except Exception as e:
-                logger.debug(f"[Kafka] Could not start DLQ consumer for {topic}: {type(e).__name__}")
+                logger.debug(f"Could not start DLQ consumer for {topic}: {type(e).__name__}")
         
         if failed_mandatory:
-            logger.error(f"[Kafka] Failed to start mandatory topics: {failed_mandatory}")
-            logger.warning("[Kafka] Some mandatory consumers are unavailable - functionality may be limited")
+            logger.error(f"Failed to start mandatory topics: {failed_mandatory}")
+            logger.warning("Some mandatory consumers are unavailable - functionality may be limited")
         
         if active_consumers > 0:
-            logger.info(f"[Kafka] Successfully started {active_consumers} consumers")
+            logger.info(f"Successfully started {active_consumers} consumers")
         else:
-            logger.warning("[Kafka] No consumers could be started")
+            logger.warning("No consumers could be started")
     
     async def _create_consumer(self, topic: str, is_dlq: bool = False) -> Optional[AIOKafkaConsumer]:
         try:
@@ -263,7 +263,7 @@ class KafkaConsumerManager:
             return consumer
             
         except Exception as e:
-            logger.debug(f"[Kafka] Failed to create consumer for {topic}: {type(e).__name__}")
+            logger.debug(f"Failed to create consumer for {topic}: {type(e).__name__}")
             return None
     
     def _safe_deserializer(self, data):

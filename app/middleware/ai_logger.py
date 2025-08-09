@@ -18,18 +18,18 @@ class AILoggingMiddleware(BaseHTTPMiddleware):
 
         # 성공 응답
         if status_code < 400:
-            ai_logger.info(f"[AI] {method} {path} - {status_code} - {process_time}s")
+            ai_logger.info(f"{method} {path} - {status_code} - {process_time}s")
 
         # 클라이언트 에러 (422 제외)
         elif 400 <= status_code < 500 and status_code != 422:
             # 429는 별도 태그로 강조
             if status_code == 429:
-                ai_logger.warning(f"[할당량 오류] {method} {path} - 429 요청 한도 초과")
+                ai_logger.warning(f"할당량 오류 {method} {path} - 429 요청 한도 초과")
             else:
-                ai_logger.warning(f"[클라이언트 오류] {method} {path} - {status_code}")
+                ai_logger.warning(f"클라이언트 오류 {method} {path} - {status_code}")
 
         # 서버 에러
         elif status_code >= 500:
-            ai_logger.error(f"[서버 오류] {method} {path} - {status_code}")
+            ai_logger.error(f"서버 오류 {method} {path} - {status_code}")
 
         return response

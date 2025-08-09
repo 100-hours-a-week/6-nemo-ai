@@ -23,7 +23,7 @@ async def generate_question_route(
     session_id: str = Header(..., alias="x-session-id"),
     response: Response = None
 ):
-    ai_logger.info("[질문 생성 요청 수신]", extra={
+    ai_logger.info("질문 생성 요청 수신", extra={
         "user_id": payload.userId,
         "session_id": session_id,
         "answer": payload.answer
@@ -53,7 +53,7 @@ async def generate_recommendation_route(
     session_id: str = Header(..., alias="x-session-id"),
     response: Response = None
 ):
-    ai_logger.info("[추천 요청 수신]", extra={
+    ai_logger.info("추천 요청 수신", extra={
         "user_id": payload.userId,
         "session_id": session_id,
         "messages": [m.text for m in payload.messages]

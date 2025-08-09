@@ -48,27 +48,27 @@ def generate_content(prompt: str, max_retries: int = 3) -> str:
                 return text
             else:
                 ai_logger.warning(
-                    "[AI] [VertexAI Empty Response]",
+                    "VertexAI Empty Response",
                     extra={"attempt": attempt, "prompt": prompt[:100]}
                 )
 
         except InvalidArgument as e:
             ai_logger.warning(
-                "[AI] [VertexAI InvalidArgument]",
+                "VertexAI InvalidArgument",
                 extra={"error": str(e), "attempt": attempt, "prompt": prompt[:100]}
             )
             return "[INVALID_ARGUMENT]"
 
         except ResourceExhausted as e:
             ai_logger.warning(
-                "[AI] [VertexAI QuotaExceeded]",
+                "VertexAI QuotaExceeded",
                 extra={"error": str(e), "attempt": attempt, "prompt": prompt[:100]}
             )
             return "[QUOTA_EXCEEDED]"
 
         except Exception as e:
             ai_logger.warning(
-                "[AI] [VertexAI Error]",
+                "VertexAI Error",
                 extra={"error": str(e), "attempt": attempt, "prompt": prompt[:100]}
             )
 
@@ -76,17 +76,17 @@ def generate_content(prompt: str, max_retries: int = 3) -> str:
         time.sleep(0.5)
 
     ai_logger.error(
-        "[AI] [VertexAI MaxRetryExceeded]",
+        "VertexAI MaxRetryExceeded",
         extra={"prompt": prompt[:100]}
     )
     return "[ERROR]"
 
 # --- 제한된 동기 실행 (CLI/동기 환경에서 사용)
 def limited_generate(prompt: str) -> str:
-    ai_logger.info("[AI] [VertexAI 요청 시작]", extra={"prompt": prompt[:80]})
+    ai_logger.info("VertexAI 요청 시작", extra={"prompt": prompt[:80]})
     future = vertex_executor.submit(generate_content, prompt)
     result = future.result()
-    ai_logger.info("[AI] [VertexAI 요청 완료]", extra={"result_preview": result[:80]})
+    ai_logger.info("VertexAI 요청 완료", extra={"result_preview": result[:80]})
     return result
 
 # --- 스마트 비동기 호출 (async 환경에서도 안전, 자동 판단)

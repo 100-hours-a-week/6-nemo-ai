@@ -21,7 +21,7 @@ def setup_exception_handlers(app: FastAPI):
             message = str(exc.detail)
         else:
             message = default_messages.get(exc.status_code, str(exc.detail))
-            ai_logger.warning("[AI] [예외 처리] HTTP 예외 발생", extra={
+            ai_logger.warning("예외 처리: HTTP 예외 발생", extra={
                 "status_code": exc.status_code,
                 "detail": str(exc.detail),
                 "path": request.url.path
@@ -38,7 +38,7 @@ def setup_exception_handlers(app: FastAPI):
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        ai_logger.warning("[AI] [예외 처리] Request Validation 예외 발생", extra={
+        ai_logger.warning("예외 처리: Request Validation 예외 발생", extra={
             "errors": exc.errors(),
             "path": request.url.path
         })
@@ -50,7 +50,7 @@ def setup_exception_handlers(app: FastAPI):
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        ai_logger.exception("[AI] [예외 처리] 알 수 없는 서버 예외 발생", extra={
+        ai_logger.exception("예외 처리: 알 수 없는 서버 예외 발생", extra={
             "path": request.url.path
         })
 
