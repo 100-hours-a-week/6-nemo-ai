@@ -85,14 +85,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="NE:MO AI API",
     description="네가 찾는 모임: 네모",
-    version="2.0.0",
+    version="3.0.0",
     lifespan=lifespan
 )
 
 # 모니터링 설정
 prometheus_config = PrometheusConfig(
-    service_name="nemo-ai",
-    version="2.0.0",
+    service_name="NE:MO-AI",
+    version="3.0.0",
     environment="production"
 )
 

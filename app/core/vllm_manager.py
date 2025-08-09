@@ -140,6 +140,8 @@ class VLLMHealthMonitor:
 
             for health_url in health_endpoints:
                 try:
+                    timeout_config = httpx.Timeout(connect=15.0, read=10.0, write=10.0, pool=30.0)
+                    headers = {"Content-Type": "application/json"}
                     async with httpx.AsyncClient(timeout=timeout_config) as client:
                         response = await client.get(health_url, headers=headers)
                         if response.status_code in [200, 404]:  # 404 is also OK, means server is responding

@@ -78,6 +78,8 @@ async def call_vllm_api(prompt: Union[str, List[str]], max_tokens: int = 512, te
             pool=VLLM_TIMEOUT
         )
 
+        headers = {"Content-Type": "application/json"}
+
         async with httpx.AsyncClient(timeout=timeout_config) as client:
             response = await client.post(VLLM_API_URL, json=payload, headers=headers)
             response.raise_for_status()
@@ -165,6 +167,8 @@ async def stream_vllm_response(messages: list[dict]) -> AsyncGenerator[str, None
             write=10.0,
             pool=None  # No pool timeout for streaming
         )
+
+        headers = {"Content-Type": "application/json"}
 
         async with httpx.AsyncClient(timeout=timeout_config) as client:
             async with client.stream("POST", VLLM_API_URL, json=payload, headers=headers) as response:
