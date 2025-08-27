@@ -61,32 +61,40 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": answer
                 })
 
-                async for chunk in stream_question_chunks(answer, user_id, session_id):
-                    if isinstance(chunk, str):
-                        await websocket.send_json({
-                            "type": "QUESTION_CHUNK",
-                            "payload": {
-                                "sessionId": session_id,
-                                "text": chunk
-                            }
-                        })
-                        ai_logger.debug(f"[질문 청크 전송] {chunk}", extra={
-                            "session_id": session_id,
-                        })
+                try:
+                    async for chunk in stream_question_chunks(answer, user_id, session_id):
+                        if isinstance(chunk, str):
+                            await websocket.send_json({
+                                "type": "QUESTION_CHUNK",
+                                "payload": {
+                                    "sessionId": session_id,
+                                    "text": chunk
+                                }
+                            })
+                            ai_logger.debug(f"[질문 청크 전송] {chunk[:50]}{'...' if len(chunk) > 50 else ''}", extra={
+                                "session_id": session_id,
+                            })
 
-                    elif isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
-                        result = chunk[1]
-                        await websocket.send_json({
-                            "type": "QUESTION_OPTIONS",
-                            "payload": {
-                                "sessionId": session_id,
+                        elif isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
+                            result = chunk[1]
+                            await websocket.send_json({
+                                "type": "QUESTION_OPTIONS",
+                                "payload": {
+                                    "sessionId": session_id,
+                                    "options": result.get("options")
+                                }
+                            })
+                            ai_logger.info("[질문 옵션 전송 완료]", extra={
+                                "session_id": session_id,
                                 "options": result.get("options")
-                            }
-                        })
-                        ai_logger.info("[질문 옵션 전송 완료]", extra={
-                            "session_id": session_id,
-                            "options": result.get("options")
-                        })
+                            })
+                except Exception as question_error:
+                    ai_logger.error(f"[질문 생성 중 오류] {str(question_error)}", extra={
+                        "session_id": session_id,
+                        "error": str(question_error),
+                        "error_type": type(question_error).__name__
+                    }, exc_info=True)
+                    raise  # Re-raise to be caught by outer exception handler
 
             elif type_ == "RECOMMEND_REQUEST":
                 messages = payload.get("messages", [])
@@ -98,73 +106,115 @@ async def websocket_endpoint(websocket: WebSocket):
                 group_id = None
                 group_id_sent = False
 
-                async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
-                    if isinstance(chunk, tuple) and chunk[0] == "RECOMMEND_DONE":
-                        await websocket.send_json({
-                            "type": "RECOMMEND_DONE",
-                            "payload": {
-                                "sessionId": session_id,
-                                "reason": None
-                            }
-                        })
-                        ai_logger.info("[추천 완료 시그널 전송 및 처리 종료]", extra={"session_id": session_id})
-                        break
-
-                    if isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
-                        _, group_id, final_reason = chunk
-                        if not group_id_sent and group_id is not None:
+                try:
+                    async for chunk in stream_recommendation_chunks(messages, user_id, session_id):
+                        if isinstance(chunk, tuple) and chunk[0] == "RECOMMEND_DONE":
+                            # chunk[1] contains group_id, chunk[2] contains final message if any
+                            final_group_id = chunk[1] if len(chunk) > 1 else None
+                            final_message = chunk[2] if len(chunk) > 2 else None
+                            
                             await websocket.send_json({
-                                "type": "RECOMMEND_ID",
+                                "type": "RECOMMEND_DONE",
                                 "payload": {
                                     "sessionId": session_id,
-                                    "groupId": group_id
+                                    "groupId": final_group_id,
+                                    "reason": final_message
                                 }
                             })
-                            group_id_sent = True
+                            ai_logger.info("[추천 완료 시그널 전송 및 처리 종료]", extra={
+                                "session_id": session_id,
+                                "group_id": final_group_id,
+                                "success": final_group_id != -1
+                            })
+                            break
+
+                        if isinstance(chunk, tuple) and chunk[0] == "__COMPLETE__":
+                            _, group_id, final_reason = chunk
+                            if not group_id_sent and group_id is not None:
+                                await websocket.send_json({
+                                    "type": "RECOMMEND_ID",
+                                    "payload": {
+                                        "sessionId": session_id,
+                                        "groupId": group_id
+                                    }
+                                })
+                                group_id_sent = True
+                            await websocket.send_json({
+                                "type": "RECOMMEND_REASON",
+                                "payload": {
+                                    "sessionId": session_id,
+                                    "reason": final_reason or ""
+                                }
+                            })
+                            ai_logger.info("[추천 결과 전송 완료]", extra={
+                                "session_id": session_id,
+                                "groupId": group_id
+                            })
+                            continue
+
+                        if isinstance(chunk, tuple):
+                            group_id, partial_text = chunk
+                            if not group_id_sent and group_id is not None:
+                                await websocket.send_json({
+                                    "type": "RECOMMEND_ID",
+                                    "payload": {
+                                        "sessionId": session_id,
+                                        "groupId": group_id
+                                    }
+                                })
+                                group_id_sent = True
+                                if group_id == -1:
+                                    ai_logger.info("[추천 실패 ID 전송]", extra={
+                                        "session_id": session_id,
+                                        "group_id": group_id
+                                    })
+                                else:
+                                    ai_logger.info("[추천 그룹 ID 전송]", extra={
+                                        "session_id": session_id,
+                                        "group_id": group_id
+                                    })
+                        else:
+                            partial_text = chunk
+
                         await websocket.send_json({
                             "type": "RECOMMEND_REASON",
                             "payload": {
                                 "sessionId": session_id,
-                                "reason": final_reason or ""
+                                "reason": partial_text
                             }
                         })
-                        ai_logger.info("[추천 결과 전송 완료]", extra={
-                            "session_id": session_id,
-                            "groupId": group_id
+                        ai_logger.debug(f"[추천 청크 전송] {str(chunk)[:50]}{'...' if len(str(chunk)) > 50 else ''}", extra={
+                            "session_id": session_id
                         })
-                        continue
-
-                    if isinstance(chunk, tuple):
-                        group_id, partial_text = chunk
-                        if not group_id_sent and group_id is not None:
-                            await websocket.send_json({
-                                "type": "RECOMMEND_ID",
-                                "payload": {
-                                    "sessionId": session_id,
-                                    "groupId": group_id
-                                }
-                            })
-                            group_id_sent = True
-                    else:
-                        partial_text = chunk
-
-                    await websocket.send_json({
-                        "type": "RECOMMEND_REASON",
-                        "payload": {
-                            "sessionId": session_id,
-                            "reason": partial_text
-                        }
-                    })
-                    ai_logger.debug(f"[추천 청크 전송] {chunk}", extra={
-                        "session_id": session_id
-                    })
+                except Exception as recommend_error:
+                    ai_logger.error(f"[추천 처리 중 오류] {str(recommend_error)}", extra={
+                        "session_id": session_id,
+                        "error": str(recommend_error),
+                        "error_type": type(recommend_error).__name__
+                    }, exc_info=True)
+                    raise  # Re-raise to be caught by outer exception handler
+                    
     except WebSocketDisconnect:
         ai_logger.info("[WS 연결 종료]", extra={"session_id": session_id})
     except Exception as e:
-        ai_logger.error("[WS 처리 중 오류 발생]", extra={
+        ai_logger.error(f"[WS 처리 중 오류 발생] {str(e)}", extra={
             "session_id": session_id,
-            "error": str(e)
-        })
+            "error": str(e),
+            "error_type": type(e).__name__
+        }, exc_info=True)
+        
+        # Send error message to client
+        try:
+            await websocket.send_json({
+                "type": "ERROR",
+                "payload": {
+                    "sessionId": session_id,
+                    "message": "서버에서 오류가 발생했습니다. 다시 시도해주세요.",
+                    "error_code": "INTERNAL_ERROR"
+                }
+            })
+        except Exception as send_error:
+            ai_logger.warning(f"[오류 메시지 전송 실패]: {send_error}")
         
         # Log health metrics on error for debugging
         try:

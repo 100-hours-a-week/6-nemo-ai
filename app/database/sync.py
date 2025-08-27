@@ -22,7 +22,11 @@ def fetch_data_from_mysql():
     try:
         with conn.cursor() as cursor:
             # 1. 유저-그룹 참여 정보
-            cursor.execute("SELECT group_id, user_id FROM group_participants")
+            cursor.execute("""
+                SELECT group_id, user_id 
+                FROM group_participants g
+                where g.status = 'JOINED'
+                           """)
             user_participation = cursor.fetchall()
 
             # 2. 그룹 정보 + 태그 이름

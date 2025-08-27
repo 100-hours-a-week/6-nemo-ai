@@ -582,6 +582,52 @@ def _bootstrap_learning(col) -> None:
     except Exception as e:
         logger.warning(f"Bootstrap learning failed: {str(e)}")
 
+def get_random_group_for_user(user_id: str) -> Optional[Dict[str, Any]]:
+    """Get a random group that the user hasn't joined"""
+    try:
+        import random
+        client = get_chroma_client()
+        col = client.get_or_create_collection(name=GROUP_COLLECTION, embedding_function=embed)
+        
+        # Get all groups
+        result = col.get(include=["documents", "metadatas"])
+        documents = result.get("documents", [])
+        metadatas = result.get("metadatas", [])
+        
+        if not documents or not metadatas:
+            logger.warning(f"[AI] No groups available for random selection")
+            return None
+        
+        # Get user's joined groups
+        joined_ids = get_user_joined_group_ids(user_id)
+        
+        # Filter out joined groups
+        available_groups = []
+        for doc, meta in zip(documents, metadatas):
+            group_id = str(meta.get("groupId", ""))
+            if group_id and group_id not in joined_ids:
+                available_groups.append({
+                    "text": doc,
+                    "metadata": meta,
+                    "score": 0.0,  # Random selection, no score needed
+                    "origin": "real"
+                })
+        
+        if not available_groups:
+            logger.warning(f"[AI] No available groups for user {user_id} - all groups joined")
+            return None
+        
+        # Select random group
+        random_group = random.choice(available_groups)
+        logger.info(f"[AI] Selected random group {random_group['metadata'].get('groupId')} for user {user_id}")
+        
+        return random_group
+        
+    except Exception as e:
+        logger.exception(f"[AI] Failed to get random group: {str(e)}")
+        return None
+
+
 def get_system_stats() -> Dict[str, Any]:
     """Get system statistics"""
     try:
