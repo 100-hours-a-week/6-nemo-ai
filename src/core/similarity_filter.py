@@ -1,5 +1,5 @@
 from typing import List
-from src.models.jina_embeddings_v3 import embed
+from src.models.e5_embeddings import embed
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 

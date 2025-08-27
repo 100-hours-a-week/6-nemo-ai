@@ -5,6 +5,7 @@ from src.models.gemma_3_4b import call_vllm_api
 from src.vector_db.vector_searcher import search_similar_documents, get_user_joined_group_ids
 from src.core.chat_cache import get_session_history
 from src.core.similarity_filter import is_similar_to_any  # 유사 질문 비교
+from src.core.buffer_parser import remove_previous_question_from_text, clean_prompt_context
 
 ai_logger = get_ai_logger()
 
@@ -35,7 +36,15 @@ async def handle_combined_question(
         raw_response = await call_vllm_api(prompt)
         ai_logger.info("[Chatbot] 원시 응답", extra={"response": raw_response})
 
-        json_match = re.search(r"\{[\s\S]+?\}", raw_response)
+        # Clean the response to remove any "이전 질문" patterns that might have been echoed
+        cleaned_response = remove_previous_question_from_text(raw_response)
+        if cleaned_response != raw_response:
+            ai_logger.info("[Chatbot] 응답에서 이전 질문 패턴 제거됨", extra={
+                "original": raw_response[:100] + "..." if len(raw_response) > 100 else raw_response,
+                "cleaned": cleaned_response[:100] + "..." if len(cleaned_response) > 100 else cleaned_response
+            })
+
+        json_match = re.search(r"\{[\s\S]+?\}", cleaned_response)
         if not json_match:
             raise ValueError("JSON 부분 추출 실패")
 
@@ -89,7 +98,8 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
     else:
         context = "사용자의 모임 선호도를 파악하기 위한 첫 질문을 생성하세요."
 
-    return f"""
+    # Clean the prompt to avoid context repetition in responses
+    base_prompt = f"""[QUESTION]
 {context}
 
 - 질문은 75~120자 이내의 자연스럽고 대화체 말투로 작성하세요.
@@ -97,6 +107,7 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
 - 질문 내용은 모임의 성격, 분위기, 규모, 목적 등 사용자에게 맞는 '모임 유형'을 파악하는 데 집중하세요.
 - 선택지는 4개 작성하세요.
 - 각 선택지는 1-3개 단어로 구성하세요.
+- 응답에서 "이전 질문:", "사용자 답변:" 등의 컨텍스트를 반복하지 마세요.
 
 다음 형식의 JSON으로만 출력하세요:
 {{
@@ -104,6 +115,8 @@ def generate_combined_prompt(previous_answer: str | None, previous_question: str
   "options": ["...", "...", "...", "..."]
 }}
 """.strip()
+
+    return clean_prompt_context(base_prompt)
 
 
 async def handle_answer_analysis(
@@ -136,10 +149,37 @@ async def handle_answer_analysis(
     ]
 
     if not filtered:
-        return {
-            "groupId": -1,
-            "reason": "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
-        }
+        ai_logger.info("[추천] 매칭되는 모임 없음 - 랜덤 모임 선택 시도", extra={"session_id": session_id})
+        # Try to get a random group instead of returning -1
+        from src.vector_db.vector_searcher import get_random_group_for_user
+        random_group = get_random_group_for_user(user_id)
+        
+        if random_group:
+            group_id = int(random_group["metadata"]["groupId"])
+            group_text = random_group["text"]
+            
+            try:
+                reason = await generate_random_explaination(messages, group_text)
+                ai_logger.info("[추천] 랜덤 모임 추천 성공", extra={
+                    "group_id": group_id, 
+                    "reason_preview": reason[:50] + "..." if len(reason) > 50 else reason
+                })
+            except Exception as e:
+                reason = "말씀하신 조건과 완벽히 맞는 모임을 찾지 못했지만, 새로운 경험을 해보시는 건 어떨까요? 이 모임에서 새로운 인연과 재미있는 활동을 만나보세요!"
+                ai_logger.warning("[추천] 랜덤 모임 추천 사유 생성 실패", extra={"group_id": group_id, "error": str(e)})
+
+            get_session_history(session_id).clear()
+            
+            return {
+                "groupId": group_id,
+                "reason": reason
+            }
+        else:
+            ai_logger.warning("[추천] 랜덤 모임도 없음", extra={"session_id": session_id})
+            return {
+                "groupId": -1,
+                "reason": "추천 가능한 새로운 모임이 아직 없어요. 직접 비슷한 모임을 열어보는 건 어떨까요?"
+            }
 
     top_result = filtered[0]
     group_id = int(top_result["metadata"]["groupId"])
@@ -147,7 +187,10 @@ async def handle_answer_analysis(
 
     try:
         reason = await generate_explaination(messages, group_text)
-        ai_logger.info("[추천] 추천 사유 생성 성공", extra={"group_id": group_id})
+        ai_logger.info("[추천] 추천 사유 생성 성공", extra={
+            "group_id": group_id, 
+            "reason_preview": reason[:50] + "..." if len(reason) > 50 else reason
+        })
     except Exception as e:
         reason = "이 모임은 당신의 대화 내용과 가장 잘 어울려 추천드립니다."
         ai_logger.warning("[추천] 추천 사유 생성 실패", extra={"group_id": group_id, "error": str(e)})
@@ -163,7 +206,7 @@ async def handle_answer_analysis(
 async def generate_explaination(messages: list[dict], group_text: str, debug: bool = True) -> str:
     conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
 
-    prompt = f"""
+    prompt = f"""[RECOMMEND]
     당신은 모임 추천 챗봇입니다.
 
     다음은 사용자와의 대화 내용입니다:
@@ -172,15 +215,15 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
     추천할 모임 정보:
     {group_text.strip()}
 
-    이 모임이 사용자에게 적합한 이유를 **마크다운 형식**으로 작성하세요. 아래 조건을 지키세요:
+    이 모임이 사용자에게 적합한 이유를 설명해주세요. 아래 조건을 지키세요:
 
-    - 설명은 150~270자 이내로, 핵심만 간결하게    
-    - 텍스트 설명만 출력 (JSON, 따옴표, 리스트 등 X)
-    - 문장은 하나로 자연스럽게 이어지며, 반복 없이 핵심만 담을 것
-    - 설명 말투는 딱딱하지 않고, 부드럽고 말하듯 친근하게 작성 (예: '~인 거예요~', '~하신 거죠~', '~좋은 거예요~' 등)
-    - "AI:", "설명:", "- " 같은 포맷은 절대 사용하지 마세요
+    - 설명은 **150자 이상, 270자 이하**, **1~3개의 문장**으로 작성하세요.
+    - 문장은 **말하듯 자연스럽고 부드러운 어투**로 작성하며, **친근한 마무리**로 끝내세요. (예: '~하신 거죠.', '~좋은 거예요~')
+    - 설명은 반드시 **추천 이유에 집중**하세요. (예: 성향, 관심사, 분위기, 대화 흐름 등과의 연결)
+    - 모임의 **운영 세부사항(시간, 위치, 규칙 등)**은 최소화하고, **사용자에게 어울리는 이유**를 중심으로 설명하세요.
+    - 출력은 **텍스트만** 포함하고, `"AI:"`, `"설명:"`, 따옴표, 리스트 등은 절대 포함하지 마세요.
 
-    바로 아래에 설명을 작성하세요.
+    아래에 바로 설명을 작성하세요.
     """.strip()
 
     explanation = await call_vllm_api(prompt, max_tokens=400)
@@ -193,6 +236,47 @@ async def generate_explaination(messages: list[dict], group_text: str, debug: bo
 
     if debug:
         print("📦 생성된 추천 설명:\n", cleaned)
+
+    return cleaned
+
+
+async def generate_random_explaination(messages: list[dict], group_text: str, debug: bool = True) -> str:
+    conversation = "\n".join([f"{m['role']}: {m['text']}" for m in messages])
+
+    prompt = f"""[RECOMMEND]
+    당신은 모임 추천 챗봇입니다.
+
+    다음은 사용자와의 대화 내용입니다:
+    {conversation}
+
+    추천할 모임 정보:
+    {group_text.strip()}
+
+    사용자의 조건과 완벽히 맞는 모임을 찾지 못했지만, 새로운 경험의 기회로 이 모임을 추천합니다. 
+    이 상황을 자연스럽게 설명해주세요. 아래 조건을 지키세요:
+
+    - 설명은 **150자 이상, 270자 이하**, **1~3개의 문장**으로 작성하세요.
+    - 첫 문장에서 **완벽한 매칭은 없었지만** 새로운 경험을 제안한다는 내용을 자연스럽게 포함하세요.
+    - 문장은 **말하듯 자연스럽고 부드러운 어투**로 작성하며, **친근한 마무리**로 끝내세요.
+    - **새로운 경험, 도전, 만남**의 관점에서 이 모임의 장점을 설명하세요.
+    - 모임의 **운영 세부사항(시간, 위치, 규칙 등)**은 최소화하고, **새로운 경험의 가치**를 중심으로 설명하세요.
+    - 출력은 **텍스트만** 포함하고, `"AI:"`, `"설명:"`, 따옴표, 리스트 등은 절대 포함하지 마세요.
+
+    예시 톤: "말씀하신 조건과 완벽히 맞는 모임은 찾지 못했지만, 새로운 경험을 해보시는 건 어떨까요? [모임 특징]을 통해 [새로운 가치]를 경험하실 수 있을 거예요."
+
+    아래에 바로 설명을 작성하세요.
+    """.strip()
+
+    explanation = await call_vllm_api(prompt, max_tokens=400)
+    cleaned = re.sub(
+        r"^\s*(?:설명|추천|AI|\[AI\]|모임\s*이름)\s*[:：-]?\s*",
+        "",
+        explanation.strip(),
+        flags=re.IGNORECASE
+    )
+
+    if debug:
+        print("📦 생성된 랜덤 추천 설명:\n", cleaned)
 
     return cleaned
 
