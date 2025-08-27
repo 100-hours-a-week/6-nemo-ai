@@ -1,1 +1,1 @@
-"""Unit tests for core utility components."""
+# Unit tests for core components

@@ -13,7 +13,21 @@ sys.modules['google.cloud.aiplatform'] = MagicMock()
 sys.modules['google.oauth2.service_account'] = MagicMock()
 sys.modules['vertexai.preview.generative_models'] = MagicMock()
 sys.modules['vertexai.language_models'] = MagicMock()
-sys.modules['google.api_core.exceptions'] = MagicMock()
+
+# Create proper exception classes for google.api_core.exceptions
+class MockInvalidArgument(Exception):
+    """Mock InvalidArgument exception that properly inherits from Exception"""
+    pass
+
+class MockResourceExhausted(Exception):
+    """Mock ResourceExhausted exception that properly inherits from Exception"""
+    pass
+
+# Mock the google.api_core.exceptions module with proper exception classes
+mock_exceptions = MagicMock()
+mock_exceptions.InvalidArgument = MockInvalidArgument
+mock_exceptions.ResourceExhausted = MockResourceExhausted
+sys.modules['google.api_core.exceptions'] = mock_exceptions
 
 
 @pytest.fixture(scope="session", autouse=True)
