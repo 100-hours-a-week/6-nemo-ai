@@ -1,38 +1,78 @@
-# Python 캐시 및 컴파일 파일
+# Python cache and compiled files
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.egg-info/
+.pytest_cache/
 
-# 가상환경 폴더
+# Virtual environments
 .venv/
 venv/
+env/
 
-# 환경 설정 파일
+# Environment files
 .env
 .env.*
 
-# IDE 관련 파일 및 폴더
+# IDE files and folders
 .vscode/
 .idea/
 *.iml
 
-# OS에서 생성한 불필요한 파일
+# OS generated files
 .DS_Store
+Thumbs.db
 
-# 로그 및 DB 파일
+# Git repository
+.git/
+.gitignore
+
+# GitHub workflows and templates (not needed in production)
+.github/
+
+# Testing
+tests/
+pytest.ini
+.coverage
+htmlcov/
+.tox/
+
+# Documentation (usually not needed in production)
+README.md
+*.md
+docs/
+
+# Database files (these should be external to container)
+database/
+*.sqlite3
+*.db
+
+# Logs (should use external logging)
 *.log
 logs/
-src/data/chroma/chroma.sqlite3
+app/logs/
 
-# 민감한 키 파일 (GCP 서비스 계정 등)
-nemo-v2-ai.json
+# Sensitive files
 naemo-project-admin-key.json
+*.pem
+*.key
 
-# 기타 프로젝트 외 폴더 (확실히 사용 안 할 경우만)
-xlm-roberta-flash-implementation/
-database/
+# Build artifacts
+dist/
+build/
 
-# Git 폴더 (ignore 파일은 유지)
-.git/
+# Monitoring data (should be external)
+monitoring/grafana-data/
+monitoring/prometheus-data/
+
+# Docker files (not needed inside container)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Other common excludes
+*.tmp
+*.temp
+.cache/
+node_modules/
